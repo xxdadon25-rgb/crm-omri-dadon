@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full-bleed background (no border radius — OS clips to shape) -->
+  <rect width="512" height="512" fill="#FACC15"/>
+  <!-- Bold Q — smaller/centered for safe-zone compliance (80% safe zone) -->
+  <text
+    x="256"
+    y="305"
+    font-family="Arial Black, Arial, sans-serif"
+    font-weight="900"
+    font-size="240"
+    text-anchor="middle"
+    fill="#141414"
+  >Q</text>
+</svg>

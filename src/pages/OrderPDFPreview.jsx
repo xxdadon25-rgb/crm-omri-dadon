@@ -1,0 +1,134 @@
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { generateDocumentPDF } from "@/lib/pdfGenerator";
+import { Printer, FileText, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { buildDocumentHTML } from "@/lib/pdfGenerator";
+
+export default function OrderPDFPreview() {
+  const { orderId } = useParams();
+  const [order, setOrder] = useState(null);
+  const [businessSettings, setBusinessSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const orderData = await base44.entities.Order.get(orderId);
+        if (!orderData) {
+          setError("Order not found");
+          return;
+        }
+        setOrder(orderData);
+
+        const settingsRecords = await base44.entities.BusinessSettings.list();
+        setBusinessSettings(settingsRecords[0] || {});
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [orderId]);
+
+  const handlePrint = async () => {
+    if (!order || !businessSettings) return;
+    setGeneratingPDF(true);
+    try {
+      const blob = await generateDocumentPDF({ type: "order", doc: order, businessSettings });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      setTimeout(() => { if (win) win.print(); }, 800);
+    } catch (err) {
+      setError("Failed to print: " + err.message);
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!order || !businessSettings) return;
+    setGeneratingPDF(true);
+    try {
+      const blob = await generateDocumentPDF({ type: "order", doc: order, businessSettings });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `order_${order.order_number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Failed to download: " + err.message);
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order || !businessSettings) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-600 mb-2">Order Not Found</h1>
+        </div>
+      </div>
+    );
+  }
+
+  const documentHTML = buildDocumentHTML({ type: "order", doc: order, businessSettings });
+
+  return (
+    <div className="min-h-screen bg-gray-100" style={{ direction: "rtl" }}>
+      {/* Fixed Action Bar */}
+      <div className="sticky top-0 z-50 bg-white shadow-md p-4 border-b">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} disabled={generatingPDF} className="flex items-center gap-2">
+              {generatingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              הדפסה
+            </Button>
+            <Button onClick={handleDownload} disabled={generatingPDF} variant="outline" className="flex items-center gap-2">
+              {generatingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              הורדה
+            </Button>
+          </div>
+          <span className="text-sm text-gray-600">הזמנה #{order.order_number}</span>
+        </div>
+      </div>
+
+      {/* Document View */}
+      <div className="p-4 pb-12">
+        <div className="max-w-6xl mx-auto bg-white shadow-lg">
+          <div
+            dangerouslySetInnerHTML={{ __html: documentHTML }}
+            style={{ direction: "rtl" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

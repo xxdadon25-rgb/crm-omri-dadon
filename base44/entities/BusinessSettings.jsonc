@@ -1,0 +1,74 @@
+{
+  "name": "BusinessSettings",
+  "type": "object",
+  "properties": {
+    "business_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e2\u05e1\u05e7"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "\u05dc\u05d5\u05d2\u05d5"
+    },
+    "phone": {
+      "type": "string",
+      "description": "\u05d8\u05dc\u05e4\u05d5\u05df"
+    },
+    "email": {
+      "type": "string",
+      "description": "\u05d0\u05d9\u05de\u05d9\u05d9\u05dc"
+    },
+    "address": {
+      "type": "string",
+      "description": "\u05db\u05ea\u05d5\u05d1\u05ea"
+    },
+    "tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4 / \u05e2.\u05de"
+    },
+    "vat_rate": {
+      "type": "number",
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05de\u05e2\u05f4\u05de",
+      "default": 17
+    },
+    "quote_counter": {
+      "type": "number",
+      "description": "\u05de\u05d5\u05e0\u05d4 \u05d4\u05e6\u05e2\u05d5\u05ea \u05de\u05d7\u05d9\u05e8",
+      "default": 1000
+    },
+    "order_counter": {
+      "type": "number",
+      "description": "\u05de\u05d5\u05e0\u05d4 \u05d4\u05d6\u05de\u05e0\u05d5\u05ea",
+      "default": 1000
+    },
+    "invoice_counter": {
+      "type": "number",
+      "description": "\u05de\u05d5\u05e0\u05d4 \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05d5\u05ea",
+      "default": 1000
+    },
+    "profitability_access_code": {
+      "type": "string",
+      "description": "\u05e7\u05d5\u05d3 \u05d2\u05d9\u05e9\u05d4 \u05dc\u05e0\u05ea\u05d5\u05e0\u05d9 \u05e8\u05d5\u05d5\u05d7\u05d9\u05d5\u05ea",
+      "default": "1234"
+    },
+    "api_url": {
+      "type": "string",
+      "description": "API URL \u05e9\u05dc \u05de\u05e2\u05e8\u05db\u05ea \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05d5\u05ea \u05d7\u05d9\u05e6\u05d5\u05e0\u05d9\u05ea"
+    },
+    "api_key": {
+      "type": "string",
+      "description": "API Key"
+    },
+    "api_secret": {
+      "type": "string",
+      "description": "Secret Key"
+    },
+    "api_company_id": {
+      "type": "string",
+      "description": "Company ID"
+    }
+  },
+  "required": [
+    "business_name"
+  ]
+}

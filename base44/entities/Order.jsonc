@@ -1,0 +1,121 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4"
+    },
+    "quote_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d4\u05e6\u05e2\u05ea \u05de\u05d7\u05d9\u05e8 \u05de\u05e7\u05d5\u05e8\u05d9\u05ea"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05dc\u05e7\u05d5\u05d7"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05dc\u05e7\u05d5\u05d7"
+    },
+    "customer_tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4 \u05dc\u05e7\u05d5\u05d7"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da"
+    },
+    "delivery_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d0\u05e1\u05e4\u05e7\u05d4"
+    },
+    "delivery_address": {
+      "type": "string",
+      "description": "\u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05e9\u05dc\u05d5\u05d7"
+    },
+    "items": {
+      "type": "array",
+      "description": "\u05e4\u05e8\u05d9\u05d8\u05d9\u05dd",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "quantity_delivered": {
+            "type": "number",
+            "default": 0
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number",
+            "default": 0
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number"
+    },
+    "vat_rate": {
+      "type": "number",
+      "default": 17
+    },
+    "vat_amount": {
+      "type": "number"
+    },
+    "total": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "\u05d8\u05d9\u05d5\u05d8\u05d4",
+        "\u05de\u05de\u05ea\u05d9\u05df \u05dc\u05d0\u05d9\u05e9\u05d5\u05e8",
+        "\u05d0\u05d5\u05e9\u05e8",
+        "\u05d1\u05d4\u05db\u05e0\u05d4",
+        "\u05e0\u05e9\u05dc\u05d7",
+        "\u05d4\u05d5\u05e9\u05dc\u05dd",
+        "\u05d1\u05d5\u05d8\u05dc"
+      ],
+      "default": "\u05de\u05de\u05ea\u05d9\u05df \u05dc\u05d0\u05d9\u05e9\u05d5\u05e8"
+    },
+    "inventory_processed": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u05d4\u05d0\u05dd \u05e2\u05d5\u05d3\u05db\u05df \u05d4\u05de\u05dc\u05d0\u05d9 \u05e2\u05d1\u05d5\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4 \u05d6\u05d5"
+    },
+    "monthly_invoice_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea \u05e9\u05db\u05d5\u05dc\u05dc\u05ea \u05d4\u05d6\u05de\u05e0\u05d4 \u05d6\u05d5"
+    }
+  },
+  "required": [
+    "customer_id",
+    "customer_name"
+  ]
+}

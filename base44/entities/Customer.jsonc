@@ -1,0 +1,93 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05dc\u05e7\u05d5\u05d7"
+    },
+    "customer_type": {
+      "type": "string",
+      "enum": [
+        "\u05e4\u05e8\u05d8\u05d9",
+        "\u05e2\u05e1\u05e7\u05d9"
+      ],
+      "default": "\u05e4\u05e8\u05d8\u05d9",
+      "description": "\u05e1\u05d5\u05d2 \u05dc\u05e7\u05d5\u05d7"
+    },
+    "crm_status": {
+      "type": "string",
+      "enum": [
+        "\u05dc\u05d9\u05d3 \u05d7\u05d3\u05e9",
+        "\u05d1\u05d8\u05d9\u05e4\u05d5\u05dc",
+        "\u05d4\u05e6\u05e2\u05ea \u05de\u05d7\u05d9\u05e8 \u05e0\u05e9\u05dc\u05d7\u05d4",
+        "\u05de\u05de\u05ea\u05d9\u05df \u05dc\u05ea\u05e9\u05d5\u05d1\u05d4",
+        "\u05dc\u05e7\u05d5\u05d7 \u05e4\u05e2\u05d9\u05dc",
+        "VIP",
+        "\u05dc\u05d0 \u05e4\u05e2\u05d9\u05dc",
+        "\u05dc\u05d0 \u05e8\u05dc\u05d5\u05d5\u05e0\u05d8\u05d9"
+      ],
+      "default": "\u05dc\u05d9\u05d3 \u05d7\u05d3\u05e9",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 CRM"
+    },
+    "contact_person": {
+      "type": "string",
+      "description": "\u05d0\u05d9\u05e9 \u05e7\u05e9\u05e8"
+    },
+    "phone": {
+      "type": "string",
+      "description": "\u05d8\u05dc\u05e4\u05d5\u05df"
+    },
+    "mobile": {
+      "type": "string",
+      "description": "\u05e0\u05d9\u05d9\u05d3"
+    },
+    "email": {
+      "type": "string",
+      "description": "\u05d0\u05d9\u05de\u05d9\u05d9\u05dc"
+    },
+    "address": {
+      "type": "string",
+      "description": "\u05db\u05ea\u05d5\u05d1\u05ea"
+    },
+    "city": {
+      "type": "string",
+      "description": "\u05e2\u05d9\u05e8"
+    },
+    "tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4 / \u05ea.\u05d6"
+    },
+    "payment_terms": {
+      "type": "string",
+      "enum": [
+        "\u05de\u05d6\u05d5\u05de\u05df",
+        "\u05e9\u05d5\u05d8\u05e3",
+        "\u05e9\u05d5\u05d8\u05e3+30",
+        "\u05e9\u05d5\u05d8\u05e3+60",
+        "\u05e9\u05d5\u05d8\u05e3+90"
+      ],
+      "default": "\u05e9\u05d5\u05d8\u05e3+30"
+    },
+    "credit_limit": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05d2\u05e8\u05ea \u05d0\u05e9\u05e8\u05d0\u05d9"
+    },
+    "discount_percent": {
+      "type": "number",
+      "description": "\u05d4\u05e0\u05d7\u05d4 \u05e7\u05d1\u05d5\u05e2\u05d4 %",
+      "default": 0
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

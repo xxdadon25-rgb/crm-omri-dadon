@@ -1,0 +1,69 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "invoice_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea"
+    },
+    "invoice_number": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05dc\u05e7\u05d5\u05d7"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05dc\u05e7\u05d5\u05d7"
+    },
+    "amount": {
+      "type": "number",
+      "description": "\u05e1\u05db\u05d5\u05dd \u05ea\u05e9\u05dc\u05d5\u05dd"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "\u05de\u05d6\u05d5\u05de\u05df",
+        "\u05db\u05e8\u05d8\u05d9\u05e1 \u05d0\u05e9\u05e8\u05d0\u05d9",
+        "\u05d4\u05e2\u05d1\u05e8\u05d4 \u05d1\u05e0\u05e7\u05d0\u05d9\u05ea",
+        "\u05e9\u05d9\u05e7",
+        "\u05d1\u05d9\u05d8",
+        "\u05e4\u05d9\u05d9\u05d1\u05d5\u05e7\u05e1",
+        "\u05d0\u05d7\u05e8"
+      ],
+      "description": "\u05d0\u05de\u05e6\u05e2\u05d9 \u05ea\u05e9\u05dc\u05d5\u05dd"
+    },
+    "payment_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05ea\u05e9\u05dc\u05d5\u05dd"
+    },
+    "reference": {
+      "type": "string",
+      "description": "\u05d0\u05e1\u05de\u05db\u05ea\u05d0 / \u05de\u05e1\u05e4\u05e8 \u05d0\u05d9\u05e9\u05d5\u05e8"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "\u05de\u05de\u05ea\u05d9\u05df",
+        "\u05d0\u05d5\u05e9\u05e8",
+        "\u05e0\u05db\u05e9\u05dc",
+        "\u05d1\u05d5\u05d8\u05dc"
+      ],
+      "default": "\u05de\u05de\u05ea\u05d9\u05df"
+    }
+  },
+  "required": [
+    "invoice_id",
+    "customer_id",
+    "amount",
+    "payment_method",
+    "payment_date"
+  ]
+}

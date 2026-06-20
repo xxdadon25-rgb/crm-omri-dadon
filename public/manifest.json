@@ -1,0 +1,27 @@
+{
+  "name": "QuickStock ERP",
+  "short_name": "QuickStock",
+  "description": "מערכת ניהול עסקי - מלאי, לקוחות, הצעות מחיר, הזמנות וחשבוניות",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#FACC15",
+  "background_color": "#FFFFFF",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}

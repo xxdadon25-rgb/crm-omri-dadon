@@ -1,0 +1,68 @@
+{
+  "name": "Supplier",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05e1\u05e4\u05e7"
+    },
+    "contact_person": {
+      "type": "string",
+      "description": "\u05d0\u05d9\u05e9 \u05e7\u05e9\u05e8"
+    },
+    "phone": {
+      "type": "string",
+      "description": "\u05d8\u05dc\u05e4\u05d5\u05df"
+    },
+    "mobile": {
+      "type": "string",
+      "description": "\u05e0\u05d9\u05d9\u05d3"
+    },
+    "email": {
+      "type": "string",
+      "description": "\u05d0\u05d9\u05de\u05d9\u05d9\u05dc"
+    },
+    "address": {
+      "type": "string",
+      "description": "\u05db\u05ea\u05d5\u05d1\u05ea"
+    },
+    "city": {
+      "type": "string",
+      "description": "\u05e2\u05d9\u05e8"
+    },
+    "tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4"
+    },
+    "payment_terms": {
+      "type": "string",
+      "enum": [
+        "\u05de\u05d6\u05d5\u05de\u05df",
+        "\u05e9\u05d5\u05d8\u05e3",
+        "\u05e9\u05d5\u05d8\u05e3+30",
+        "\u05e9\u05d5\u05d8\u05e3+60",
+        "\u05e9\u05d5\u05d8\u05e3+90"
+      ],
+      "default": "\u05e9\u05d5\u05d8\u05e3+30"
+    },
+    "bank_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d1\u05e0\u05e7"
+    },
+    "bank_account": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d7\u05e9\u05d1\u05d5\u05df"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

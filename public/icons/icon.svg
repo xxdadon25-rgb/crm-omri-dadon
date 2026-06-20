@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#FACC15"/>
+  <!-- Bold Q -->
+  <text
+    x="256"
+    y="310"
+    font-family="Arial Black, Arial, sans-serif"
+    font-weight="900"
+    font-size="300"
+    text-anchor="middle"
+    fill="#141414"
+  >Q</text>
+</svg>
