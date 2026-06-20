@@ -38,6 +38,8 @@ import SalesCatalog from "@/pages/SalesCatalog";
 import CustomerProfile from "@/pages/CustomerProfile";
 import CustomerLedger from "@/pages/CustomerLedger";
 import PriceMigration from "@/pages/PriceMigration";
+import RepairTickets from "@/pages/RepairTickets";
+import ProfitTracking from "@/pages/ProfitTracking";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -92,6 +94,8 @@ const AuthenticatedApp = () => {
           <Route path="/sales-catalog" element={<SalesCatalog />} />
           <Route path="/customer-ledger" element={<CustomerLedger />} />
           <Route path="/price-migration" element={<PriceMigration />} />
+          <Route path="/repair-tickets" element={<RepairTickets />} />
+          <Route path="/profit-tracking" element={<ProfitTracking />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

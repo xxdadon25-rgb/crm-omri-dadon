@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, Package, Users, FileText, Receipt, 
+import {
+  LayoutDashboard, Package, Users, FileText, Receipt,
   Settings, Truck, ChevronLeft, ChevronRight, X, ScrollText,
-  Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser
+  Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser,
+  Wrench, TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,13 @@ const navGroups = [
     label: "ראשי",
     items: [
       { path: "/", label: "דשבורד", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "שירות ותיקונים",
+    items: [
+      { path: "/repair-tickets", label: "קריאות שירות", icon: Wrench },
+      { path: "/profit-tracking", label: "מעקב רווחיות", icon: TrendingUp },
     ],
   },
   {
