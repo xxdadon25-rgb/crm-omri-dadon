@@ -178,7 +178,8 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
     });
     onAddProducts(toAdd);
     setSelectedProducts({});
-  }, [selectedProducts, products, onAddProducts]);
+    onOpenChange(false);
+  }, [selectedProducts, products, onAddProducts, onOpenChange]);
 
   const selectedCount = useMemo(
     () => Object.values(selectedProducts).reduce((s, q) => s + q, 0),
