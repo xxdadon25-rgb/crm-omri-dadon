@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,11 +30,7 @@ export default function Settings() {
   const [showNewCode, setShowNewCode] = useState(false);
   const [showConfirmCode, setShowConfirmCode] = useState(false);
   const [savingCode, setSavingCode] = useState(false);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    base44.auth.me().then(u => setUser(u)).catch(() => {});
-  }, []);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (existing) {

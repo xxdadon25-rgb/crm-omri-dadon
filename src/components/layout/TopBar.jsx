@@ -1,6 +1,5 @@
 import { Menu, LogOut, User } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -11,11 +10,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function TopBar({ onMenuClick, collapsed }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    base44.auth.logout();
-  };
+  const handleLogout = () => logout();
 
   const initials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).join("").slice(0, 2)

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,8 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await base44.auth.loginViaEmailPassword(email, password);
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      if (err) throw err;
       window.location.href = "/";
     } catch (err) {
       setError(err.message || "אימייל או סיסמה שגויים");
@@ -29,7 +30,10 @@ export default function Login() {
   };
 
   const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", "/");
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/` },
+    });
   };
 
   return (
@@ -74,7 +78,7 @@ export default function Login() {
         <div className="space-y-2">
           <Label htmlFor="email">אימייל</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="email"
               type="email"
@@ -96,7 +100,7 @@ export default function Login() {
             </Link>
           </div>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="password"
               type="password"
@@ -111,13 +115,8 @@ export default function Login() {
         </div>
         <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
           {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-              מתחבר...
-            </>
-          ) : (
-            "התחברות"
-          )}
+            <><Loader2 className="w-4 h-4 ml-2 animate-spin" />מתחבר...</>
+          ) : "התחברות"}
         </Button>
       </form>
     </AuthLayout>
