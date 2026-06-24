@@ -47,23 +47,25 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const data = {
-      ...form,
-      buy_price: parseFloat(form.buy_price) || 0,
-      sell_price: parseFloat(form.sell_price) || 0,
-      quantity: parseInt(form.quantity) || 0,
-      min_quantity: parseInt(form.min_quantity) || 0,
-    };
-    if (product?.id) {
-      const updated = await base44.entities.Product.update(product.id, data);
+    try {
+      const data = {
+        ...form,
+        buy_price: parseFloat(form.buy_price) || 0,
+        sell_price: parseFloat(form.sell_price) || 0,
+        quantity: parseInt(form.quantity) || 0,
+        min_quantity: parseInt(form.min_quantity) || 0,
+      };
+      if (product?.id) {
+        const updated = await base44.entities.Product.update(product.id, data);
+        onOpenChange(false);
+        onSaved(updated);
+      } else {
+        const created = await base44.entities.Product.create(data);
+        onOpenChange(false);
+        onSaved(created);
+      }
+    } finally {
       setSaving(false);
-      onOpenChange(false);
-      onSaved(updated);
-    } else {
-      const created = await base44.entities.Product.create(data);
-      setSaving(false);
-      onOpenChange(false);
-      onSaved(created);
     }
   };
 

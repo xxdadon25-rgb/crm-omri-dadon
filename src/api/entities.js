@@ -62,16 +62,18 @@ function makeEntityMethods(tableName) {
 
     /** create(payload) – insert and return the new record */
     async create(payload) {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from(tableName).insert(payload).select().single();
+        .from(tableName).insert({ ...payload, user_id: user?.id }).select().single();
       throwIfError(error);
       return data;
     },
 
     /** update(id, payload) – patch and return the updated record */
     async update(id, payload) {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from(tableName).update(payload).eq('id', id).select().single();
+        .from(tableName).update({ ...payload, user_id: user?.id }).eq('id', id).select().single();
       throwIfError(error);
       return data;
     },
