@@ -143,12 +143,16 @@ export default function ImportProducts() {
         const productData = {
           name,
           sku: (mapped.sku || "").trim() || undefined,
+          barcode: (mapped.barcode || "").trim() || undefined,
+          supplier: (mapped.supplier || "").trim() || undefined,
+          buy_price: mapped.buy_price ? parseFloat(mapped.buy_price) || 0 : undefined,
           sell_price: mapped.sell_price ? parseFloat(mapped.sell_price) || 0 : 0,
           description: stripHtml(mapped.description || ""),
           notes: stripHtml(mapped.short_description || ""),
           image_url: (mapped.image_url || "").split(",")[0].trim() || undefined,
           tags: mapped.tags || undefined,
           quantity: mapped.quantity ? parseInt(mapped.quantity) || 0 : 0,
+          min_quantity: mapped.min_quantity ? parseInt(mapped.min_quantity) || 0 : undefined,
           is_active: true,
         };
 

@@ -44,6 +44,17 @@ function splitCSVLine(line) {
 
 // WooCommerce column → internal field mapping
 export const WOOCOMMERCE_MAP = {
+  // Hebrew CRM columns
+  'שם מוצר': 'name',
+  'מק״ט': 'sku',
+  'ברקוד': 'barcode',
+  'קטגוריה': 'category',
+  'ספק': 'supplier',
+  'מחיר קנייה': 'buy_price',
+  'מחיר מכירה': 'sell_price',
+  'כמות': 'quantity',
+  'מינימום': 'min_quantity',
+  // WooCommerce columns
   'שם': 'name',
   'מק"ט': 'sku',
   'מחיר רגיל': 'sell_price',
