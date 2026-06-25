@@ -132,6 +132,7 @@ export default function QuoteEditor() {
     console.log("[SAVE] setSaving(true), quoteId:", quoteId);
     try {
       const data = { ...form, subtotal, vat_amount: vatAmount, total };
+      ['date', 'valid_until'].forEach(f => { if (!data[f]) data[f] = null; });
       console.log("[SAVE] data to save:", data);
       if (quoteId) {
         console.log("[SAVE] updating existing quote:", quoteId);
