@@ -14,6 +14,7 @@ function fmt(n) {
 
 export default function QuotePDFPreview() {
   const { quoteId } = useParams();
+  console.log("[QuotePDF] quoteId:", quoteId, "| pathname:", window.location.pathname);
   const [quote, setQuote] = useState(null);
   const [biz, setBiz] = useState({});
   const [loading, setLoading] = useState(true);
