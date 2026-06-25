@@ -49,8 +49,6 @@ export default function Customers() {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     queryFn: async () => {
-      const { data: { user } } = await import("@/api/supabaseClient").then(m => m.supabase.auth.getUser());
-      console.log("[CUSTOMERS queryFn] user?.id:", user?.id);
       const result = await base44.entities.Customer.list("-created_date");
       const pending = sessionStorage.getItem("pendingCustomer");
       if (!pending) return result;
