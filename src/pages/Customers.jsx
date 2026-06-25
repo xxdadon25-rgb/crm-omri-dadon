@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -31,6 +31,8 @@ const CRM_STATUSES = ["הכל", "ליד חדש", "בטיפול", "הצעת מח�
 
 export default function Customers() {
   const navigate = useNavigate();
+  // Clear any stale pendingCustomer from previous sessions on mount
+  useEffect(() => { sessionStorage.removeItem("pendingCustomer"); }, []);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("הכל");
   const [typeFilter, setTypeFilter] = useState("הכל");
@@ -53,16 +55,14 @@ export default function Customers() {
       const pending = sessionStorage.getItem("pendingCustomer");
       if (!pending) return result;
       const pendingCustomer = JSON.parse(pending);
-      // Age-only gate: keep pending entry for 3 minutes regardless of backend responses.
-      // After 3 minutes the platform guarantees eventual consistency — all replicas have the data.
-      if (result.some(c => c.id === pendingCustomer.id)) {
-        const ageMs = Date.now() - new Date(pendingCustomer.created_date).getTime();
-        if (ageMs >= 180000) {
-          sessionStorage.removeItem("pendingCustomer");
-        }
+      // If the pending customer exists in DB, or is older than 3 minutes, clear it
+      const existsInDb = result.some(c => c.id === pendingCustomer.id);
+      const ageMs = Date.now() - new Date(pendingCustomer.created_date).getTime();
+      if (existsInDb || ageMs >= 180000) {
+        sessionStorage.removeItem("pendingCustomer");
         return result;
       }
-      // Backend not yet confirmed — merge pending into result
+      // Only inject if recently created and not yet in DB
       return [pendingCustomer, ...result];
     },
   });
