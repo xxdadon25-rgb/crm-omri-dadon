@@ -67,9 +67,6 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/quote-pdf/:quoteId" element={<QuotePDFPreview />} />
-      <Route path="/order-pdf/:orderId" element={<OrderPDFPreview />} />
-      <Route path="/invoice-pdf/:invoiceId" element={<InvoicePDFPreview />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
@@ -108,7 +105,12 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <AuthenticatedApp />
+          <Routes>
+            <Route path="/quote-pdf/:quoteId" element={<QuotePDFPreview />} />
+            <Route path="/order-pdf/:orderId" element={<OrderPDFPreview />} />
+            <Route path="/invoice-pdf/:invoiceId" element={<InvoicePDFPreview />} />
+            <Route path="*" element={<AuthenticatedApp />} />
+          </Routes>
         </Router>
         <Toaster />
         <InstallPrompt />
