@@ -39,7 +39,7 @@ export default function ProductCatalog() {
 
   return (
     <div>
-      <PageHeader title="קטלוג מוצרים" description="תצוגת גלריה של כל המוצרים" />
+      <PageHeader title="קטלוג מוצרים" description={`${products.length} מוצרים`} />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1 max-w-sm">
