@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import PageHeader from "@/components/shared/PageHeader";
@@ -11,6 +11,15 @@ import { Search, BookOpen, Package } from "lucide-react";
 export default function ProductCatalog() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const queryClient = useQueryClient();
+
+  // Clear stale sessionStorage ghost products on mount and sync cache with DB
+  useEffect(() => {
+    sessionStorage.removeItem("pendingProducts");
+    sessionStorage.removeItem("pendingProductUpdates");
+    sessionStorage.removeItem("pendingDeletedProducts");
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  }, []);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
