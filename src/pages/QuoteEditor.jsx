@@ -157,6 +157,8 @@ export default function QuoteEditor() {
         toast.success("הצעת מחיר נוצרה");
       }
       navigate("/quotes");
+    } catch (err) {
+      toast.error("שגיאה בשמירת הצעת המחיר: " + (err?.message || err));
     } finally {
       setSaving(false);
     }
