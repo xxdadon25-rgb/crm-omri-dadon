@@ -286,6 +286,7 @@ export default function SalesCatalog() {
       const { data, total: grossTotal } = buildQuotePayload("טיוטה", cartData, vat);
       data.quote_number = counter;
       const quote = await base44.entities.Quote.create(data);
+      console.log("[WhatsApp] quote after create:", JSON.stringify(quote));
       if (fresh?.id) await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: counter });
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
