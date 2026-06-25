@@ -102,14 +102,18 @@ export default function Customers() {
   };
 
   const handleDelete = async () => {
+    console.log('[handleDelete] called, deleteId:', deleteId);
     const idToDelete = deleteId;
-    setDeleteId(null);
     try {
       await base44.entities.Customer.delete(idToDelete);
+      console.log('[handleDelete] delete done, updating cache');
       queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => c.id !== idToDelete));
       toast.success("לקוח נמחק");
     } catch (err) {
+      console.error('[handleDelete] error:', err);
       toast.error("שגיאה במחיקת הלקוח");
+    } finally {
+      setDeleteId(null);
     }
   };
 
