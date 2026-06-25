@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +10,23 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
-  const existing = settings[0];
+  const { user } = useAuth();
+  const [existing, setExisting] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("business_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .limit(1);
+      if (data?.[0]) {
+        setExisting(data[0]);
+      }
+    })();
+  }, [user]);
 
   const [form, setForm] = useState({
     business_name: "", logo_url: "", phone: "", email: "",
@@ -30,7 +42,6 @@ export default function Settings() {
   const [showNewCode, setShowNewCode] = useState(false);
   const [showConfirmCode, setShowConfirmCode] = useState(false);
   const [savingCode, setSavingCode] = useState(false);
-  const { user } = useAuth();
 
   useEffect(() => {
     if (existing) {
@@ -56,20 +67,24 @@ export default function Settings() {
   const handleLogo = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setForm(prev => ({ ...prev, logo_url: file_url }));
+    const fileExt = file.name.split(".").pop();
+    const fileName = `logo_${user.id}.${fileExt}`;
+    const { data, error } = await supabase.storage.from("logos").upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: urlData } = supabase.storage.from("logos").getPublicUrl(fileName);
+      setForm(prev => ({ ...prev, logo_url: urlData.publicUrl }));
+    }
   };
 
   const handleSave = async () => {
     setSaving(true);
-    const data = { ...form, vat_rate: parseFloat(form.vat_rate) || 17 };
+    const data = { ...form, vat_rate: parseFloat(form.vat_rate) || 18, user_id: user.id };
     if (existing?.id) {
-      await base44.entities.BusinessSettings.update(existing.id, data);
+      await supabase.from("business_settings").update(data).eq("id", existing.id);
     } else {
-      await base44.entities.BusinessSettings.create(data);
+      await supabase.from("business_settings").insert(data);
     }
     setSaving(false);
-    queryClient.invalidateQueries({ queryKey: ["settings"] });
     toast.success("ההגדרות נשמרו");
   };
 
@@ -99,13 +114,12 @@ export default function Settings() {
     try {
       const data = { ...form, profitability_access_code: newCodeInput };
       if (existing?.id) {
-        await base44.entities.BusinessSettings.update(existing.id, data);
+        await supabase.from("business_settings").update(data).eq("id", existing.id);
       }
       setForm(prev => ({ ...prev, profitability_access_code: newCodeInput }));
       setCurrentCodeInput("");
       setNewCodeInput("");
       setConfirmCodeInput("");
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success("קוד הגישה עודכן בהצלחה");
     } finally {
       setSavingCode(false);
