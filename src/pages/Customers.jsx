@@ -45,7 +45,7 @@ export default function Customers() {
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
-    staleTime: 0,
+    staleTime: Infinity,
     queryFn: async () => {
       const result = await base44.entities.Customer.list("-created_date");
       const pending = sessionStorage.getItem("pendingCustomer");
