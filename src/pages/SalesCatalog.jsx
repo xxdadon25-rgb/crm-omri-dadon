@@ -181,7 +181,7 @@ export default function SalesCatalog() {
         customer_tax_id: selectedCustomer.tax_id || "",
         customer_type: selectedCustomer.customer_type || "פרטי",
         date: new Date().toISOString().split("T")[0],
-        valid_until: cartData?.validUntil || "",
+        valid_until: cartData?.validUntil || null,
         items: cartItems,
         subtotal: netAfterDiscount,
         discount_amount: discountAmount, // net discount
