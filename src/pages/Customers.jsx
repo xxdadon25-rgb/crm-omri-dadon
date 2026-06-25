@@ -119,15 +119,11 @@ export default function Customers() {
     try {
       await base44.entities.Customer.delete(idToDelete);
       toast.success("לקוח נמחק");
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
     } catch (err) {
       deletedIdsRef.current.delete(idToDelete);
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.error("שגיאה במחיקת הלקוח");
-    } finally {
-      queryClient.invalidateQueries({ queryKey: ["customers"] }).then(() => {
-        deletedIdsRef.current.delete(idToDelete);
-        // Keep sessionStorage entry until server actually stops returning it.
-        // The backupEngine and queryFn select filter handle staleness.
-      });
     }
   };
 
@@ -150,9 +146,7 @@ export default function Customers() {
 
     await Promise.allSettled(ids.map(id => base44.entities.Customer.delete(id)));
     toast.success(`${ids.length} לקוחות נמחקו`);
-    queryClient.invalidateQueries({ queryKey: ["customers"] }).then(() => {
-      ids.forEach(id => deletedIdsRef.current.delete(id));
-    });
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
     setDeleting(false);
   };
 
