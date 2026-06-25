@@ -366,7 +366,7 @@ export default function Customers() {
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2">
             <AlertDialogCancel>ביטול</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">מחק</AlertDialogAction>
+            <Button variant="destructive" onClick={handleDelete}>מחק</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
