@@ -126,41 +126,40 @@ export default function QuoteEditor() {
   };
 
   const handleSave = async () => {
+    console.log("[SAVE] handleSave called, customer_id:", form.customer_id);
     if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
     setSaving(true);
+    console.log("[SAVE] setSaving(true), quoteId:", quoteId);
     try {
       const data = { ...form, subtotal, vat_amount: vatAmount, total };
+      console.log("[SAVE] data to save:", data);
       if (quoteId) {
+        console.log("[SAVE] updating existing quote:", quoteId);
         const updated = await base44.entities.Quote.update(quoteId, data);
+        console.log("[SAVE] update result:", updated);
         queryClient.setQueryData(["quotes"], (old = []) => old.map(q => q.id === quoteId ? updated : q));
         toast.success("הצעת מחיר עודכנה");
       } else {
         const counter = (businessSettings?.quote_counter || 1000) + 1;
         data.quote_number = counter;
+        console.log("[SAVE] creating new quote, counter:", counter);
         const created = await base44.entities.Quote.create(data);
-        console.log("[QUOTE CREATE] created id:", created.id, "number:", created.quote_number);
-        const raw = sessionStorage.getItem("pendingQuotes");
-        console.log("[QUOTE CREATE] pendingQuotes BEFORE (raw):", raw);
-        const pending = raw ? JSON.parse(raw) : [];
-        console.log("[QUOTE CREATE] pendingQuotes BEFORE (parsed ids):", pending.map(p => ({ id: p.id, number: p.quote_number })));
-        const idx = pending.findIndex(p => p.id === created.id);
-        if (idx >= 0) pending[idx] = created; else pending.push(created);
-        sessionStorage.setItem("pendingQuotes", JSON.stringify(pending));
-        console.log("[QUOTE CREATE] pendingQuotes AFTER (ids):", pending.map(p => ({ id: p.id, number: p.quote_number })));
-        console.log("[QUOTE CREATE] sessionStorage.pendingQuotes RAW AFTER:", sessionStorage.getItem("pendingQuotes"));
+        console.log("[SAVE] create result:", created);
         if (businessSettings?.id) {
           await base44.entities.BusinessSettings.update(businessSettings.id, { quote_counter: counter });
           queryClient.invalidateQueries({ queryKey: ["settings"] });
         }
-        // Inject new quote directly into cache so it appears immediately on navigate
         queryClient.setQueryData(["quotes"], (old = []) => [created, ...(Array.isArray(old) ? old : [])]);
         toast.success("הצעת מחיר נוצרה");
       }
+      console.log("[SAVE] navigating to /quotes");
       navigate("/quotes");
     } catch (err) {
-      toast.error("שגיאה בשמירת הצעת המחיר: " + (err?.message || err));
+      console.error("[SAVE] caught error:", err);
+      toast.error("שגיאה בשמירת הצעת המחיר: " + (err?.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
+      console.log("[SAVE] finally block done");
     }
   };
 
