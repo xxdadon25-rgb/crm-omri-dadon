@@ -80,7 +80,8 @@ function makeEntityMethods(tableName) {
 
     /** delete(id) */
     async delete(id) {
-      const { error } = await supabase.from(tableName).delete().eq('id', id);
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from(tableName).delete().eq('id', id).eq('user_id', user?.id);
       throwIfError(error);
     },
   };
