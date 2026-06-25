@@ -110,7 +110,7 @@ export default function QuotePDFPreview() {
               {biz.logo_url && <img src={biz.logo_url} alt="לוגו" style={{ height: 48, marginTop: 6, objectFit: "contain" }} />}
             </div>
             {/* Right: contact details */}
-            <div style={{ textAlign: "left", fontSize: 13, color: "#555", lineHeight: 1.8 }}>
+            <div style={{ textAlign: "right", fontSize: 13, color: "#555", lineHeight: 1.8 }}>
               {biz.tax_id && <div>ח.פ: {biz.tax_id}</div>}
               {biz.phone && <div>טל: {biz.phone}</div>}
               {biz.email && <div>{biz.email}</div>}
@@ -187,25 +187,23 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* ── Summary ── */}
-          <div style={{ display: "flex", justifyContent: "flex-start", padding: "16px 32px 24px" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 32px 24px" }}>
             <table style={{ width: 280, fontSize: 13, borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
                   <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>סה"כ ללא מע"מ:</td>
                   <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600 }}>₪{fmt(subtotal)}</td>
                 </tr>
-                {discount > 0 && (
-                  <tr>
-                    <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>הנחה:</td>
-                    <td style={{ padding: "5px 0", textAlign: "left", color: "#e53e3e", fontWeight: 600 }}>-₪{fmt(discount)}</td>
-                  </tr>
-                )}
-                {discount > 0 && (
-                  <tr>
-                    <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>סה"כ לאחר הנחה:</td>
-                    <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600 }}>₪{fmt(afterDiscount)}</td>
-                  </tr>
-                )}
+                <tr>
+                  <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>הנחה:</td>
+                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600 }}>
+                    {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>סה"כ לאחר הנחה:</td>
+                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600 }}>₪{fmt(afterDiscount)}</td>
+                </tr>
                 <tr>
                   <td style={{ padding: "5px 12px 5px 0", color: "#555" }}>מע"מ {vatRate}%:</td>
                   <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600 }}>₪{fmt(vatAmount)}</td>
