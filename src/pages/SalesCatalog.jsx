@@ -209,12 +209,16 @@ export default function SalesCatalog() {
       const vat = fresh?.vat_rate || businessSettings?.vat_rate || 17;
       const { data } = buildQuotePayload(status, cartData, vat);
       data.quote_number = counter;
-      const quote = await base44.entities.Quote.create(data);
+      let quote = await base44.entities.Quote.create(data);
+      if (!quote?.id) {
+        const found = await base44.entities.Quote.filter({ quote_number: counter });
+        quote = found[0];
+      }
       if (fresh?.id) await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: counter });
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success(`הצעת מחיר #${counter} נוצרה`);
-      navigate(`/quotes/edit?id=${quote.id}`);
+      navigate(`/quotes/edit?id=${quote?.id}`);
     } finally {
       setSaving(false);
     }
@@ -285,8 +289,13 @@ export default function SalesCatalog() {
       const vat = fresh?.vat_rate || businessSettings?.vat_rate || 17;
       const { data, total: grossTotal } = buildQuotePayload("טיוטה", cartData, vat);
       data.quote_number = counter;
-      const quote = await base44.entities.Quote.create(data);
+      let quote = await base44.entities.Quote.create(data);
       console.log("[WhatsApp] quote after create:", JSON.stringify(quote));
+      if (!quote?.id) {
+        const found = await base44.entities.Quote.filter({ quote_number: counter });
+        quote = found[0];
+        console.log("[WhatsApp] refetched quote:", JSON.stringify(quote));
+      }
       if (fresh?.id) await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: counter });
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
