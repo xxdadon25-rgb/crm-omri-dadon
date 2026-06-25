@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, User, Phone, Mail, Building2, ArrowRight, ChevronLeft } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, Plus, User, Phone, Mail, Building2, ArrowRight, ChevronLeft, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CustomerSelector({ onConfirm, onBack }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [mode, setMode] = useState("select"); // select | create
+  const [mode, setMode] = useState("select");
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     name: "", customer_type: "פרטי", phone: "", mobile: "", email: "", address: "", city: "", tax_id: "", notes: "", discount_percent: 0, is_active: true
   });
@@ -26,9 +30,7 @@ export default function CustomerSelector({ onConfirm, onBack }) {
       const pendingCustomer = JSON.parse(pending);
       if (result.some(c => c.id === pendingCustomer.id)) {
         const ageMs = Date.now() - new Date(pendingCustomer.created_date).getTime();
-        if (ageMs >= 180000) {
-          sessionStorage.removeItem("pendingCustomer");
-        }
+        if (ageMs >= 180000) sessionStorage.removeItem("pendingCustomer");
         return result;
       }
       return [pendingCustomer, ...result];
@@ -46,6 +48,34 @@ export default function CustomerSelector({ onConfirm, onBack }) {
       c.email?.toLowerCase().includes(q)
     );
   }, [customers, search]);
+
+  const toggleSelect = (id, e) => {
+    e.stopPropagation();
+    const next = new Set(selected);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelected(next);
+  };
+
+  const handleDelete = async () => {
+    const idToDelete = deleteId;
+    setDeleteId(null);
+    try {
+      await base44.entities.Customer.delete(idToDelete);
+      queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => c.id !== idToDelete));
+      toast.success("לקוח נמחק");
+    } catch {
+      toast.error("שגיאה במחיקת הלקוח");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selected];
+    setSelected(new Set());
+    setBulkDeleteOpen(false);
+    await Promise.allSettled(ids.map(id => base44.entities.Customer.delete(id)));
+    queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => !ids.includes(c.id)));
+    toast.success(`${ids.length} לקוחות נמחקו`);
+  };
 
   const handleCreate = async () => {
     if (!newCustomer.name.trim()) { toast.error("שם לקוח נדרש"); return; }
@@ -67,14 +97,14 @@ export default function CustomerSelector({ onConfirm, onBack }) {
         </Button>
         <div>
           <h1 className="text-xl font-bold">בחירת לקוח</h1>
-          <p className="text-sm text-muted-foreground">בחר לקוח קיים או צור לקוח חדש</p>
+          <p className="text-sm text-muted-foreground">{customers.length} לקוחות · בחר לקוח קיים או צור לקוח חדש</p>
         </div>
       </div>
 
       <div className="flex-1 max-w-3xl mx-auto w-full p-6">
         {mode === "select" ? (
           <div className="space-y-4">
-            {/* Search + New */}
+            {/* Search + New + Bulk delete */}
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -86,6 +116,11 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                   autoFocus
                 />
               </div>
+              {selected.size > 0 && (
+                <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="w-4 h-4 ml-1" /> מחק {selected.size}
+                </Button>
+              )}
               <Button onClick={() => setMode("create")} variant="outline">
                 <Plus className="w-4 h-4 ml-1" /> לקוח חדש
               </Button>
@@ -107,34 +142,53 @@ export default function CustomerSelector({ onConfirm, onBack }) {
             ) : (
               <div className="grid gap-2">
                 {filtered.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => onConfirm(c)}
-                    className="w-full text-right bg-card border border-border rounded-xl px-4 py-3.5 hover:border-primary hover:bg-primary/5 transition-all flex items-center gap-4 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <User className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold">{c.name}</div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
-                        {c.phone && <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>}
-                        {c.email && <span className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>}
-                        {c.tax_id && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="w-3 h-3" />ח.פ {c.tax_id}</span>}
+                  <div key={c.id} className="relative flex items-center gap-2">
+                    {/* Checkbox */}
+                    <button
+                      onClick={(e) => toggleSelect(c.id, e)}
+                      className="w-5 h-5 border border-input rounded flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
+                      style={{ backgroundColor: selected.has(c.id) ? "hsl(var(--primary))" : "transparent" }}
+                    >
+                      {selected.has(c.id) && <Check className="w-3 h-3 text-primary-foreground" />}
+                    </button>
+
+                    {/* Customer row */}
+                    <button
+                      onClick={() => onConfirm(c)}
+                      className="flex-1 text-right bg-card border border-border rounded-xl px-4 py-3.5 hover:border-primary hover:bg-primary/5 transition-all flex items-center gap-4 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-primary" />
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                       {c.customer_type || "פרטי"}
-                     </span>
-                     {c.discount_percent > 0 && (
-                       <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                         הנחה {c.discount_percent}%
-                       </span>
-                     )}
-                    </div>
-                    <ChevronLeft className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold">{c.name}</div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                          {c.phone && <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>}
+                          {c.email && <span className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>}
+                          {c.tax_id && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="w-3 h-3" />ח.פ {c.tax_id}</span>}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                          {c.customer_type || "פרטי"}
+                        </span>
+                        {c.discount_percent > 0 && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                            הנחה {c.discount_percent}%
+                          </span>
+                        )}
+                      </div>
+                      <ChevronLeft className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </button>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}
+                      className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -211,6 +265,34 @@ export default function CustomerSelector({ onConfirm, onBack }) {
           </div>
         )}
       </div>
+
+      {/* Single delete dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת לקוח</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את הלקוח?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleDelete}>מחק</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete dialog */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת לקוחות</AlertDialogTitle>
+            <AlertDialogDescription>מחיקת {selected.size} לקוחות?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleBulkDelete}>מחק</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
