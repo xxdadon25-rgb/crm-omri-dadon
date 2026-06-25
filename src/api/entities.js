@@ -28,8 +28,9 @@ function makeEntityMethods(tableName) {
      *   offset – for pagination
      */
     async list(sort, limit, offset) {
+      const { data: { user } } = await supabase.auth.getUser();
       const { column, ascending } = parseSort(sort);
-      let q = supabase.from(tableName).select('*').order(column, { ascending });
+      let q = supabase.from(tableName).select('*').eq('user_id', user?.id).order(column, { ascending });
       if (limit) q = q.limit(limit);
       if (offset != null && limit) q = q.range(offset, offset + limit - 1);
       const { data, error } = await q;
@@ -42,8 +43,9 @@ function makeEntityMethods(tableName) {
      *   conditions – { field: value, ... }  (null value uses IS NULL)
      */
     async filter(conditions = {}, sort) {
+      const { data: { user } } = await supabase.auth.getUser();
       const { column, ascending } = parseSort(sort);
-      let q = supabase.from(tableName).select('*').order(column, { ascending });
+      let q = supabase.from(tableName).select('*').eq('user_id', user?.id).order(column, { ascending });
       for (const [key, value] of Object.entries(conditions)) {
         q = value === null ? q.is(key, null) : q.eq(key, value);
       }
