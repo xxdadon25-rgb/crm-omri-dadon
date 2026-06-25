@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -41,7 +41,6 @@ export default function Customers() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [view, setView] = useState("list");
-  const deletedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
 
   const { data: customers = [], isLoading } = useQuery({
@@ -64,7 +63,6 @@ export default function Customers() {
       // Backend not yet confirmed — merge pending into result
       return [pendingCustomer, ...result];
     },
-    select: (data) => data.filter(c => !deletedIdsRef.current.has(c.id)),
   });
 
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list() });
@@ -104,49 +102,24 @@ export default function Customers() {
   const handleDelete = async () => {
     const idToDelete = deleteId;
     setDeleteId(null);
-    deletedIdsRef.current = new Set([...deletedIdsRef.current, idToDelete]);
-    queryClient.setQueryData(["customers"], (old = []) => old.filter(c => c.id !== idToDelete));
-
-    // Also persist to sessionStorage so backupEngine can filter stale server data
-    try {
-      const pending = JSON.parse(sessionStorage.getItem("pendingDeletedCustomers") || "[]");
-      if (!pending.includes(idToDelete)) {
-        pending.push(idToDelete);
-        sessionStorage.setItem("pendingDeletedCustomers", JSON.stringify(pending));
-      }
-    } catch {}
-
+    queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => c.id !== idToDelete));
     try {
       await base44.entities.Customer.delete(idToDelete);
       toast.success("לקוח נמחק");
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
     } catch (err) {
-      deletedIdsRef.current.delete(idToDelete);
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.error("שגיאה במחיקת הלקוח");
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
     }
   };
 
   const handleBulkDelete = async () => {
     setDeleting(true);
     const ids = [...selectedCustomers];
-    ids.forEach(id => deletedIdsRef.current.add(id));
-    queryClient.setQueryData(["customers"], (old = []) => old.filter(c => !deletedIdsRef.current.has(c.id)));
     setSelectedCustomers(new Set());
     setBulkDeleteOpen(false);
-
-    // Also persist to sessionStorage so backupEngine can filter stale server data
-    try {
-      const pending = JSON.parse(sessionStorage.getItem("pendingDeletedCustomers") || "[]");
-      ids.forEach(id => {
-        if (!pending.includes(id)) pending.push(id);
-      });
-      sessionStorage.setItem("pendingDeletedCustomers", JSON.stringify(pending));
-    } catch {}
-
+    queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => !ids.includes(c.id)));
     await Promise.allSettled(ids.map(id => base44.entities.Customer.delete(id)));
     toast.success(`${ids.length} לקוחות נמחקו`);
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
     setDeleting(false);
   };
 
