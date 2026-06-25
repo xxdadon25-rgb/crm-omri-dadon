@@ -107,25 +107,48 @@ export default function Inventory() {
   const handleDelete = async () => {
     const idToDelete = deleteId;
     setDeleteId(null);
+
+    // Add to module-level set (protects current session)
+    deletedProductIds.add(idToDelete);
+
+    // Add to sessionStorage (protects across refetches and page navigations)
+    const pendingDeleted = getPendingDeletedProductIds();
+    pendingDeleted.add(idToDelete);
+    console.log("[WRITE PROOF] BEFORE setPendingDeletedProductIds — set contents:", [...pendingDeleted]);
+    console.log("[WRITE PROOF] BEFORE setPendingDeletedProductIds — sessionStorage raw:", sessionStorage.getItem("pendingDeletedProducts"));
+    setPendingDeletedProductIds(pendingDeleted);
+    console.log("[WRITE PROOF] AFTER setPendingDeletedProductIds — sessionStorage raw:", sessionStorage.getItem("pendingDeletedProducts"));
+    console.log("[WRITE PROOF] AFTER — parsed:", JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]"));
+    console.log("[DELETE PROOF] single delete: added to pendingDeletedProducts:", idToDelete);
+
+    queryClient.setQueryData(["products"], (old = []) => old.filter(p => p.id !== idToDelete));
+
     try {
       await base44.entities.Product.delete(idToDelete);
-      deletedProductIds.add(idToDelete);
-      queryClient.setQueryData(["products"], (old = []) => (old || []).filter(p => p.id !== idToDelete));
       toast.success("המוצר נמחק בהצלחה");
     } catch (error) {
+      console.log("[DELETE PROOF] delete API error (product stays hidden):", error.message);
       toast.error("שגיאה במחיקת המוצר");
+      // NOTE: No rollback — product stays hidden in UI.
+      // Rollback caused the product to reappear after a 404 response.
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     }
   };
 
   const handleBulkDelete = async () => {
     setDeleting(true);
     const ids = Array.from(selectedProducts);
+    ids.forEach(id => deletedProductIds.add(id));
+    const pendingDeleted = getPendingDeletedProductIds();
+    ids.forEach(id => pendingDeleted.add(id));
+    setPendingDeletedProductIds(pendingDeleted);
+    queryClient.setQueryData(["products"], (old = []) => old.filter(p => !deletedProductIds.has(p.id)));
     setSelectedProducts(new Set());
     setBulkDeleteOpen(false);
     await Promise.allSettled(ids.map(id => base44.entities.Product.delete(id)));
-    ids.forEach(id => deletedProductIds.add(id));
-    queryClient.setQueryData(["products"], (old = []) => (old || []).filter(p => !ids.includes(p.id)));
     toast.success(`${ids.length} מוצרים נמחקו בהצלחה`);
+    queryClient.invalidateQueries({ queryKey: ["products"] });
     setDeleting(false);
   };
 
