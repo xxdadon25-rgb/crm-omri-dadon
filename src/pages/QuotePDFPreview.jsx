@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Printer, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,10 +23,11 @@ export default function QuotePDFPreview() {
   useEffect(() => {
     (async () => {
       try {
-        const [q, settings] = await Promise.all([
-          base44.entities.Quote.get(quoteId),
-          base44.entities.BusinessSettings.list(),
-        ]);
+        const { data: rows, error: qErr } = await supabase
+          .from("quotes").select("*").eq("id", quoteId).limit(1);
+        if (qErr) throw qErr;
+        const q = rows?.[0] || null;
+        const settings = await base44.entities.BusinessSettings.list();
         if (!q) { setError("הצעת המחיר לא נמצאה"); return; }
         setQuote(q);
         setBiz(settings[0] || {});
