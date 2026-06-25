@@ -101,12 +101,16 @@ export default function Customers() {
 
   const handleDelete = async () => {
     const idToDelete = deleteId;
+    console.log("[CUSTOMERS] handleDelete called, idToDelete:", idToDelete);
     setDeleteId(null);
     queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => c.id !== idToDelete));
     try {
+      console.log("[CUSTOMERS] calling base44.entities.Customer.delete...");
       await base44.entities.Customer.delete(idToDelete);
+      console.log("[CUSTOMERS] delete returned successfully");
       toast.success("לקוח נמחק");
     } catch (err) {
+      console.error("[CUSTOMERS] delete threw error:", err);
       toast.error("שגיאה במחיקת הלקוח");
       queryClient.invalidateQueries({ queryKey: ["customers"] });
     }
