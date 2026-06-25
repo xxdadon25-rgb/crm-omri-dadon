@@ -8,7 +8,14 @@
  * Both use _confirmCount: removed after 2 consecutive backend confirmations.
  */
 export async function fetchProductsWithPending(listFn, callerLabel) {
-  const result = await listFn();
+  let result = await listFn();
+
+  // ── DELETE guard ────────────────────────────────────────────────────────────
+  const rawDeleted = sessionStorage.getItem("pendingDeletedProducts");
+  if (rawDeleted) {
+    const deletedIds = new Set(JSON.parse(rawDeleted));
+    result = result.filter(p => !deletedIds.has(p.id));
+  }
 
   // ── CREATE guard ────────────────────────────────────────────────────────────
   const rawCreate = sessionStorage.getItem("pendingProducts");
