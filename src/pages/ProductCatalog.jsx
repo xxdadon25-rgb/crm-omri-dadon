@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ export default function ProductCatalog() {
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
-    queryFn: () => base44.entities.Product.list("-created_date"),
+    queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")),
   });
 
   const categories = ["all", ...new Set(products.map((p) => p.category).filter(Boolean))];
