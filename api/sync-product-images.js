@@ -53,16 +53,26 @@ export default async function handler(req, res) {
     nameMap[p.name.trim().toLowerCase()] = p.id;
   }
 
+  const debug = req.query.debug === "true";
   let updated = 0;
   let skipped = 0;
   const errors = [];
+  const skippedList = [];
 
   for (const woo of wooProducts) {
     const imageUrl = woo.images?.[0]?.src;
-    if (!imageUrl) { skipped++; continue; }
+    if (!imageUrl) {
+      skipped++;
+      if (debug) skippedList.push({ woo_name: woo.name, reason: "no_image" });
+      continue;
+    }
 
     const supabaseId = nameMap[woo.name.trim().toLowerCase()];
-    if (!supabaseId) { skipped++; continue; }
+    if (!supabaseId) {
+      skipped++;
+      if (debug) skippedList.push({ woo_name: woo.name, reason: "no_match_in_supabase" });
+      continue;
+    }
 
     const { error: updateError } = await supabase
       .from("products")
@@ -83,5 +93,6 @@ export default async function handler(req, res) {
     updated,
     skipped,
     errors,
+    ...(debug && { skipped_details: skippedList }),
   });
 }
