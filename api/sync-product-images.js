@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
   const { data: supabaseProducts, error: fetchError } = await supabase
     .from("products")
-    .select("id, name, sku, user_id");
+    .select("id, name, sku, user_id, image_url");
 
   if (fetchError) {
     console.error("[sync-product-images] Supabase fetch error:", fetchError.message);
@@ -66,9 +66,11 @@ export default async function handler(req, res) {
   // Build a sku → supabase id map (fallback to name if sku missing)
   const skuMap = {};
   const nameMap = {};
+  const imageMap = {}; // id → existing image_url
   for (const p of supabaseProducts) {
     if (p.sku) skuMap[p.sku.trim().toLowerCase()] = p.id;
     nameMap[normalizeName(p.name)] = p.id;
+    imageMap[p.id] = p.image_url;
   }
 
   const debug = req.query.debug === "true";
@@ -104,6 +106,13 @@ export default async function handler(req, res) {
         skipped++;
         if (debug) skippedList.push({ woo_name: woo.name, woo_sku: woo.sku || null, woo_image: imageUrl, reason: "no_match_in_supabase" });
       }
+      continue;
+    }
+
+    // Only update if image_url is missing in Supabase
+    const existingImage = imageMap[supabaseId];
+    if (existingImage && existingImage.trim() !== "") {
+      skipped++;
       continue;
     }
 
