@@ -73,6 +73,13 @@ export default async function handler(req, res) {
     imageMap[p.id] = p.image_url;
   }
 
+  const DEBUG_KEYWORDS = ["מכסה מחובר", "מכסה לכוס נייר", "תבנית אלומיניום 5"];
+  for (const woo of wooProducts) {
+    if (DEBUG_KEYWORDS.some(kw => woo.name.includes(kw))) {
+      console.log(`[sku-debug] name="${woo.name}" sku="${woo.sku}"`);
+    }
+  }
+
   const debug = req.query.debug === "true";
   const create = req.query.create === "true";
   let updated = 0;
