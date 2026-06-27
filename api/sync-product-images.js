@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
   const { data: supabaseProducts, error: fetchError } = await supabase
     .from("products")
-    .select("id, name, user_id");
+    .select("id, name, sku, user_id");
 
   if (fetchError) {
     console.error("[sync-product-images] Supabase fetch error:", fetchError.message);
@@ -63,9 +63,11 @@ export default async function handler(req, res) {
   // Grab user_id from any existing product
   const userId = supabaseProducts[0]?.user_id || process.env.SUPABASE_USER_ID;
 
-  // Build a name → supabase id map (lowercase for fuzzy matching)
+  // Build a sku → supabase id map (fallback to name if sku missing)
+  const skuMap = {};
   const nameMap = {};
   for (const p of supabaseProducts) {
+    if (p.sku) skuMap[p.sku.trim().toLowerCase()] = p.id;
     nameMap[normalizeName(p.name)] = p.id;
   }
 
@@ -85,12 +87,13 @@ export default async function handler(req, res) {
       continue;
     }
 
-    const supabaseId = nameMap[normalizeName(woo.name)];
+    const wooSku = woo.sku?.trim().toLowerCase();
+    const supabaseId = (wooSku && skuMap[wooSku]) || nameMap[normalizeName(woo.name)];
     if (!supabaseId) {
       if (create) {
         const { error: createError } = await supabase
           .from("products")
-          .insert({ name: woo.name, image_url: imageUrl, user_id: userId });
+          .insert({ name: woo.name, sku: woo.sku || null, image_url: imageUrl, user_id: userId });
         if (createError) {
           errors.push({ name: woo.name, error: createError.message });
         } else {
@@ -98,7 +101,7 @@ export default async function handler(req, res) {
         }
       } else {
         skipped++;
-        if (debug) skippedList.push({ woo_name: woo.name, woo_image: imageUrl, reason: "no_match_in_supabase" });
+        if (debug) skippedList.push({ woo_name: woo.name, woo_sku: woo.sku || null, woo_image: imageUrl, reason: "no_match_in_supabase" });
       }
       continue;
     }
