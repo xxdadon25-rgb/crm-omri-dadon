@@ -92,7 +92,7 @@ export default function QuotePDFPreview() {
 
       {/* Document */}
       <div className="p-6 pb-16 print:p-0">
-        <div ref={printRef} style={{ width: 794, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000" }}>
+        <div ref={printRef} style={{ width: "210mm", margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000" }}>
 
           {/* HEADER: RIGHT=business info, LEFT=logo */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px 32px" }}>
@@ -236,7 +236,7 @@ export default function QuotePDFPreview() {
         </div>
       </div>
 
-      <style>{`@media print { .print\\:hidden { display: none !important; } body { background: white; } }`}</style>
+      <style>{`@media print { .print\\:hidden { display: none !important; } body { background: white; } @page { size: A4; margin: 10mm; } }`}</style>
     </div>
   );
 }
