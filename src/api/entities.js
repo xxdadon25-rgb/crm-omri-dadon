@@ -192,4 +192,12 @@ const auth = {
 
 // ─── export ───────────────────────────────────────────────────────────────────
 
-export const base44 = { entities, auth };
+const integrations = {
+  Core: {
+    UploadFile: async () => { throw new Error("UploadFile is not supported in this version"); },
+    ExtractDataFromUploadedFile: async () => { throw new Error("ExtractDataFromUploadedFile is not supported in this version"); },
+    SendEmail: async () => { throw new Error("SendEmail is not supported — use /api/send-email instead"); },
+  },
+};
+
+export const base44 = { entities, auth, integrations };

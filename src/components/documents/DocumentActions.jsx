@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Printer, FileText, MessageCircle, Mail, Loader2, Link2, Share2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
-import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 // Detect whether the device supports native file sharing (Web Share API Level 2)
