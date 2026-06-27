@@ -44,21 +44,7 @@ export default function QuotePDFPreview() {
 
   const handlePrint = () => window.print();
 
-  const handleDownload = () => {
-    const style = `
-      <style>
-        body { font-family: Arial, sans-serif; direction: rtl; margin: 0; }
-        @page { size: A4; margin: 15mm; }
-      </style>
-    `;
-    const html = `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">${style}</head><body>${printRef.current.innerHTML}</body></html>`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `quote_${quote?.quote_number || quoteId}.html`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const handleDownload = () => window.print();
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
