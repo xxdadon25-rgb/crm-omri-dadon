@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       if (create) {
         const { error: createError } = await supabase
           .from("products")
-          .insert({ name: woo.name, image_url: imageUrl });
+          .insert({ name: woo.name, image_url: imageUrl, user_id: process.env.SUPABASE_USER_ID });
         if (createError) {
           errors.push({ name: woo.name, error: createError.message });
         } else {
