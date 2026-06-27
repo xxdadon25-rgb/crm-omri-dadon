@@ -114,7 +114,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
     const { num } = getDocLabel();
     const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
     const bizName = businessSettings?.business_name || "העסק שלי";
-    const res = await fetch("/api/send-email", {
+    const res = await fetch("https://crm-omri-dadon.vercel.app/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -122,6 +122,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
         subject: `הצעת מחיר מספר ${num}`,
         html: `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8"><p>שלום ${doc.customer_name},</p><p>מצורפת הצעת המחיר שהוכנה עבורך.</p><p>לצפייה במסמך:<br><a href="${pdfUrl}">${pdfUrl}</a></p><p>לכל שאלה אנחנו זמינים.</p><p>בברכה,<br>${bizName}</p></div>`,
       }),
+
     });
     if (res.ok) {
       toast.success("האימייל נשלח בהצלחה");
