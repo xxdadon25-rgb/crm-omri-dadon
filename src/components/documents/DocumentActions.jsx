@@ -109,15 +109,13 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
   });
 
   // ─── EMAIL ────────────────────────────────────────────────────────────────
-  const handleEmail = async () => {
+  const handleEmail = () => {
     if (!customerEmail) { toast.error("ללקוח אין כתובת אימייל"); return; }
-    const { title, num } = getDocLabel();
-    await base44.integrations.Core.SendEmail({
-      to: customerEmail,
-      subject: `${title} מספר ${num}`,
-      body: `<div dir="rtl"><p>שלום ${doc.customer_name},</p><p>מצורפת ${title} מספר ${num} בסך ₪${(doc.total || 0).toLocaleString()}.</p><p>בברכה,<br>${businessSettings?.business_name || "ERP Pro"}</p></div>`,
-    });
-    toast.success("האימייל נשלח בהצלחה");
+    const { num } = getDocLabel();
+    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const subject = encodeURIComponent(`הצעת מחיר מספר ${num}`);
+    const body = `שלום ${doc.customer_name},%0A%0Aמצורפת הצעת המחיר שהוכנה עבורך.%0A%0Aלצפייה במסמך:%0A${pdfUrl}%0A%0Aלכל שאלה אנחנו זמינים.%0A%0Aבברכה,%0A${businessSettings?.business_name || "העסק שלי"}`;
+    window.open(`mailto:${customerEmail}?subject=${subject}&body=${body}`, "_self");
   };
 
   const mobile = isMobile();
