@@ -145,13 +145,13 @@ export default function QuotePDFPreview() {
           {/* ITEMS TABLE */}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: GOLD, borderTop: "2px solid #000", borderBottom: "2px solid #000" }}>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 40, borderTop: "2px solid #000", borderBottom: "2px solid #000", borderLeft: "1px solid #ddd", borderRight: "1px solid #ddd" }}>#</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 80, borderTop: "2px solid #000", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>מס פריט</th>
-                <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#000", borderTop: "2px solid #000", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>תיאור פריט</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 70, borderTop: "2px solid #000", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>כמות</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderTop: "2px solid #000", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>ש"ח ליחידה</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderTop: "2px solid #000", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>סה"כ ש"ח</th>
+              <tr style={{ background: GOLD, borderTop: "none", borderBottom: "2px solid #000" }}>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 40, borderTop: "none", borderBottom: "2px solid #000", borderLeft: "1px solid #ddd", borderRight: "1px solid #ddd" }}>#</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 80, borderTop: "none", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>מס פריט</th>
+                <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#000", borderTop: "none", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>תיאור פריט</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 70, borderTop: "none", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>כמות</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderTop: "none", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>ש"ח ליחידה</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderTop: "none", borderBottom: "2px solid #000", borderRight: "1px solid #ddd" }}>סה"כ ש"ח</th>
               </tr>
             </thead>
             <tbody>
