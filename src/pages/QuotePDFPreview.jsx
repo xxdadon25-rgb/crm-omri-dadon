@@ -81,10 +81,7 @@ export default function QuotePDFPreview() {
     <div dir="rtl" style={{ fontFamily: "Arial, Helvetica, sans-serif", minHeight: "100vh", background: "#f3f4f6" }}>
       {/* Action bar — hidden on print */}
       <div className="print:hidden sticky top-0 z-50 bg-white border-b shadow-sm px-6 py-3 flex items-center gap-3">
-        <Button onClick={handlePrint} className="gap-2">
-          <Printer className="w-4 h-4" /> הדפסה
-        </Button>
-        <Button variant="outline" onClick={handleDownload} className="gap-2">
+        <Button onClick={handleDownload} className="gap-2">
           <Download className="w-4 h-4" /> הורדה
         </Button>
         <span className="mr-auto text-sm text-muted-foreground">הצעת מחיר #{quote.quote_number}</span>
