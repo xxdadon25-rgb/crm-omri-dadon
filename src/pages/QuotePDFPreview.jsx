@@ -118,7 +118,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* GOLD TITLE BAR: RIGHT="הצעת מחיר", CENTER=number, LEFT="מקור" */}
-          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #333", borderBottom: "2px solid #333" }}>
+          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000", borderBottom: "2px solid #000" }}>
             {/* First = RIGHT in RTL */}
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000", textDecoration: "underline" }}>הצעת מחיר</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000" }}>מספר: {quote.quote_number}</span>
