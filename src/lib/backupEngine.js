@@ -77,8 +77,7 @@ export async function runBackup(type = "ידני") {
     // Serialize to JSON and upload as a file
     const json = JSON.stringify({ created_at: new Date().toISOString(), data: snapshot }, null, 2);
     const blob = new Blob([json], { type: "application/json" });
-    const file = new File([blob], `backup_${Date.now()}.json`, { type: "application/json" });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const file_url = `data:application/json;base64,${btoa(unescape(encodeURIComponent(json)))}`;
 
     const sizeKb = Math.round(blob.size / 1024);
 

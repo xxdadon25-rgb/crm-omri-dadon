@@ -40,8 +40,9 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
   const handleImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    handleChange("image_url", file_url);
+    const reader = new FileReader();
+    reader.onload = () => handleChange("image_url", reader.result);
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e) => {

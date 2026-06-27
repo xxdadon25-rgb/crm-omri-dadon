@@ -163,39 +163,8 @@ export default function Inventory() {
     a.click();
   };
 
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-      file_url,
-      json_schema: {
-        type: "object",
-        properties: {
-          items: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                sku: { type: "string" },
-                barcode: { type: "string" },
-                category: { type: "string" },
-                supplier: { type: "string" },
-                buy_price: { type: "number" },
-                sell_price: { type: "number" },
-                quantity: { type: "number" },
-                min_quantity: { type: "number" }
-              }
-            }
-          }
-        }
-      }
-    });
-    if (result.status === "success" && result.output?.items) {
-      await base44.entities.Product.bulkCreate(result.output.items);
-      queryClient.invalidateQueries({ queryKey: ["products"] });  // full refetch needed — no individual IDs available
-    }
+  const handleImport = () => {
+    toast.error("ייבוא קבצים אינו זמין כרגע");
   };
 
   return (
