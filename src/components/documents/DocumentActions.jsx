@@ -109,14 +109,27 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
   });
 
   // ─── EMAIL ────────────────────────────────────────────────────────────────
-  const handleEmail = () => {
+  const handleEmail = withLoading("email", async () => {
     if (!customerEmail) { toast.error("ללקוח אין כתובת אימייל"); return; }
     const { num } = getDocLabel();
     const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
-    const subject = encodeURIComponent(`הצעת מחיר מספר ${num}`);
-    const body = `שלום ${doc.customer_name},%0A%0Aמצורפת הצעת המחיר שהוכנה עבורך.%0A%0Aלצפייה במסמך:%0A${pdfUrl}%0A%0Aלכל שאלה אנחנו זמינים.%0A%0Aבברכה,%0A${businessSettings?.business_name || "העסק שלי"}`;
-    window.open(`mailto:${customerEmail}?subject=${subject}&body=${body}`, "_self");
-  };
+    const bizName = businessSettings?.business_name || "העסק שלי";
+    const res = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: customerEmail,
+        subject: `הצעת מחיר מספר ${num}`,
+        html: `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8"><p>שלום ${doc.customer_name},</p><p>מצורפת הצעת המחיר שהוכנה עבורך.</p><p>לצפייה במסמך:<br><a href="${pdfUrl}">${pdfUrl}</a></p><p>לכל שאלה אנחנו זמינים.</p><p>בברכה,<br>${bizName}</p></div>`,
+      }),
+    });
+    if (res.ok) {
+      toast.success("האימייל נשלח בהצלחה");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data?.message || "שגיאה בשליחת האימייל");
+    }
+  });
 
   const mobile = isMobile();
   const nativeShare = canShareFiles();
@@ -170,8 +183,9 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
           {isLoading("print") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Printer className="w-4 h-4 ml-1" />}
           הדפסה
         </Button>
-        <Button size="sm" variant="outline" onClick={handleEmail}>
-          <Mail className="w-4 h-4 ml-1" /> אימייל
+        <Button size="sm" variant="outline" onClick={handleEmail} disabled={loading}>
+          {isLoading("email") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Mail className="w-4 h-4 ml-1" />}
+          אימייל
         </Button>
       </div>
     </div>
