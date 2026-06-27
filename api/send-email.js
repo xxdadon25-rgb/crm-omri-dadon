@@ -8,7 +8,7 @@ export default async function handler(req, res) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "QuickStock ERP <office.ministock@gmail.com>",
+      from: "QuickStock ERP <noreply@ministock.co.il>",
       to,
       subject,
       html,
