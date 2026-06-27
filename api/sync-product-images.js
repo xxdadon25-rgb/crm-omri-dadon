@@ -53,12 +53,15 @@ export default async function handler(req, res) {
 
   const { data: supabaseProducts, error: fetchError } = await supabase
     .from("products")
-    .select("id, name");
+    .select("id, name, user_id");
 
   if (fetchError) {
     console.error("[sync-product-images] Supabase fetch error:", fetchError.message);
     return res.status(500).json({ error: fetchError.message });
   }
+
+  // Grab user_id from any existing product
+  const userId = supabaseProducts[0]?.user_id || process.env.SUPABASE_USER_ID;
 
   // Build a name → supabase id map (lowercase for fuzzy matching)
   const nameMap = {};
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
       if (create) {
         const { error: createError } = await supabase
           .from("products")
-          .insert({ name: woo.name, image_url: imageUrl, user_id: process.env.SUPABASE_USER_ID });
+          .insert({ name: woo.name, image_url: imageUrl, user_id: userId });
         if (createError) {
           errors.push({ name: woo.name, error: createError.message });
         } else {
