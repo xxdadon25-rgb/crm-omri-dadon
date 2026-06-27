@@ -165,17 +165,8 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
           </Button>
         )}
 
-        {/* On desktop, show the native share button too */}
-        {!mobile && (
-          <Button size="sm" variant="outline" onClick={handleNativeSharePDF} disabled={loading}>
-            {isLoading("share") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Share2 className="w-4 h-4 ml-1" />}
-            שיתוף PDF
-          </Button>
-        )}
-
-        <Button size="sm" variant="outline" onClick={handlePDF} disabled={loading}>
-          {isLoading("download") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Download className="w-4 h-4 ml-1" />}
-          הורדה
+        <Button size="sm" variant="outline" onClick={() => type === "quote" && doc.id ? window.open(`https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`, "_blank") : null}>
+          <Download className="w-4 h-4 ml-1" /> הורדת PDF
         </Button>
         <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading}>
           {isLoading("print") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Printer className="w-4 h-4 ml-1" />}
