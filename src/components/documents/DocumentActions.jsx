@@ -110,8 +110,9 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
       return;
     }
     const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const { num } = getDocLabel();
     const message = encodeURIComponent(
-      `שלום ${doc.customer_name}, מצורף קישור להצעת המחיר שלך: ${pdfUrl}`
+      `הצעת מחיר מספר ${num}\n\nשלום ${doc.customer_name},\n\nמצורפת הצעת המחיר שהוכנה עבורך.\n\nלצפייה במסמך:\n${pdfUrl}\n\nלכל שאלה אנחנו זמינים.\n\nבברכה,\n${businessSettings?.business_name || "העסק שלי"}`
     );
     const phone = customerPhone?.replace(/[-\s]/g, "").replace(/^0/, "972");
     window.open(`https://wa.me/${phone || ""}?text=${message}`, "_blank");
