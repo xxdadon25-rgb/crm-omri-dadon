@@ -5,6 +5,19 @@ const WC_KEY = "ck_880cb5976a207218a7f8c2b6e6494bf7a78f4872";
 const WC_SECRET = "cs_3e7c81032dec2b085b87e4a2c1ed0697bd16b597";
 const WC_AUTH = "Basic " + Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString("base64");
 
+function normalizeName(name) {
+  return name
+    .trim()
+    .replace(/\s+/g, " ")           // collapse multiple spaces
+    .replace(/׳/g, "'")             // Hebrew geresh → ASCII apostrophe
+    .replace(/״/g, '"')             // Hebrew gershayim → ASCII double quote
+    .replace(/"/g, '"')             // curly left double quote
+    .replace(/"/g, '"')             // curly right double quote
+    .replace(/'/g, "'")             // curly left single quote
+    .replace(/'/g, "'")             // curly right single quote
+    .toLowerCase();
+}
+
 async function fetchAllWooProducts() {
   const products = [];
   let page = 1;
@@ -50,7 +63,7 @@ export default async function handler(req, res) {
   // Build a name → supabase id map (lowercase for fuzzy matching)
   const nameMap = {};
   for (const p of supabaseProducts) {
-    nameMap[p.name.trim().toLowerCase()] = p.id;
+    nameMap[normalizeName(p.name)] = p.id;
   }
 
   const debug = req.query.debug === "true";
@@ -67,7 +80,7 @@ export default async function handler(req, res) {
       continue;
     }
 
-    const supabaseId = nameMap[woo.name.trim().toLowerCase()];
+    const supabaseId = nameMap[normalizeName(woo.name)];
     if (!supabaseId) {
       skipped++;
       if (debug) skippedList.push({ woo_name: woo.name, reason: "no_match_in_supabase" });
