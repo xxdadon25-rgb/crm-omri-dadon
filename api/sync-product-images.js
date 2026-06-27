@@ -36,12 +36,22 @@ async function fetchAllWooProducts() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
-
   const supabase = createClient(
     process.env.VITE_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+
+  // GET: return count of products without image_url
+  if (req.method === "GET") {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id", { count: "exact" })
+      .or("image_url.is.null,image_url.eq.");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ missing_image_count: data?.length ?? 0 });
+  }
+
+  if (req.method !== "POST") return res.status(405).end();
 
   let wooProducts;
   try {
