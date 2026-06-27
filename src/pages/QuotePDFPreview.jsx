@@ -4,7 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { Printer, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import domtoimage from "dom-to-image-more";
 
 const GOLD = "#F5C518";
 const GOLD_LIGHT = "#F5E9C4";
@@ -47,10 +47,13 @@ export default function QuotePDFPreview() {
   const handlePrint = () => window.print();
 
   const handleDownload = async () => {
-    const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL("image/png");
+    const node = printRef.current;
+    const scale = 2;
+    const imgData = await domtoimage.toPng(node, { scale, style: { margin: "0" } });
+    const naturalW = node.offsetWidth * scale;
+    const naturalH = node.offsetHeight * scale;
     const a4Width = 210;
-    const imgHeight = (canvas.height * a4Width) / canvas.width;
+    const imgHeight = (naturalH * a4Width) / naturalW;
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [a4Width, imgHeight] });
     pdf.addImage(imgData, "PNG", 0, 0, a4Width, imgHeight);
     pdf.save(`quote_${quote?.quote_number || quoteId}.pdf`);
