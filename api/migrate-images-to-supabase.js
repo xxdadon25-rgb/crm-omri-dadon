@@ -8,11 +8,15 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // 1. Fetch products with ministock.co.il image URLs
+  const batchSize = parseInt(req.query.batch) || 50;
+  const offset = parseInt(req.query.offset) || 0;
+
+  // 1. Fetch products with ministock.co.il image URLs (paginated)
   const { data: products, error: fetchError } = await supabase
     .from("products")
     .select("id, name, image_url")
-    .like("image_url", "https://ministock.co.il%");
+    .like("image_url", "https://ministock.co.il%")
+    .range(offset, offset + batchSize - 1);
 
   if (fetchError) {
     console.error("[migrate-images] fetch error:", fetchError.message);
@@ -76,11 +80,15 @@ export default async function handler(req, res) {
     }
   }
 
-  console.log(`[migrate-images] done: migrated=${migrated} skipped=${skipped} errors=${errors.length}`);
+  const hasMore = products.length === batchSize;
+  console.log(`[migrate-images] done: offset=${offset} migrated=${migrated} errors=${errors.length} hasMore=${hasMore}`);
   return res.status(200).json({
-    total: products.length,
+    offset,
+    batch_size: batchSize,
+    processed: products.length,
     migrated,
-    skipped,
     errors,
+    has_more: hasMore,
+    next_offset: hasMore ? offset + batchSize : null,
   });
 }
