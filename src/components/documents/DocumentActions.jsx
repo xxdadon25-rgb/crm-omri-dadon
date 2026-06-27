@@ -103,23 +103,18 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
     window.open(`https://wa.me/${phone || ""}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
-  // ─── QUOTES ONLY: UPLOAD & SHARE STABLE PDF LINK ─────────────────────────
+  // ─── QUOTES ONLY: SHARE STABLE PDF LINK ─────────────────────────────────
   const handleSendPDFLink = withLoading("link", async () => {
     if (type !== "quote" || !doc.id) {
-      toast.error("יציאה זו זמינה רק לצעות מחיר");
+      toast.error("יציאה זו זמינה רק להצעות מחיר");
       return;
     }
-    const res = await base44.functions.invoke("uploadQuotePDF", { quoteId: doc.id });
-    if (!res.data.file_url) {
-      toast.error("שגיאה ביצירת קישור");
-      return;
-    }
-    const pdfUrl = `${window.location.origin}${res.data.file_url}`;
-    const { num } = getDocLabel();
+    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
     const message = encodeURIComponent(
-      `שלום ${doc.customer_name},\n\nהצעת המחיר מספר ${num} בהמתנה לאישורך.\n\nלצפייה והורדת ההצעה:\n${pdfUrl}\n\nבברכה,\n${businessSettings?.business_name || "ERP Pro"}`
+      `שלום ${doc.customer_name}, מצורף קישור להצעת המחיר שלך: ${pdfUrl}`
     );
-    window.open(`https://wa.me/?text=${message}`, "_blank");
+    const phone = customerPhone?.replace(/[-\s]/g, "").replace(/^0/, "972");
+    window.open(`https://wa.me/${phone || ""}?text=${message}`, "_blank");
   });
 
   // ─── EMAIL ────────────────────────────────────────────────────────────────
