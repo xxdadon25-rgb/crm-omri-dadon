@@ -172,7 +172,7 @@ export default function QuotePDFPreview() {
 
           {/* SUMMARY SECTION */}
           <div style={{ padding: "16px 32px 24px" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse", marginRight: "auto" }}>
+            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse", marginLeft: 0 }}>
               <tbody>
                 <tr>
                   <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ ללא מע"מ:</td>
@@ -192,9 +192,9 @@ export default function QuotePDFPreview() {
                   <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>מע"מ {vatRate}.00%:</td>
                   <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(vatAmount)}</td>
                 </tr>
-                <tr style={{ background: "#E8B84B" }}>
-                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: 700, color: "#fff", borderBottom: "1px solid #ddd" }}>סה"כ לתשלום:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 700, color: "#fff", borderBottom: "1px solid #ddd" }}>₪{fmt(total)}</td>
+                <tr style={{ background: "#E8B84B", border: "2px solid #000" }}>
+                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: 700, color: "#000", border: "2px solid #000" }}>סה"כ לתשלום:</td>
+                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 700, color: "#000", border: "2px solid #000" }}>₪{fmt(total)}</td>
                 </tr>
               </tbody>
             </table>
