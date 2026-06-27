@@ -171,8 +171,8 @@ export default function QuotePDFPreview() {
           </table>
 
           {/* SUMMARY SECTION */}
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 0px 16px 0px", paddingRight: "0px" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse" }}>
+          <div style={{ display: "block", position: "relative", padding: "16px 0px 16px 0px" }}>
+            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse", marginLeft: "0", marginRight: "auto" }}>
               <colgroup>
                 <col />
                 <col style={{ width: 120 }} />
