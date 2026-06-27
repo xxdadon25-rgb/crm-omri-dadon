@@ -49,16 +49,11 @@ export default function QuotePDFPreview() {
   const handleDownload = async () => {
     const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
     const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-    let y = 0;
-    while (y < imgHeight) {
-      pdf.addImage(imgData, "PNG", 0, -y, pageWidth, imgHeight);
-      y += pageHeight;
-      if (y < imgHeight) pdf.addPage();
-    }
+    const pxToMm = 25.4 / 96;
+    const pdfWidth = canvas.width / 2 * pxToMm;
+    const pdfHeight = canvas.height / 2 * pxToMm;
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pdfWidth, pdfHeight] });
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
     pdf.save(`quote_${quote?.quote_number || quoteId}.pdf`);
   };
 
