@@ -172,7 +172,7 @@ export default function QuotePDFPreview() {
 
           {/* SUMMARY SECTION */}
           <div style={{ display: "block", position: "relative", padding: "16px 0px 16px 0px" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse", marginLeft: "0", marginRight: "auto" }}>
+            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse", marginLeft: "auto", marginRight: "0" }}>
               <colgroup>
                 <col />
                 <col style={{ width: 120 }} />
