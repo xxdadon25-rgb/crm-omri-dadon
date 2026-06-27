@@ -91,6 +91,7 @@ export default async function handler(req, res) {
     const supabaseId = (wooSku && skuMap[wooSku]) || nameMap[normalizeName(woo.name)];
     if (!supabaseId) {
       if (create) {
+        console.log(`[sync-product-images] creating: "${woo.name}" sku=${woo.sku || "none"} image_url=${imageUrl}`);
         const { error: createError } = await supabase
           .from("products")
           .insert({ name: woo.name, sku: woo.sku || null, image_url: imageUrl, user_id: userId });
