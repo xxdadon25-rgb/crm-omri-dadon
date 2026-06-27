@@ -106,17 +106,17 @@ export default function QuotePDFPreview() {
         >
           {/* ── Business header ── */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "24px 32px 16px" }}>
-            {/* Left: business name */}
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>{biz.business_name || "העסק שלי"}</div>
-              {biz.logo_url && <img src={biz.logo_url} alt="לוגו" style={{ height: 48, marginTop: 6, objectFit: "contain" }} />}
-            </div>
-            {/* Right: contact details */}
-            <div style={{ textAlign: "right", fontSize: 13, color: "#555", lineHeight: 1.8 }}>
+            {/* Left: contact details */}
+            <div style={{ textAlign: "left", fontSize: 13, color: "#555", lineHeight: 1.8 }}>
               {biz.tax_id && <div>ח.פ: {biz.tax_id}</div>}
               {biz.phone && <div>טל: {biz.phone}</div>}
               {biz.email && <div>{biz.email}</div>}
               {biz.address && <div>{biz.address}</div>}
+            </div>
+            {/* Right: business name */}
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>{biz.business_name || "העסק שלי"}</div>
+              {biz.logo_url && <img src={biz.logo_url} alt="לוגו" style={{ height: 48, marginTop: 6, objectFit: "contain" }} />}
             </div>
           </div>
 
