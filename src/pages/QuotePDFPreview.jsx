@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Printer, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const GOLD = "#F5C518";
 const GOLD_LIGHT = "#F5E9C4";
@@ -44,7 +46,21 @@ export default function QuotePDFPreview() {
 
   const handlePrint = () => window.print();
 
-  const handleDownload = () => window.print();
+  const handleDownload = async () => {
+    const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+    let y = 0;
+    while (y < imgHeight) {
+      pdf.addImage(imgData, "PNG", 0, -y, pageWidth, imgHeight);
+      y += pageHeight;
+      if (y < imgHeight) pdf.addPage();
+    }
+    pdf.save(`quote_${quote?.quote_number || quoteId}.pdf`);
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
