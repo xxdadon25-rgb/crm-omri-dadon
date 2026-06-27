@@ -79,7 +79,7 @@ export default function QuotePDFPreview() {
   const total = parseFloat(quote.total) || afterDiscount + vatAmount;
 
   return (
-    <div dir="rtl" style={{ fontFamily: "Arial, sans-serif", minHeight: "100vh", background: "#f3f4f6" }}>
+    <div dir="rtl" style={{ fontFamily: "Arial, Helvetica, sans-serif", minHeight: "100vh", background: "#f3f4f6" }}>
       {/* Action bar — hidden on print */}
       <div className="print:hidden sticky top-0 z-50 bg-white border-b shadow-sm px-6 py-3 flex items-center gap-3">
         <Button onClick={handlePrint} className="gap-2">
@@ -93,7 +93,7 @@ export default function QuotePDFPreview() {
 
       {/* Document */}
       <div className="p-6 pb-16 print:p-0">
-        <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden" }}>
+        <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000" }}>
 
           {/* HEADER: RIGHT=business info, LEFT=logo */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px 32px" }}>
@@ -132,7 +132,7 @@ export default function QuotePDFPreview() {
             <div>
               <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>לכבוד:</div>
               <div style={{ fontSize: 18, fontWeight: 700 }}>{quote.customer_name}</div>
-              <div style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>לקוח עסקי</div>
+              <div style={{ fontSize: 12, color: "#2563EB", marginTop: 2 }}>לקוח עסקי</div>
             </div>
             {/* Second = LEFT in RTL: doc details */}
             <div style={{ textAlign: "right", fontSize: 13 }}>
@@ -171,8 +171,8 @@ export default function QuotePDFPreview() {
           </table>
 
           {/* SUMMARY SECTION */}
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 32px" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse" }}>
+          <div style={{ width: "100%", padding: "0 32px 24px" }}>
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse", border: "1px solid #333" }}>
               <tbody>
                 <tr>
                   <td style={{ padding: "4px 0", color: "#666", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ ללא מע"מ:</td>
