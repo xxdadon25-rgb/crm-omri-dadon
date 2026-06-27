@@ -95,27 +95,29 @@ export default function QuotePDFPreview() {
       <div className="p-6 pb-16 print:p-0">
         <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden" }}>
 
-          {/* 1 ── Business header: logo+name LEFT, details RIGHT */}
+          {/* 1 ── Business header: logo LEFT, name+details RIGHT */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "24px 32px 16px" }}>
-            {/* Left: logo + business name */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Left: logo */}
+            <div>
               {biz.logo_url && <img src={biz.logo_url} alt="לוגו" style={{ height: 56, objectFit: "contain" }} />}
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>{biz.business_name || "העסק שלי"}</div>
             </div>
-            {/* Right: contact details */}
-            <div style={{ textAlign: "right", fontSize: 13, color: "#555", lineHeight: 2 }}>
-              {biz.email && <div>{biz.email}</div>}
-              {biz.address && <div>{biz.address}</div>}
-              {biz.phone && <div>טל׳: {biz.phone}</div>}
-              {biz.tax_id && <div>ח.פ: {biz.tax_id}</div>}
+            {/* Right: business name + contact details */}
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{biz.business_name || "העסק שלי"}</div>
+              <div style={{ fontSize: 13, color: "#555", lineHeight: 1.8 }}>
+                {biz.email && <div>{biz.email}</div>}
+                {biz.address && <div>{biz.address}</div>}
+                {biz.phone && <div>טל׳: {biz.phone}</div>}
+                {biz.tax_id && <div>ח.פ: {biz.tax_id}</div>}
+              </div>
             </div>
           </div>
 
           {/* 2 ── Gold title bar: "הצעת מחיר" right | number center | "מקור" left */}
           <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>מקור</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>#{quote.quote_number}</span>
             <span style={{ fontSize: 20, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>הצעת מחיר</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>#{quote.quote_number}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>מקור</span>
           </div>
 
           {/* 3 ── Info row: right=customer | center=doc details | left=empty */}
@@ -183,9 +185,9 @@ export default function QuotePDFPreview() {
             </tbody>
           </table>
 
-          {/* 5 ── Summary on the LEFT */}
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "20px 32px 8px" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse" }}>
+          {/* 5 ── Summary full width */}
+          <div style={{ padding: "20px 32px 8px" }}>
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
                   <td style={{ padding: "5px 0 5px 16px", color: "#555", textAlign: "right" }}>סה"כ ללא מע"מ:</td>
