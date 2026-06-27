@@ -92,7 +92,7 @@ export default function QuotePDFPreview() {
 
       {/* Document */}
       <div className="p-6 pb-16 print:p-0">
-        <div ref={printRef} style={{ width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "10mm", boxSizing: "border-box", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000" }}>
+        <div ref={printRef} style={{ width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "10mm", boxSizing: "border-box", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000", display: "flex", flexDirection: "column" }}>
 
           {/* HEADER: RIGHT=business info, LEFT=logo */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px 32px" }}>
@@ -211,26 +211,29 @@ export default function QuotePDFPreview() {
             </div>
           )}
 
-          {/* SIGNATURE ROW */}
-          <div style={{ margin: "24px 32px", borderTop: "1px solid #ccc", paddingTop: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-              {[
-                "מפיק המסמך: מיני סטוק",
-                "שם המקבל",
-                "חתימה",
-                "תאריך",
-              ].map(label => (
-                <div key={label} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ height: 30, borderBottom: "1px solid #333", marginBottom: 4 }} />
-                  <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
-                </div>
-              ))}
+          {/* SIGNATURE + FOOTER — pushed to bottom */}
+          <div style={{ marginTop: "auto" }}>
+            {/* SIGNATURE ROW */}
+            <div style={{ margin: "24px 32px", borderTop: "1px solid #ccc", paddingTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                {[
+                  "מפיק המסמך: מיני סטוק",
+                  "שם המקבל",
+                  "חתימה",
+                  "תאריך",
+                ].map(label => (
+                  <div key={label} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ height: 30, borderBottom: "1px solid #333", marginBottom: 4 }} />
+                    <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* FOOTER */}
-          <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
-            מיני סטוק | טל: 054-6479930 | השזיף 5 נשר, ישראל | xxdadon25@gmail.com
+            {/* FOOTER */}
+            <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
+              מיני סטוק | טל: 054-6479930 | השזיף 5 נשר, ישראל | xxdadon25@gmail.com
+            </div>
           </div>
 
         </div>
