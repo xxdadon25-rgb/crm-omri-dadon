@@ -8,12 +8,15 @@ export default async function handler(req, res) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "QuickStock ERP <onboarding@resend.dev>",
+      from: "QuickStock ERP <office.ministock@gmail.com>",
       to,
       subject,
       html,
     }),
   });
   const data = await response.json();
+  if (!response.ok) {
+    console.error("[send-email] Resend error:", JSON.stringify(data));
+  }
   return res.status(response.ok ? 200 : 400).json(data);
 }
