@@ -67,8 +67,10 @@ export default async function handler(req, res) {
   }
 
   const debug = req.query.debug === "true";
+  const create = req.query.create === "true";
   let updated = 0;
   let skipped = 0;
+  let created = 0;
   const errors = [];
   const skippedList = [];
 
@@ -82,8 +84,19 @@ export default async function handler(req, res) {
 
     const supabaseId = nameMap[normalizeName(woo.name)];
     if (!supabaseId) {
-      skipped++;
-      if (debug) skippedList.push({ woo_name: woo.name, woo_image: imageUrl, reason: "no_match_in_supabase" });
+      if (create) {
+        const { error: createError } = await supabase
+          .from("products")
+          .insert({ name: woo.name, image_url: imageUrl });
+        if (createError) {
+          errors.push({ name: woo.name, error: createError.message });
+        } else {
+          created++;
+        }
+      } else {
+        skipped++;
+        if (debug) skippedList.push({ woo_name: woo.name, woo_image: imageUrl, reason: "no_match_in_supabase" });
+      }
       continue;
     }
 
@@ -99,11 +112,12 @@ export default async function handler(req, res) {
     }
   }
 
-  console.log(`[sync-product-images] updated=${updated} skipped=${skipped} errors=${errors.length}`);
+  console.log(`[sync-product-images] updated=${updated} created=${created} skipped=${skipped} errors=${errors.length}`);
   return res.status(200).json({
     woo_total: wooProducts.length,
     supabase_total: supabaseProducts.length,
     updated,
+    created,
     skipped,
     errors,
     ...(debug && { skipped_details: skippedList }),
