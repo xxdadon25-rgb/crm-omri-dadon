@@ -80,7 +80,16 @@ export default function ProductCatalog() {
             <div key={product.id} className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow">
               <div className="aspect-square bg-muted flex items-center justify-center">
                 {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                    onLoad={() => console.log("[img ok]", product.name, product.image_url)}
+                    onError={(e) => {
+                      console.warn("[img error]", product.name, product.image_url, e.type);
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
                 ) : (
                   <Package className="w-10 h-10 text-muted-foreground" />
                 )}
