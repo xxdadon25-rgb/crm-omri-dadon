@@ -93,7 +93,7 @@ export default function QuotePDFPreview() {
 
       {/* Document */}
       <div className="p-6 pb-16 print:p-0">
-        <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000" }}>
+        <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "1px solid #ccc" }}>
 
           {/* HEADER: RIGHT=business info, LEFT=logo */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px 32px" }}>
@@ -118,7 +118,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* GOLD TITLE BAR: RIGHT="הצעת מחיר", CENTER=number, LEFT="מקור" */}
-          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #222", borderBottom: "2px solid #222" }}>
+          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
             {/* First = RIGHT in RTL */}
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000", textDecoration: "underline" }}>הצעת מחיר</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000" }}>מספר: {quote.quote_number}</span>
@@ -127,7 +127,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* INFO ROW: RIGHT=customer, LEFT=doc details */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderTop: "1px solid #ccc", borderBottom: "2px solid #222", padding: "12px 32px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc", padding: "12px 32px" }}>
             {/* First = RIGHT in RTL: customer */}
             <div>
               <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>לכבוד:</div>
@@ -145,60 +145,66 @@ export default function QuotePDFPreview() {
           {/* ITEMS TABLE */}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: GOLD, borderTop: "2px solid #222", borderBottom: "2px solid #222" }}>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 40, borderLeft: "1px solid #ddd", borderRight: "1px solid #ddd" }}>#</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 80, borderRight: "1px solid #ddd" }}>מס פריט</th>
-                <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#000", borderRight: "1px solid #ddd" }}>תיאור פריט</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 70, borderRight: "1px solid #ddd" }}>כמות</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderRight: "1px solid #ddd" }}>ש"ח ליחידה</th>
-                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderRight: "1px solid #ddd" }}>סה"כ ש"ח</th>
+              <tr style={{ background: GOLD, borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 40, borderLeft: "1px solid #ccc", borderRight: "1px solid #ccc" }}>#</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 80, borderRight: "1px solid #ccc" }}>מס פריט</th>
+                <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#000", borderRight: "1px solid #ccc" }}>תיאור פריט</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 70, borderRight: "1px solid #ccc" }}>כמות</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderRight: "1px solid #ccc" }}>ש"ח ליחידה</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 100, borderRight: "1px solid #ccc" }}>סה"כ ש"ח</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, i) => (
-                <tr key={i} style={{ background: "#fff", borderBottom: "1px solid #ddd" }}>
-                  <td style={{ padding: "8px", textAlign: "center", color: "#888", fontSize: 12, borderLeft: "1px solid #ddd", borderRight: "1px solid #ddd" }}>{item.sku || "—"}</td>
-                  <td style={{ padding: "8px", textAlign: "center", color: "#666", fontSize: 12, borderRight: "1px solid #ddd" }}>{i + 1}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", borderRight: "1px solid #ddd" }}>
+                <tr key={i} style={{ background: "#fff", borderBottom: "1px solid #ccc" }}>
+                  <td style={{ padding: "8px", textAlign: "center", color: "#888", fontSize: 12, borderLeft: "1px solid #ccc", borderRight: "1px solid #ccc" }}>{item.sku || "—"}</td>
+                  <td style={{ padding: "8px", textAlign: "center", color: "#666", fontSize: 12, borderRight: "1px solid #ccc" }}>{i + 1}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right", borderRight: "1px solid #ccc" }}>
                     <div style={{ fontWeight: 700 }}>{item.name}</div>
                   </td>
-                  <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #ddd" }}>{item.quantity}</td>
-                  <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #ddd" }}>₪{fmt(item.unit_price)}</td>
-                  <td style={{ padding: "8px", textAlign: "center", fontWeight: 600, borderRight: "1px solid #ddd" }}>₪{fmt(item.total)}</td>
+                  <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #ccc" }}>{item.quantity}</td>
+                  <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #ccc" }}>₪{fmt(item.unit_price)}</td>
+                  <td style={{ padding: "8px", textAlign: "center", fontWeight: 600, borderRight: "1px solid #ccc" }}>₪{fmt(item.total)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* SUMMARY SECTION */}
-          <div style={{ padding: "16px 32px 24px", display: "flex", justifyContent: "flex-start" }}>
-            <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse" }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ ללא מע"מ:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(subtotal)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>הנחה:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>
-                    {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ לאחר הנחה:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(afterDiscount)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>מע"מ {vatRate}.00%:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(vatAmount)}</td>
-                </tr>
-                <tr style={{ background: GOLD, border: "2px solid #000" }}>
-                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: 700, color: "#000", border: "2px solid #000" }}>סה"כ לתשלום:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 700, color: "#000", border: "2px solid #000" }}>₪{fmt(total)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {/* SUMMARY SECTION — same column widths as items table so amounts align under סה"כ ש"ח */}
+          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+            <colgroup>
+              <col style={{ width: 40 }} />
+              <col style={{ width: 80 }} />
+              <col />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+            </colgroup>
+            <tbody>
+              <tr>
+                <td colSpan={5} style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ccc" }}>סה"כ ללא מע"מ:</td>
+                <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #ccc" }}>₪{fmt(subtotal)}</td>
+              </tr>
+              <tr>
+                <td colSpan={5} style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ccc" }}>הנחה:</td>
+                <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #ccc" }}>
+                  {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={5} style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ccc" }}>סה"כ לאחר הנחה:</td>
+                <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #ccc" }}>₪{fmt(afterDiscount)}</td>
+              </tr>
+              <tr>
+                <td colSpan={5} style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ccc" }}>מע"מ {vatRate}.00%:</td>
+                <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #ccc" }}>₪{fmt(vatAmount)}</td>
+              </tr>
+              <tr style={{ background: GOLD }}>
+                <td colSpan={5} style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#000", borderBottom: "1px solid #ccc" }}>סה"כ לתשלום:</td>
+                <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#000", borderBottom: "1px solid #ccc" }}>₪{fmt(total)}</td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* Notes */}
           {(quote.notes || quote.customer_notes) && (
@@ -218,7 +224,7 @@ export default function QuotePDFPreview() {
                 "תאריך",
               ].map(label => (
                 <div key={label} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ height: 30, borderBottom: "1px solid #333", marginBottom: 4 }} />
+                  <div style={{ height: 30, borderBottom: "1px solid #ccc", marginBottom: 4 }} />
                   <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
                 </div>
               ))}
@@ -226,7 +232,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* FOOTER */}
-          <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
+          <div style={{ borderTop: "1px solid #ccc", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
             מיני סטוק | טל: 054-6479930 | השזיף 5 נשר, ישראל | xxdadon25@gmail.com
           </div>
 
