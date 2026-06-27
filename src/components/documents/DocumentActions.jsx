@@ -59,37 +59,27 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
     toast.success("ה-PDF הורד בהצלחה");
   });
 
-  // ─── MOBILE: NATIVE SHARE SHEET WITH PDF FILE ────────────────────────────
-  // Uses Web Share API Level 2 (Android Chrome 89+, iOS Safari 15+)
-  // The OS share sheet opens and the user can pick WhatsApp, Email, etc.
-  // WhatsApp will receive the actual PDF file — NOT a link.
+  // ─── SHARE PDF LINK ───────────────────────────────────────────────────────
   const handleNativeSharePDF = withLoading("share", async () => {
-    const blob = await generatePDF();
-    const { title, num, fileName } = getDocLabel();
-    const file = new File([blob], `${fileName}.pdf`, { type: "application/pdf" });
+    if (type !== "quote" || !doc.id) {
+      toast.error("שיתוף זמין רק להצעות מחיר");
+      return;
+    }
+    const { num } = getDocLabel();
+    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const shareTitle = `הצעת מחיר ${num}`;
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (navigator.share) {
       try {
-        await navigator.share({
-          files: [file],
-          title: `${title} מספר ${num}`,
-          text: `${title} מספר ${num} מ${businessSettings?.business_name || "ERP Pro"}\nסה״כ: ₪${(doc.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 })}`,
-        });
+        await navigator.share({ title: shareTitle, url: pdfUrl });
       } catch (err) {
-        // AbortError = user dismissed the share sheet, not an error
         if (err.name !== "AbortError") {
           toast.error("שגיאה בשיתוף: " + err.message);
         }
       }
     } else {
-      // Fallback: download the file and instruct the user to attach it manually
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.info("ה-PDF הורד למכשיר. פתח את WhatsApp ושלח את הקובץ ידנית.", { duration: 6000 });
+      await navigator.clipboard.writeText(pdfUrl);
+      toast.success("הקישור הועתק");
     }
   });
 
