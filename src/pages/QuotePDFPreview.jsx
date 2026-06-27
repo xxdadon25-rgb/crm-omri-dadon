@@ -95,152 +95,146 @@ export default function QuotePDFPreview() {
       <div className="p-6 pb-16 print:p-0">
         <div ref={printRef} style={{ maxWidth: 800, margin: "0 auto", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden" }}>
 
-          {/* 1 ── Business header: name+details RIGHT, logo LEFT */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "24px 32px 16px" }}>
-            {/* First child = RIGHT in RTL: business name + contact details */}
+          {/* HEADER: RIGHT=business info, LEFT=logo */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px 32px" }}>
+            {/* First child = RIGHT in RTL */}
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{biz.business_name || "העסק שלי"}</div>
-              <div style={{ fontSize: 13, color: "#555", lineHeight: 1.8 }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", textDecoration: "underline", marginBottom: 6 }}>
+                {biz.business_name || "העסק שלי"}
+              </div>
+              <div style={{ fontSize: 13, color: "#333", lineHeight: 1.9 }}>
                 {biz.email && <div>{biz.email}</div>}
                 {biz.address && <div>{biz.address}</div>}
-                {biz.phone && <div>טל׳: {biz.phone}</div>}
-                {biz.tax_id && <div>ח.פ: {biz.tax_id}</div>}
+                {biz.phone && <div>טלפון: {biz.phone}</div>}
+                {biz.tax_id && <div>עוסק מורשה: {biz.tax_id}</div>}
               </div>
             </div>
-            {/* Second child = LEFT in RTL: logo */}
-            <div>
-              {biz.logo_url && <img src={biz.logo_url} alt="לוגו" style={{ height: 56, objectFit: "contain" }} />}
+            {/* Second child = LEFT in RTL */}
+            <div style={{ width: 40, height: 40, flexShrink: 0, background: biz.logo_url ? "transparent" : "#e5e7eb", borderRadius: 4, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {biz.logo_url
+                ? <img src={biz.logo_url} alt="לוגו" style={{ width: 40, height: 40, objectFit: "contain" }} />
+                : <span style={{ fontSize: 10, color: "#999" }}>לוגו</span>}
             </div>
           </div>
 
-          {/* 2 ── Gold title bar: "הצעת מחיר" right | number center | "מקור" left */}
+          {/* GOLD TITLE BAR: RIGHT="הצעת מחיר", CENTER=number, LEFT="מקור" */}
           <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>הצעת מחיר</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>#{quote.quote_number}</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>מקור</span>
+            {/* First = RIGHT in RTL */}
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", textDecoration: "underline" }}>הצעת מחיר</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>מספר: {quote.quote_number}</span>
+            {/* Last = LEFT in RTL */}
+            <span style={{ fontSize: 14, color: "#fff" }}>מקור</span>
           </div>
 
-          {/* 3 ── Info row: right=customer | center=doc details | left=empty */}
-          <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb" }}>
-            {/* Right column: customer */}
-            <div style={{ flex: 1, padding: "16px 24px", borderLeft: "1px solid #e5e7eb", textAlign: "right" }}>
-              <div style={{ fontSize: 11, color: "#999", marginBottom: 4, fontWeight: 600, letterSpacing: 0.5 }}>לכבוד</div>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>{quote.customer_name}</div>
-              {quote.customer_tax_id && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>ח.פ: {quote.customer_tax_id}</div>}
-              {quote.customer_address && <div style={{ fontSize: 12, color: "#555" }}>{quote.customer_address}</div>}
+          {/* INFO ROW: RIGHT=customer, LEFT=doc details */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "12px 32px" }}>
+            {/* First = RIGHT in RTL: customer */}
+            <div>
+              <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>לכבוד:</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{quote.customer_name}</div>
+              <div style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>לקוח עסקי</div>
             </div>
-            {/* Center column: doc details */}
-            <div style={{ width: 200, padding: "16px 24px", borderLeft: "1px solid #e5e7eb", textAlign: "right" }}>
-              <div style={{ fontSize: 11, color: "#999", marginBottom: 4, fontWeight: 600, letterSpacing: 0.5 }}>פרטי מסמך</div>
-              <table style={{ fontSize: 12, borderCollapse: "collapse", width: "100%" }}>
-                <tbody>
-                  <tr>
-                    <td style={{ color: "#666", paddingBottom: 3, paddingLeft: 8 }}>תאריך:</td>
-                    <td style={{ fontWeight: 600 }}>{quote.date || "—"}</td>
-                  </tr>
-                  {quote.valid_until && (
-                    <tr>
-                      <td style={{ color: "#666", paddingBottom: 3, paddingLeft: 8 }}>תוקף עד:</td>
-                      <td style={{ fontWeight: 600 }}>{quote.valid_until}</td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td style={{ color: "#666", paddingLeft: 8 }}>סטטוס:</td>
-                    <td style={{ fontWeight: 600 }}>{quote.status || "טיוטה"}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ color: "#666", paddingLeft: 8 }}>עמוד:</td>
-                    <td style={{ fontWeight: 600 }}>1 / 1</td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* Second = LEFT in RTL: doc details */}
+            <div style={{ textAlign: "right", fontSize: 13 }}>
+              <div style={{ fontWeight: 700, marginBottom: 3 }}>תאריך: {quote.date || "—"}</div>
+              <div style={{ fontWeight: 700, marginBottom: 3 }}>סטטוס: {quote.status || "טיוטה"}</div>
+              <div>דף 1 מתוך 1</div>
             </div>
-            {/* Left column: empty */}
-            <div style={{ width: 160, padding: "16px 24px" }} />
           </div>
 
-          {/* 4 ── Items table */}
+          {/* ITEMS TABLE */}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: GOLD }}>
-                <th style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, color: "#fff", width: 36 }}>#</th>
-                <th style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, color: "#fff", width: 80 }}>מס׳ פריט</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#fff", width: 40 }}>#</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#fff", width: 80 }}>מס פריט</th>
                 <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#fff" }}>תיאור פריט</th>
-                <th style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, color: "#fff", width: 60 }}>כמות</th>
-                <th style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, color: "#fff", width: 100 }}>ש"כ ליחידה</th>
-                <th style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, color: "#fff", width: 100 }}>סה"כ ש"ח</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#fff", width: 70 }}>כמות</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#fff", width: 100 }}>ש"ח ליחידה</th>
+                <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#fff", width: 100 }}>סה"כ ש"ח</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f7f7f7", borderBottom: "1px solid #efefef" }}>
-                  <td style={{ padding: "9px 12px", textAlign: "center", color: "#888", fontSize: 12 }}>{i + 1}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center", color: "#666", fontSize: 12 }}>{item.sku || "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600 }}>{item.name}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{item.quantity}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>₪{fmt(item.unit_price)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 600 }}>₪{fmt(item.total)}</td>
+                <tr key={i} style={{ background: "#fff", borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: "8px", textAlign: "center", color: "#888", fontSize: 12 }}>{i + 1}</td>
+                  <td style={{ padding: "8px", textAlign: "center", color: "#666", fontSize: 12 }}>{item.sku || "—"}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    <div style={{ fontWeight: 700 }}>{item.name}</div>
+                    {item.sku && <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>{item.sku}</div>}
+                  </td>
+                  <td style={{ padding: "8px", textAlign: "center" }}>{item.quantity}</td>
+                  <td style={{ padding: "8px", textAlign: "center" }}>₪{fmt(item.unit_price)}</td>
+                  <td style={{ padding: "8px", textAlign: "center", fontWeight: 600 }}>₪{fmt(item.total)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* 5 ── Summary full width */}
-          <div style={{ padding: "20px 32px 8px" }}>
-            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse", tableLayout: "fixed" }}>
-              <colgroup>
-                <col style={{ width: "70%" }} />
-                <col style={{ width: "30%" }} />
-              </colgroup>
-              <tbody>
-                <tr>
-                  <td style={{ padding: "5px 0", color: "#555", textAlign: "right" }}>סה"כ ללא מע"מ:</td>
-                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(subtotal)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "5px 0", color: "#555", textAlign: "right" }}>הנחה:</td>
-                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "5px 0", color: "#555", textAlign: "right" }}>סה"כ לאחר הנחה:</td>
-                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(afterDiscount)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "5px 0", color: "#555", textAlign: "right" }}>מע"מ {vatRate}%:</td>
-                  <td style={{ padding: "5px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(vatAmount)}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2} style={{ paddingTop: 8 }}>
-                    <div style={{ background: GOLD, borderRadius: 6, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>₪{fmt(total)}</span>
-                      <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>:סה"כ לתשלום</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {/* SUMMARY SECTION */}
+          <div style={{ padding: "8px 32px" }}>
+            {/* In RTL, flex-end pushes to the LEFT side visually */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <table style={{ width: 280, fontSize: 13, borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: "4px 0", color: "#666", textAlign: "right" }}>סה"כ ללא מע"מ:</td>
+                    <td style={{ padding: "4px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px 0", color: "#666", textAlign: "right" }}>הנחה:</td>
+                    <td style={{ padding: "4px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px 0", color: "#666", textAlign: "right" }}>סה"כ לאחר הנחה:</td>
+                    <td style={{ padding: "4px 0", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(afterDiscount)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px 0 8px", color: "#666", textAlign: "right" }}>מע"מ {vatRate}.00%:</td>
+                    <td style={{ padding: "4px 0 8px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>₪{fmt(vatAmount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {/* Full-width gold total row */}
+            <div style={{ background: GOLD, borderRadius: 4, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+              {/* First = RIGHT in RTL: label */}
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>סה"כ לתשלום:</span>
+              {/* Second = LEFT in RTL: amount */}
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>₪{fmt(total)}</span>
+            </div>
           </div>
 
           {/* Notes */}
           {(quote.notes || quote.customer_notes) && (
-            <div style={{ padding: "0 32px 16px", fontSize: 13, color: "#444" }}>
+            <div style={{ padding: "0 32px 12px", fontSize: 13, color: "#444" }}>
               {quote.customer_notes && <div><span style={{ fontWeight: 600 }}>הערות ללקוח: </span>{quote.customer_notes}</div>}
               {quote.notes && <div style={{ marginTop: 4 }}><span style={{ fontWeight: 600 }}>הערות: </span>{quote.notes}</div>}
             </div>
           )}
 
-          {/* 6 ── Signature row */}
-          <div style={{ margin: "8px 32px 32px", borderTop: "1px solid #e5e7eb", paddingTop: 20 }}>
+          {/* SIGNATURE ROW */}
+          <div style={{ margin: "24px 32px", borderTop: "1px solid #ccc", paddingTop: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-              {["מפיק המסמך", "שם המקבל", "חתימה", "תאריך"].map(label => (
+              {[
+                "מפיק המסמך: מיני סטוק",
+                "שם המקבל",
+                "חתימה",
+                "תאריך",
+              ].map(label => (
                 <div key={label} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ height: 36, borderTop: "1.5px solid #aaa", marginBottom: 6 }} />
-                  <div style={{ fontSize: 12, color: "#777" }}>{label}</div>
+                  <div style={{ height: 30, borderBottom: "1px solid #333", marginBottom: 4 }} />
+                  <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* FOOTER */}
+          <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
+            מיני סטוק | טל: 054-6479930 | השזיף 5 נשר, ישראל | xxdadon25@gmail.com
           </div>
 
         </div>
