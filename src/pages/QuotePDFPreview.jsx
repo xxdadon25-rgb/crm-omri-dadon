@@ -171,8 +171,8 @@ export default function QuotePDFPreview() {
           </table>
 
           {/* SUMMARY SECTION */}
-          <div style={{ width: "100%", padding: "0 32px 24px" }}>
-            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse", border: "1px solid #333" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", padding: "16px 32px 24px" }}>
+            <table style={{ width: "320px", fontSize: 13, borderCollapse: "collapse", border: "1px solid #333" }}>
               <tbody>
                 <tr>
                   <td style={{ padding: "4px 0", color: "#666", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ ללא מע"מ:</td>
