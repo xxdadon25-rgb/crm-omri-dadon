@@ -76,14 +76,14 @@ export default async function handler(req, res) {
     const imageUrl = woo.images?.[0]?.src;
     if (!imageUrl) {
       skipped++;
-      if (debug) skippedList.push({ woo_name: woo.name, reason: "no_image" });
+      if (debug) skippedList.push({ woo_name: woo.name, woo_image: null, reason: "no_image" });
       continue;
     }
 
     const supabaseId = nameMap[normalizeName(woo.name)];
     if (!supabaseId) {
       skipped++;
-      if (debug) skippedList.push({ woo_name: woo.name, reason: "no_match_in_supabase" });
+      if (debug) skippedList.push({ woo_name: woo.name, woo_image: imageUrl, reason: "no_match_in_supabase" });
       continue;
     }
 
