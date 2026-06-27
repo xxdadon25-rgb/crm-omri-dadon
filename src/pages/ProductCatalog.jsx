@@ -78,7 +78,7 @@ export default function ProductCatalog() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((product) => (
             <div key={product.id} className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-              <div className="aspect-square bg-muted flex items-center justify-center">
+              <div className="h-48 bg-muted flex items-center justify-center overflow-hidden">
                 {product.image_url ? (
                   <img
                     src={product.image_url}
