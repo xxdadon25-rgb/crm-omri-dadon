@@ -118,7 +118,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* GOLD TITLE BAR: RIGHT="הצעת מחיר", CENTER=number, LEFT="מקור" */}
-          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #333", borderBottom: "2px solid #333" }}>
+          <div style={{ background: GOLD, padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #222", borderBottom: "2px solid #222" }}>
             {/* First = RIGHT in RTL */}
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000", textDecoration: "underline" }}>הצעת מחיר</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#000" }}>מספר: {quote.quote_number}</span>
@@ -127,7 +127,7 @@ export default function QuotePDFPreview() {
           </div>
 
           {/* INFO ROW: RIGHT=customer, LEFT=doc details */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderTop: "1px solid #ccc", borderBottom: "2px solid #000", padding: "12px 32px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderTop: "1px solid #ccc", borderBottom: "2px solid #222", padding: "12px 32px" }}>
             {/* First = RIGHT in RTL: customer */}
             <div>
               <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>לכבוד:</div>
@@ -145,7 +145,7 @@ export default function QuotePDFPreview() {
           {/* ITEMS TABLE */}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: GOLD, borderTop: "2px solid #333", borderBottom: "2px solid #333" }}>
+              <tr style={{ background: GOLD, borderTop: "2px solid #222", borderBottom: "2px solid #222" }}>
                 <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 40, borderLeft: "1px solid #ddd", borderRight: "1px solid #ddd" }}>#</th>
                 <th style={{ padding: "9px 8px", textAlign: "center", fontWeight: 700, color: "#000", width: 80, borderRight: "1px solid #ddd" }}>מס פריט</th>
                 <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "#000", borderRight: "1px solid #ddd" }}>תיאור פריט</th>
@@ -171,7 +171,7 @@ export default function QuotePDFPreview() {
           </table>
 
           {/* SUMMARY SECTION */}
-          <div style={{ padding: "16px 32px 24px", display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ padding: "16px 32px 24px", display: "flex", justifyContent: "flex-start" }}>
             <table style={{ width: 300, fontSize: 13, borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
