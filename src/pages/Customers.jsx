@@ -284,14 +284,15 @@ export default function Customers() {
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
-                                  <MapPin className="w-3.5 h-3.5" />
-                                </Button>
-                                {c.location_lat && c.location_lng && (
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-600" title="נווט בוויז" asChild>
+                                {c.location_lat && c.location_lng ? (
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="נווט בוויז" asChild>
                                     <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
                                       <Navigation className="w-3.5 h-3.5" />
                                     </a>
+                                  </Button>
+                                ) : (
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                                    <MapPin className="w-3.5 h-3.5" />
                                   </Button>
                                 )}
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(c.id)}>
@@ -348,14 +349,15 @@ export default function Customers() {
                           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-600" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
-                            <MapPin className="w-4 h-4" />
-                          </Button>
-                          {c.location_lat && c.location_lng && (
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-cyan-600" title="נווט בוויז" asChild>
+                          {c.location_lat && c.location_lng ? (
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-green-600" title="נווט בוויז" asChild>
                               <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
                                 <Navigation className="w-4 h-4" />
                               </a>
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                              <MapPin className="w-4 h-4" />
                             </Button>
                           )}
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setDeleteId(c.id)}>
