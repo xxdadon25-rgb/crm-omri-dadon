@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, FileText, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, CheckCircle2, Link2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import DocumentActions from "@/components/documents/DocumentActions";
 
@@ -20,6 +20,16 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
 
   const customer = customers?.find(c => c.id === order.customer_id);
   const quote = quotes?.find(q => q.id === order.quote_id);
+
+  const handleWhatsAppLink = () => {
+    const phone = customer?.mobile || customer?.phone || "";
+    const cleaned = phone.replace(/\D/g, "");
+    const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
+    const pdfUrl = `https://crm-omri-dadon.vercel.app/order-pdf/${order.id}`;
+    const total = (order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
+    const msg = `שלום ${order.customer_name},\n\nהזמנה מספר #${order.order_number} ממיני סטוק\nסה"כ לתשלום: ${total}₪\n\nלצפייה בהזמנה: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
+    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,6 +140,15 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
               customerPhone={customer?.mobile || customer?.phone}
               customerEmail={customer?.email}
             />
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleWhatsAppLink}
+              className="w-full text-green-600 border-green-200 hover:bg-green-50"
+            >
+              <Link2 className="w-4 h-4 ml-1" /> קישור WhatsApp להזמנה
+            </Button>
 
             <Button
               variant="outline"
