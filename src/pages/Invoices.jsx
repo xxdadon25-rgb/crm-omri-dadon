@@ -128,6 +128,7 @@ export default function Invoices() {
     },
   });
   const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
+  const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
 
   const filtered = useMemo(() => {
     return invoices.filter(i => {
@@ -344,7 +345,10 @@ export default function Invoices() {
       <Dialog open={!!viewInvoice} onOpenChange={() => setViewInvoice(null)}>
         <DialogContent className="max-w-2xl" dir="rtl">
           <DialogHeader><DialogTitle>חשבונית #{viewInvoice?.invoice_number}</DialogTitle></DialogHeader>
-          {viewInvoice && (
+          {viewInvoice && (() => {
+            const linkedOrder = viewInvoice.order_id ? orders.find(o => o.id === viewInvoice.order_id) : null;
+            const docWithOrder = linkedOrder ? { ...viewInvoice, _linkedOrder: linkedOrder } : viewInvoice;
+            return (
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">לקוח:</span> <span className="font-medium">{viewInvoice.customer_name}</span></div>
@@ -354,6 +358,13 @@ export default function Invoices() {
                 <table className="w-full text-sm">
                   <thead><tr className="bg-muted/50"><th className="text-right px-3 py-2">מוצר</th><th className="text-right px-3 py-2">כמות</th><th className="text-right px-3 py-2">מחיר</th><th className="text-right px-3 py-2">סה״כ</th></tr></thead>
                   <tbody>
+                    {linkedOrder && (
+                      <tr className="bg-blue-50 border-t border-border">
+                        <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold text-blue-700">
+                          הזמנה #{linkedOrder.order_number} — {formatDate(linkedOrder.date)}
+                        </td>
+                      </tr>
+                    )}
                     {(viewInvoice.items || []).map((item, i) => (
                       <tr key={i} className="border-t border-border"><td className="px-3 py-2">{item.name}</td><td className="px-3 py-2">{item.quantity}</td><td className="px-3 py-2">₪{(item.unit_price || 0).toFixed(2)}</td><td className="px-3 py-2 font-medium">₪{(item.total || 0).toFixed(2)}</td></tr>
                     ))}
@@ -368,7 +379,7 @@ export default function Invoices() {
               <div className="flex flex-wrap gap-2">
                 <DocumentActions
                   type="invoice"
-                  doc={viewInvoice}
+                  doc={docWithOrder}
                   businessSettings={settings[0]}
                   customerPhone={getCustomer(viewInvoice.customer_id)?.phone}
                   customerEmail={getCustomer(viewInvoice.customer_id)?.email}
@@ -399,7 +410,8 @@ export default function Invoices() {
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

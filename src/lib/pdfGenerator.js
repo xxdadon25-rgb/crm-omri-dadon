@@ -204,6 +204,7 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
   const docTitle   = type === "quote" ? "הצעת מחיר" : type === "order" ? "הזמנה" : "חשבונית מס";
   const docNum     = type === "quote" ? doc.quote_number : type === "order" ? doc.order_number : doc.invoice_number;
   const items      = doc.items || [];
+  const linkedOrder = doc._linkedOrder || null;
 
   const biz = {
     name:    businessSettings?.business_name || "",
@@ -315,6 +316,12 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
         </tr>
       </thead>
       <tbody>
+        ${linkedOrder ? `
+        <tr style="background:#e8f0fe;border-bottom:1px solid #bcd">
+          <td colspan="6" style="padding:3px 8px;text-align:right;font-size:9px;font-weight:700;color:#1d4ed8">
+            הזמנה #${linkedOrder.order_number} — ${fmtDate(linkedOrder.date)}
+          </td>
+        </tr>` : ""}
         ${items.map((item, i) => `
         <tr style="height:18px;line-height:18px;border-bottom:1px solid #ddd">
           <td style="padding:2px 4px;text-align:center;vertical-align:middle;border-left:1px solid #ddd;color:#666;font-size:8px">${i + 1}</td>
