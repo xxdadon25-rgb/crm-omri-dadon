@@ -19,9 +19,11 @@ async function extractFromFile(file) {
     r.readAsDataURL(file);
   });
 
-  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את כל פריטי המוצרים והחזר JSON תקין בלבד, ללא טקסט נוסף, בפורמט:
-[{"product_name":"שם המוצר","sku":"מק"ט או null","quantity":1,"unit_price":0,"total":0}]
-אם שדה חסר השתמש ב-null. החזר אך ורק מערך JSON.`;
+  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את כל פריטי המוצרים.
+החזר תשובה כ-JSON בלבד. אין להוסיף \`\`\`json או \`\`\` או כל טקסט אחר. רק מערך JSON טהור.
+פורמט נדרש:
+[{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]
+אם שדה חסר השתמש ב-null.`;
 
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -48,8 +50,11 @@ async function extractFromFile(file) {
   const data = await resp.json();
   console.log('Gemini raw response:', JSON.stringify(data, null, 2));
   const candidate = data.candidates?.[0];
-  const text = candidate?.content?.parts?.[0]?.text ?? "";
+  const rawText = candidate?.content?.parts?.[0]?.text ?? "";
   const finishReason = candidate?.finishReason;
+
+  // Strip markdown code fences if Gemini added them despite instructions
+  const text = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
 
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
