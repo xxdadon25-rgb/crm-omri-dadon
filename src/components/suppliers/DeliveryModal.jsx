@@ -218,8 +218,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const unmatched = items.filter(i => !i.skip && !i.matched);
 
   const handleApprove = () => {
-    console.log('items:', JSON.stringify(items.map(i => ({ sku: i.sku, skip: i.skip, matched: i.matched }))));
-    console.log('unmatched:', unmatched.length);
     if (unmatched.length > 0) {
       setNewProductsDialog(true);
     } else {
