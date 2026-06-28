@@ -1,51 +1,37 @@
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 
-const ENTITIES = [
-  { key: "Product",          label: "מוצרים" },
-  { key: "Category",         label: "קטגוריות" },
-  { key: "InventoryMovement",label: "תנועות מלאי" },
-  { key: "Customer",         label: "לקוחות" },
-  { key: "Supplier",         label: "ספקים" },
-  { key: "Quote",            label: "הצעות מחיר" },
-  { key: "Order",            label: "הזמנות" },
-  { key: "Invoice",          label: "חשבוניות" },
-  { key: "Payment",          label: "תשלומים" },
-  { key: "BusinessSettings", label: "הגדרות עסק" },
-  { key: "ImportLog",        label: "יבואות" },
-  { key: "Notification",     label: "התראות" },
-  { key: "InvoiceLog",       label: "לוג חשבוניות" },
-  { key: "CrmTask",          label: "משימות CRM" },
+const TABLES = [
+  "products",
+  "customers",
+  "orders",
+  "invoices",
+  "payments",
+  "suppliers",
+  "quotes",
+  "service_calls",
+  "business_settings",
+  "invoice_attachments",
 ];
-
-async function fetchAll(entityKey) {
-  const records = [];
-  let page = 0;
-  while (true) {
-    const batch = await base44.entities[entityKey].list(null, 500, page * 500);
-    records.push(...batch);
-    if (batch.length < 500) break;
-    page++;
-  }
-  return records;
-}
 
 export async function runBackup(type = "ידני") {
   const snapshot = {};
   const counts = {};
 
-  for (const { key, label } of ENTITIES) {
+  for (const table of TABLES) {
     try {
-      if (!base44.entities[key]) {
-        snapshot[key] = [];
-        counts[label] = 0;
-        continue;
+      const { data, error } = await supabase.from(table).select("*");
+      if (error) {
+        console.warn(`[backup] skipping ${table}:`, error.message);
+        snapshot[table] = [];
+        counts[table] = 0;
+      } else {
+        snapshot[table] = data ?? [];
+        counts[table] = (data ?? []).length;
       }
-      const records = await fetchAll(key);
-      snapshot[key] = records;
-      counts[label] = records.length;
-    } catch {
-      snapshot[key] = [];
-      counts[label] = 0;
+    } catch (err) {
+      console.warn(`[backup] error fetching ${table}:`, err.message);
+      snapshot[table] = [];
+      counts[table] = 0;
     }
   }
 
@@ -54,7 +40,6 @@ export async function runBackup(type = "ידני") {
   const blob = new Blob([json], { type: "application/json" });
   const sizeKb = Math.round(blob.size / 1024);
 
-  // Trigger browser download
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -77,22 +62,23 @@ export async function restoreBackup(backup) {
 
   const results = {};
 
-  for (const { key, label } of ENTITIES) {
-    if (!data[key] || data[key].length === 0 || !base44.entities[key]) {
-      results[label] = 0;
+  for (const table of TABLES) {
+    const rows = data[table];
+    if (!rows || rows.length === 0) {
+      results[table] = 0;
       continue;
     }
 
-    const existing = await fetchAll(key).catch(() => []);
-    const existingIds = new Set(existing.map((r) => r.id));
-    const toCreate = data[key].filter((r) => !existingIds.has(r.id));
+    const { data: existing } = await supabase.from(table).select("id");
+    const existingIds = new Set((existing ?? []).map((r) => r.id));
+    const toInsert = rows.filter((r) => !existingIds.has(r.id));
 
-    for (let i = 0; i < toCreate.length; i += 50) {
-      const batch = toCreate.slice(i, i + 50).map(({ id, created_date, updated_date, created_by_id, ...rest }) => rest);
-      await base44.entities[key].bulkCreate(batch).catch(() => {});
+    for (let i = 0; i < toInsert.length; i += 50) {
+      const batch = toInsert.slice(i, i + 50);
+      await supabase.from(table).insert(batch).catch((e) => console.warn(`[restore] ${table}:`, e.message));
     }
 
-    results[label] = toCreate.length;
+    results[table] = toInsert.length;
   }
 
   return results;
