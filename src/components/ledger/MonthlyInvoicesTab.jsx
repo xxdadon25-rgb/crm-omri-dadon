@@ -26,6 +26,7 @@ const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 export default function MonthlyInvoicesTab({
   selectedCustomer,
   allInvoices,
+  allOrders,
   monthlyInvoices,
   loadingInvoices,
   businessSettings,
@@ -37,49 +38,44 @@ export default function MonthlyInvoicesTab({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const eligibleInvoices = allInvoices.filter(inv =>
-    inv.customer_id === selectedCustomer?.id &&
-    inv.invoice_type !== "monthly" &&
-    !inv.monthly_invoice_id &&
-    inv.date &&
-    new Date(inv.date).getMonth() + 1 === selectedMonth &&
-    new Date(inv.date).getFullYear() === selectedYear
+  const eligibleOrders = (allOrders || []).filter(o =>
+    o.customer_id === selectedCustomer?.id &&
+    o.date &&
+    new Date(o.date).getMonth() + 1 === selectedMonth &&
+    new Date(o.date).getFullYear() === selectedYear
   );
 
   const handleGenerate = async () => {
     if (!selectedCustomer) return;
     setGenerating(true);
     try {
-      // Re-fetch guard: verify eligibility server-side before creating
-      const freshInvoices = await base44.entities.Invoice.filter({
+      // Re-fetch orders fresh before creating
+      const freshOrders = await base44.entities.Order.filter({
         customer_id: selectedCustomer.id,
       });
-      const eligible = freshInvoices.filter(inv =>
-        inv.invoice_type !== "monthly" &&
-        !inv.monthly_invoice_id &&
-        inv.date &&
-        new Date(inv.date).getMonth() + 1 === selectedMonth &&
-        new Date(inv.date).getFullYear() === selectedYear
+      const eligible = freshOrders.filter(o =>
+        o.date &&
+        new Date(o.date).getMonth() + 1 === selectedMonth &&
+        new Date(o.date).getFullYear() === selectedYear
       );
 
       if (eligible.length === 0) {
-        toast({ title: "אין חשבוניות פנויות", description: "כל החשבוניות לחודש זה כבר כלולות בחשבונית חודשית.", variant: "destructive" });
+        toast({ title: "אין הזמנות לחודש זה", description: "לא נמצאו הזמנות עבור הלקוח בחודש שנבחר.", variant: "destructive" });
         return;
       }
 
-      // Build items for display — use original values from invoices, no VAT recalculation
+      // Build items grouped by order — header row per order then its items
       const items = [];
-      eligible.forEach(inv => {
+      eligible.forEach(order => {
         items.push({
-          name: `חשבונית #${inv.invoice_number || inv.id} — ${formatDate(inv.date)}`,
+          name: `הזמנה #${order.order_number || order.id} — ${formatDate(order.date)}`,
           quantity: 0,
           unit_price: 0,
           discount: 0,
           total: 0,
           is_header: true,
         });
-
-        (inv.items || []).forEach(item => {
+        (order.items || []).forEach(item => {
           items.push({
             product_id: item.product_id || null,
             name: item.name || "",
@@ -93,11 +89,11 @@ export default function MonthlyInvoicesTab({
         });
       });
 
-      // Use included invoice totals directly — no recalculation from items
-      const subtotal = parseFloat(eligible.reduce((s, inv) => s + (inv.subtotal || 0), 0).toFixed(2));
+      // Sum totals directly from orders
+      const subtotal = parseFloat(eligible.reduce((s, o) => s + (o.subtotal || 0), 0).toFixed(2));
       const vatRate = businessSettings?.vat_rate || 17;
-      const vatAmount = parseFloat(eligible.reduce((s, inv) => s + (inv.vat_amount || 0), 0).toFixed(2));
-      const total = parseFloat(eligible.reduce((s, inv) => s + (inv.total || 0), 0).toFixed(2));
+      const vatAmount = parseFloat(eligible.reduce((s, o) => s + (o.vat_amount || 0), 0).toFixed(2));
+      const total = parseFloat(eligible.reduce((s, o) => s + (o.total || 0), 0).toFixed(2));
 
       const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || selectedMonth;
 
@@ -115,7 +111,7 @@ export default function MonthlyInvoicesTab({
         invoice_type: "monthly",
         billing_month: selectedMonth,
         billing_year: selectedYear,
-        included_invoice_ids: eligible.map(inv => inv.id),
+        included_order_ids: eligible.map(o => o.id),
         invoice_number: invoiceNumber,
         customer_id: selectedCustomer.id,
         customer_name: selectedCustomer.name,
@@ -129,39 +125,14 @@ export default function MonthlyInvoicesTab({
         total,
         paid_amount: 0,
         payment_status: "ממתין לתשלום",
-        notes: `חשבונית חודשית — ${monthLabel} ${selectedYear} | כולל ${eligible.length} חשבוניות`,
+        notes: `חשבונית חודשית — ${monthLabel} ${selectedYear} | כולל ${eligible.length} הזמנות`,
       });
 
       sessionStorage.setItem("pendingInvoice", JSON.stringify(invoice));
-
-      // Link each regular invoice to this monthly invoice
-      const updateResults = await Promise.allSettled(
-        eligible.map(inv => base44.entities.Invoice.update(inv.id, { monthly_invoice_id: invoice.id }))
-      );
-
-      const failedUpdates = updateResults.filter(r => r.status === "rejected");
-      if (failedUpdates.length > 0) {
-        toast({
-          title: "שגיאה בקישור חשבוניות",
-          description: `${failedUpdates.length} מתוך ${eligible.length} חשבוניות לא עודכנו. ייתכן שחשבונית חודשית #${invoiceNumber} נוצרה ללא קישור.`,
-          variant: "destructive",
-        });
-        await queryClient.refetchQueries({ queryKey: ["invoices"] });
-        await queryClient.refetchQueries({ queryKey: ["settings"] });
-        return;
-      }
-
-      // Update local cache so eligible invoices immediately show monthly_invoice_id
-      queryClient.setQueryData(["invoices"], (old) => {
-        if (!old) return old;
-        return old.map(inv =>
-          eligible.some(e => e.id === inv.id) ? { ...inv, monthly_invoice_id: invoice.id } : inv
-        );
-      });
-
+      await queryClient.refetchQueries({ queryKey: ["invoices"] });
       await queryClient.refetchQueries({ queryKey: ["settings"] });
 
-      toast({ title: "חשבונית חודשית נוצרה", description: `חשבונית #${invoiceNumber} נוצרה עם ${eligible.length} חשבוניות.` });
+      toast({ title: "חשבונית חודשית נוצרה", description: `חשבונית #${invoiceNumber} נוצרה עם ${eligible.length} הזמנות.` });
     } finally {
       setGenerating(false);
     }
@@ -222,13 +193,13 @@ ${companyName}`;
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">
-              {eligibleInvoices.length > 0
-                ? `${eligibleInvoices.length} חשבוניות פנויות | סה״כ: ₪${eligibleInvoices.reduce((s, inv) => s + (inv.total || 0), 0).toLocaleString()}`
-                : "אין חשבוניות פנויות לחודש זה"}
+              {eligibleOrders.length > 0
+                ? `${eligibleOrders.length} הזמנות לחודש זה | סה״כ: ₪${eligibleOrders.reduce((s, o) => s + (o.total || 0), 0).toLocaleString()}`
+                : "אין הזמנות לחודש זה"}
             </span>
             <Button
               onClick={handleGenerate}
-              disabled={generating || eligibleInvoices.length === 0}
+              disabled={generating || eligibleOrders.length === 0}
               className="gap-2"
             >
               {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4" />}
@@ -258,7 +229,7 @@ ${companyName}`;
                     <TableHead className="text-right">מספר חשבונית</TableHead>
                     <TableHead className="text-right">חודש/שנה</TableHead>
                     <TableHead className="text-right">תאריך הפקה</TableHead>
-                    <TableHead className="text-right">חשבוניות</TableHead>
+                    <TableHead className="text-right">הזמנות</TableHead>
                     <TableHead className="text-right">סכום</TableHead>
                     <TableHead className="text-right">סטטוס תשלום</TableHead>
                     <TableHead className="text-right w-28">פעולות</TableHead>
@@ -272,7 +243,7 @@ ${companyName}`;
                         <TableCell className="font-medium text-right">#{inv.invoice_number || "—"}</TableCell>
                         <TableCell className="text-right">{monthLabel} {inv.billing_year}</TableCell>
                         <TableCell className="text-right">{formatDate(inv.date)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{(inv.included_invoice_ids || inv.included_order_ids || []).length} חשבוניות</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{(inv.included_order_ids || inv.included_invoice_ids || []).length} הזמנות</TableCell>
                         <TableCell className="font-medium text-right">₪{(inv.total || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={paymentColors[inv.payment_status] || "bg-gray-100 text-gray-700"}>

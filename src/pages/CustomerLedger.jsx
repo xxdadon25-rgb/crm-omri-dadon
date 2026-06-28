@@ -400,6 +400,7 @@ export default function CustomerLedger() {
                   <MonthlyInvoicesTab
                     selectedCustomer={selectedCustomer}
                     allInvoices={invoices}
+                    allOrders={orders}
                     monthlyInvoices={customerMonthlyInvoices}
                     loadingInvoices={loadingInvoices}
                     businessSettings={businessSettings}
