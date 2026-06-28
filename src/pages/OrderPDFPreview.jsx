@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { Printer, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,12 @@ export default function OrderPDFPreview() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const orderData = await base44.entities.Order.get(orderId);
-        if (!orderData) {
+        const { data: orderData, error: orderError } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", orderId)
+          .single();
+        if (orderError || !orderData) {
           setError("Order not found");
           return;
         }
