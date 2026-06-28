@@ -187,8 +187,7 @@ export default function Settings() {
       </div>
 
       {/* Security */}
-      {user?.role === "admin" && (
-        <div className="bg-card rounded-xl border border-border p-6 max-w-2xl mt-6">
+      <div className="bg-card rounded-xl border border-border p-6 max-w-2xl mt-6">
           <div className="flex items-center gap-2 mb-4">
             <Lock className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">אבטחה</h3>
@@ -262,7 +261,6 @@ export default function Settings() {
             </div>
           </div>
         </div>
-      )}
 
       {/* Price Migration Tool */}
       {user?.role === "admin" && (
