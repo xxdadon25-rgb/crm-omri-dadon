@@ -89,11 +89,19 @@ export default function Settings() {
   };
 
   const handleChangeCode = async () => {
+    console.log("[handleChangeCode] called", {
+      currentCodeInput,
+      storedCode: form.profitability_access_code,
+      newCodeInput,
+      confirmCodeInput,
+      existingId: existing?.id,
+    });
     if (!currentCodeInput) {
       toast.error("יש להזין את הקוד הנוכחי");
       return;
     }
     if (currentCodeInput !== form.profitability_access_code) {
+      console.log("[handleChangeCode] code mismatch — entered:", currentCodeInput, "stored:", form.profitability_access_code);
       toast.error("הקוד הנוכחי שגוי");
       return;
     }
@@ -113,12 +121,16 @@ export default function Settings() {
     setSavingCode(true);
     try {
       if (existing?.id) {
-        await supabase.from("business_settings")
+        console.log("[handleChangeCode] updating existing record id:", existing.id, "new code:", newCodeInput);
+        const { error } = await supabase.from("business_settings")
           .update({ profitability_access_code: newCodeInput })
           .eq("id", existing.id);
+        console.log("[handleChangeCode] update result error:", error);
       } else {
-        await supabase.from("business_settings")
+        console.log("[handleChangeCode] no existing record — inserting new");
+        const { error } = await supabase.from("business_settings")
           .insert({ profitability_access_code: newCodeInput, user_id: user.id });
+        console.log("[handleChangeCode] insert result error:", error);
       }
       setForm(prev => ({ ...prev, profitability_access_code: newCodeInput }));
       setCurrentCodeInput("");
