@@ -199,8 +199,15 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
       const filePath = `receipts/${p.invoice_id}/receipt_${p.invoice_number || p.id}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("payment-attachments")
-        .upload(filePath, blob, { contentType: "application/pdf", upsert: true });
-      if (uploadError) throw uploadError;
+        .upload(filePath, blob, {
+          contentType: "application/pdf",
+          upsert: true,
+          cacheControl: "3600",
+        });
+      if (uploadError) {
+        console.error("[receipt upload] Supabase storage error:", uploadError.message, uploadError);
+        throw uploadError;
+      }
       const { data: { publicUrl } } = supabase.storage.from("payment-attachments").getPublicUrl(filePath);
       setReceiptState(prev => ({ ...prev, [p.id]: { loading: false, url: publicUrl } }));
       handlePaymentWhatsApp(p, publicUrl);
