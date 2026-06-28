@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List, MapPin, Navigation } from "lucide-react";
+import { supabase } from "@/api/supabaseClient";
 import { formatDate } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,40 @@ export default function Customers() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [view, setView] = useState("list");
+  const [savingLocationId, setSavingLocationId] = useState(null);
   const queryClient = useQueryClient();
+
+  const handleSaveLocation = (customer) => {
+    if (!navigator.geolocation) {
+      toast.error("הדפדפן אינו תומך ב-GPS");
+      return;
+    }
+    setSavingLocationId(customer.id);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { error } = await supabase
+            .from("customers")
+            .update({ location_lat: pos.coords.latitude, location_lng: pos.coords.longitude })
+            .eq("id", customer.id);
+          if (error) throw error;
+          queryClient.setQueryData(["customers"], (old = []) =>
+            old.map(c => c.id === customer.id ? { ...c, location_lat: pos.coords.latitude, location_lng: pos.coords.longitude } : c)
+          );
+          toast.success("מיקום נשמר בהצלחה");
+        } catch (err) {
+          toast.error("שגיאה בשמירת המיקום: " + err.message);
+        } finally {
+          setSavingLocationId(null);
+        }
+      },
+      (err) => {
+        toast.error("לא ניתן לקבל מיקום: " + err.message);
+        setSavingLocationId(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
@@ -250,6 +284,16 @@ export default function Customers() {
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                                  <MapPin className="w-3.5 h-3.5" />
+                                </Button>
+                                {c.location_lat && c.location_lng && (
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-600" title="נווט בוויז" asChild>
+                                    <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
+                                      <Navigation className="w-3.5 h-3.5" />
+                                    </a>
+                                  </Button>
+                                )}
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(c.id)}>
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
@@ -304,6 +348,16 @@ export default function Customers() {
                           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                             <Pencil className="w-4 h-4" />
                           </Button>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-600" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                            <MapPin className="w-4 h-4" />
+                          </Button>
+                          {c.location_lat && c.location_lng && (
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-cyan-600" title="נווט בוויז" asChild>
+                              <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
+                                <Navigation className="w-4 h-4" />
+                              </a>
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setDeleteId(c.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>

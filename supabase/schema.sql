@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS customers (
   credit_limit      NUMERIC,
   discount_percent  NUMERIC DEFAULT 0,
   notes             TEXT,
-  is_active         BOOLEAN DEFAULT TRUE
+  is_active         BOOLEAN DEFAULT TRUE,
+  location_lat      DOUBLE PRECISION,
+  location_lng      DOUBLE PRECISION
 );
 
 -- products
