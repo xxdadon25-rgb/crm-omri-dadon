@@ -25,22 +25,31 @@ async function extractFromFile(file) {
 [{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]
 אם שדה חסר השתמש ב-null.`;
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const fetchBody = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: file.type, data: base64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: { temperature: 0, maxOutputTokens: 8192 },
+  });
+
+  let resp = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: fetchBody,
+  });
+
+  if (resp.status === 503) {
+    await new Promise(res => setTimeout(res, 3000));
+    resp = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: file.type, data: base64 } },
-            { text: prompt },
-          ],
-        }],
-        generationConfig: { temperature: 0, maxOutputTokens: 8192 },
-      }),
-    }
-  );
+      body: fetchBody,
+    });
+  }
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
