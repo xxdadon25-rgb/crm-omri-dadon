@@ -413,8 +413,10 @@ export default function CustomerLedger() {
                   <LedgerPaymentsTab
                     payments={customerPayments}
                     loading={loadingPayments}
-                    invoices={invoices.filter(i => i.customer_id === selectedCustomerId && i.invoice_type !== "monthly")}
+                    invoices={invoices.filter(i => i.customer_id === selectedCustomerId)}
                     onRecordPayment={setRecordPaymentInvoice}
+                    selectedCustomer={selectedCustomer}
+                    businessSettings={businessSettings}
                   />
                 </TabsContent>
               </Tabs>

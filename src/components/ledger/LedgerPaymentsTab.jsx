@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import EmptyState from "@/components/shared/EmptyState";
-import { Banknote, Plus, FileText } from "lucide-react";
+import { Banknote, Plus, FileText, CalendarDays, MessageCircle } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 
 const methodIcons = {
@@ -22,10 +22,23 @@ const statusColors = {
   "בוטל": "bg-gray-100 text-gray-700",
 };
 
-export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, invoices }) {
-  const unpaidInvoices = invoices.filter(
-    i => i.invoice_type !== "monthly" && i.payment_status !== "שולם"
-  );
+const MONTHS = ["","ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+
+export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, invoices, selectedCustomer, businessSettings }) {
+  const unpaidInvoices = invoices.filter(i => i.payment_status !== "שולם");
+
+  const handleWhatsApp = (inv) => {
+    const customerName = selectedCustomer?.name || inv.customer_name || "";
+    const companyName = businessSettings?.business_name || "העסק שלי";
+    const invoiceUrl = `${window.location.origin}/invoice-pdf/${inv.id}`;
+    const isMonthly = inv.invoice_type === "monthly";
+    const label = isMonthly
+      ? `חשבונית חודשית #${inv.invoice_number} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
+      : `חשבונית #${inv.invoice_number}`;
+    const remaining = ((inv.total || 0) - (inv.paid_amount || 0)).toLocaleString("he-IL", { minimumFractionDigits: 2 });
+    const msg = `שלום ${customerName},\n\n${label}\nיתרה לתשלום: ₪${remaining}\n\nלצפייה בחשבונית: ${invoiceUrl}\n\nבברכה,\n${companyName}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   if (loading) {
     return (
@@ -45,19 +58,29 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
           <div className="grid gap-2">
             {unpaidInvoices.map(inv => {
               const remaining = (inv.total || 0) - (inv.paid_amount || 0);
+              const isMonthly = inv.invoice_type === "monthly";
               return (
                 <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    {isMonthly
+                      ? <CalendarDays className="w-4 h-4 text-blue-500" />
+                      : <FileText className="w-4 h-4 text-muted-foreground" />}
                     <div>
-                      <p className="text-sm font-medium">חשבונית #{inv.invoice_number || "—"}</p>
+                      <p className="text-sm font-medium">
+                        {isMonthly
+                          ? `חשבונית חודשית #${inv.invoice_number || "—"} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
+                          : `חשבונית #${inv.invoice_number || "—"}`}
+                      </p>
                       <p className="text-xs text-muted-foreground">{formatDate(inv.date)} · {inv.payment_status}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-red-600">₪{remaining.toLocaleString()}</span>
                     <Button size="sm" onClick={() => onRecordPayment(inv)}>
                       <Plus className="w-3.5 h-3.5 ml-1" /> תשלום
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 px-2" onClick={() => handleWhatsApp(inv)} title="WhatsApp">
+                      <MessageCircle className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
