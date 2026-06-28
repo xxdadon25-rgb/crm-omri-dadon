@@ -46,10 +46,16 @@ async function extractFromFile(file) {
   }
 
   const data = await resp.json();
+  console.log('Gemini raw response:', JSON.stringify(data, null, 2));
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
-  return JSON.parse(match[0]);
+  try {
+    return JSON.parse(match[0]);
+  } catch (error) {
+    console.log('Parse error:', error);
+    throw new Error("שגיאה בפענוח תשובת ה-AI");
+  }
 }
 
 // ── Product matching ──────────────────────────────────────────────────────────
