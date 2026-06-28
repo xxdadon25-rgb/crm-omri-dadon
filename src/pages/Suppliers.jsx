@@ -266,7 +266,7 @@ export default function Suppliers() {
                     <TableCell>{s.tax_id || "-"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="קבלת סחורה" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /></Button>
+                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-1" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /> קבלת סחורה</Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
