@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/api/supabaseClient";
@@ -125,6 +126,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [newProductsDialog, setNewProductsDialog] = useState(false);
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
@@ -213,11 +215,23 @@ export default function DeliveryModal({ supplier, open, onClose }) {
 
   // ── Approve ───────────────────────────────────────────────────────────────
 
-  const handleApprove = async () => {
+  const unmatched = items.filter(i => !i.skip && !i.matched);
+
+  const handleApprove = () => {
+    if (unmatched.length > 0) {
+      setNewProductsDialog(true);
+    } else {
+      handleSave(false);
+    }
+  };
+
+  const handleSave = async (addNew) => {
+    setNewProductsDialog(false);
     setStep("saving");
     const now = new Date().toISOString();
     let updatedCount = 0;
     let priceChanges = 0;
+    let addedCount = 0;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -231,29 +245,50 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       if (delErr) throw delErr;
 
       for (const item of items) {
-        if (item.skip || !item.matched) continue;
-        const qty = Number(item.quantity) || 0;
-        const price = Number(item.unit_price) || 0;
+        if (item.skip) continue;
 
-        // Update product stock
-        const newQty = (Number(item.matched.quantity) || 0) + qty;
-        await supabase.from("products").update({ quantity: newQty }).eq("id", item.matched.id);
-        updatedCount++;
-
-        // Save price history
-        await supabase.from("supplier_price_history").insert({
-          product_id: item.matched.id,
-          supplier_id: supplier.id,
-          price,
-          delivery_id: delivery.id,
-          recorded_at: now,
-          user_id: user?.id,
-        });
-
-        if (item.priceChanged) priceChanges++;
+        if (item.matched) {
+          const qty = Number(item.quantity) || 0;
+          const price = Number(item.unit_price) || 0;
+          const newQty = (Number(item.matched.quantity) || 0) + qty;
+          await supabase.from("products").update({ quantity: newQty }).eq("id", item.matched.id);
+          updatedCount++;
+          await supabase.from("supplier_price_history").insert({
+            product_id: item.matched.id,
+            supplier_id: supplier.id,
+            price,
+            delivery_id: delivery.id,
+            recorded_at: now,
+            user_id: user?.id,
+          });
+          if (item.priceChanged) priceChanges++;
+        } else if (addNew) {
+          // Insert as new product
+          const { data: newProduct } = await supabase.from("products").insert({
+            name: item.product_name || "מוצר חדש",
+            sku: item.sku || null,
+            buy_price: Number(item.unit_price) || 0,
+            sell_price: 0,
+            quantity: Number(item.quantity) || 0,
+            supplier_id: supplier.id,
+            supplier: supplier.name,
+            user_id: user?.id,
+          }).select().single();
+          if (newProduct) {
+            await supabase.from("supplier_price_history").insert({
+              product_id: newProduct.id,
+              supplier_id: supplier.id,
+              price: Number(item.unit_price) || 0,
+              delivery_id: delivery.id,
+              recorded_at: now,
+              user_id: user?.id,
+            });
+          }
+          addedCount++;
+        }
       }
 
-      setSummary({ updatedCount, priceChanges, newProducts: items.filter(i => !i.matched && !i.skip).length });
+      setSummary({ updatedCount, priceChanges, addedCount });
       setStep("done");
     } catch (err) {
       toast.error("שגיאה בשמירה: " + err.message);
@@ -452,8 +487,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 {summary.priceChanges > 0 && (
                   <p className="text-red-600 font-medium">⚠️ {summary.priceChanges} שינויי מחיר זוהו ונשמרו</p>
                 )}
-                {summary.newProducts > 0 && (
-                  <p>ℹ️ {summary.newProducts} מוצרים חדשים דולגו (לא נמצאו במערכת)</p>
+                {summary.addedCount > 0 && (
+                  <p className="text-green-600 font-medium">➕ {summary.addedCount} מוצרים חדשים נוספו למלאי</p>
                 )}
               </div>
             </div>
@@ -462,5 +497,29 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         )}
       </DialogContent>
     </Dialog>
+
+    {/* ── New products confirmation dialog ── */}
+    <AlertDialog open={newProductsDialog} onOpenChange={setNewProductsDialog}>
+      <AlertDialogContent dir="rtl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>מוצרים חדשים שאינם במערכת</AlertDialogTitle>
+          <AlertDialogDescription>
+            נמצאו {unmatched.length} מוצרים חדשים שאינם במערכת. האם להוסיף אותם למלאי?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="my-2 max-h-40 overflow-y-auto space-y-1 text-sm">
+          {unmatched.map((item, i) => (
+            <div key={i} className="flex justify-between px-2 py-1 rounded bg-muted/50">
+              <span>{item.product_name}</span>
+              <span className="text-muted-foreground">{item.sku || "ללא מק״ט"} · כמות: {item.quantity}</span>
+            </div>
+          ))}
+        </div>
+        <AlertDialogFooter className="flex-row-reverse gap-2">
+          <Button onClick={() => handleSave(true)}>הוסף למלאי</Button>
+          <Button variant="outline" onClick={() => handleSave(false)}>דלג</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
