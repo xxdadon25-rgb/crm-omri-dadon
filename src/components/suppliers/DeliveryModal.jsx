@@ -9,8 +9,8 @@ import { Upload, Camera, X, Loader2, CheckCircle, AlertTriangle, PackagePlus } f
 // ── Claude API ────────────────────────────────────────────────────────────────
 
 async function extractFromFile(file) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("מפתח VITE_ANTHROPIC_API_KEY חסר ב-.env.local");
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("מפתח VITE_GEMINI_API_KEY חסר ב-.env.local");
 
   const base64 = await new Promise((res, rej) => {
     const r = new FileReader();
@@ -19,36 +19,26 @@ async function extractFromFile(file) {
     r.readAsDataURL(file);
   });
 
-  const isImage = file.type.startsWith("image/");
-  const contentBlock = isImage
-    ? { type: "image", source: { type: "base64", media_type: file.type, data: base64 } }
-    : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את כל פריטי המוצרים והחזר JSON תקין בלבד, ללא טקסט נוסף, בפורמט:
+[{"product_name":"שם המוצר","sku":"מק"ט או null","quantity":1,"unit_price":0,"total":0}]
+אם שדה חסר השתמש ב-null. החזר אך ורק מערך JSON.`;
 
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-      "anthropic-dangerous-allow-browser": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      messages: [{
-        role: "user",
-        content: [
-          contentBlock,
-          {
-            type: "text",
-            text: `זוהי תעודת משלוח או חשבונית ספק. חלץ את כל פריטי המוצרים והחזר JSON תקין בלבד, ללא טקסט נוסף, בפורמט:
-[{"product_name":"שם המוצר","sku":"מק\\"ט או null","quantity":1,"unit_price":0,"total":0}]
-אם שדה חסר השתמש ב-null. החזר אך ורק מערך JSON.`,
-          },
-        ],
-      }],
-    }),
-  });
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: file.type, data: base64 } },
+            { text: prompt },
+          ],
+        }],
+        generationConfig: { temperature: 0, maxOutputTokens: 2048 },
+      }),
+    }
+  );
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
@@ -56,7 +46,7 @@ async function extractFromFile(file) {
   }
 
   const data = await resp.json();
-  const text = data.content?.[0]?.text ?? "";
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
   return JSON.parse(match[0]);
