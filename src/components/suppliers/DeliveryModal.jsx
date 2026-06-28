@@ -35,7 +35,7 @@ async function extractFromFile(file) {
             { text: prompt },
           ],
         }],
-        generationConfig: { temperature: 0, maxOutputTokens: 2048 },
+        generationConfig: { temperature: 0, maxOutputTokens: 8192 },
       }),
     }
   );
@@ -47,13 +47,29 @@ async function extractFromFile(file) {
 
   const data = await resp.json();
   console.log('Gemini raw response:', JSON.stringify(data, null, 2));
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text ?? "";
+  const finishReason = candidate?.finishReason;
+
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
+
   try {
     return JSON.parse(match[0]);
   } catch (error) {
     console.log('Parse error:', error);
+    // If truncated due to token limit, recover all complete objects before the cutoff
+    if (finishReason === "MAX_TOKENS") {
+      const partial = match[0];
+      const lastClose = partial.lastIndexOf("}");
+      if (lastClose !== -1) {
+        try {
+          return JSON.parse(partial.slice(0, lastClose + 1) + "]");
+        } catch (e) {
+          console.log('Partial parse error:', e);
+        }
+      }
+    }
     throw new Error("שגיאה בפענוח תשובת ה-AI");
   }
 }
