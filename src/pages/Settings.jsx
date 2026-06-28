@@ -112,9 +112,13 @@ export default function Settings() {
 
     setSavingCode(true);
     try {
-      const data = { ...form, profitability_access_code: newCodeInput };
       if (existing?.id) {
-        await supabase.from("business_settings").update(data).eq("id", existing.id);
+        await supabase.from("business_settings")
+          .update({ profitability_access_code: newCodeInput })
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("business_settings")
+          .insert({ profitability_access_code: newCodeInput, user_id: user.id });
       }
       setForm(prev => ({ ...prev, profitability_access_code: newCodeInput }));
       setCurrentCodeInput("");
