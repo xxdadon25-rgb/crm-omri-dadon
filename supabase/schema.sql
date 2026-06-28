@@ -355,6 +355,28 @@ CREATE TABLE IF NOT EXISTS business_settings (
   api_company_id              TEXT
 );
 
+-- supplier_deliveries
+CREATE TABLE IF NOT EXISTS supplier_deliveries (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  supplier_id   UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  delivery_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+  file_url      TEXT,
+  status        TEXT DEFAULT 'הושלם',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- supplier_price_history
+CREATE TABLE IF NOT EXISTS supplier_price_history (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  product_id  UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  price       NUMERIC NOT NULL,
+  delivery_id UUID REFERENCES supplier_deliveries(id) ON DELETE SET NULL,
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ──────────────────────────────────────────────────────────────
 -- Row Level Security (RLS)
 -- Each user can only see and modify their own rows.
@@ -366,7 +388,8 @@ DECLARE
   tables TEXT[] := ARRAY[
     'customers','products','categories','suppliers','quotes','orders',
     'invoices','payments','crm_tasks','repair_tickets','inventory_movements',
-    'notifications','import_logs','invoice_logs','backups','business_settings'
+    'notifications','import_logs','invoice_logs','backups','business_settings',
+    'supplier_deliveries','supplier_price_history'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP

@@ -11,7 +11,8 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, Check } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus } from "lucide-react";
+import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,6 +46,7 @@ export default function Suppliers() {
   const [selectedSuppliers, setSelectedSuppliers] = useState(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deliverySupplier, setDeliverySupplier] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -264,6 +266,7 @@ export default function Suppliers() {
                     <TableCell>{s.tax_id || "-"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="קבלת סחורה" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -316,6 +319,12 @@ export default function Suppliers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DeliveryModal
+        supplier={deliverySupplier}
+        open={!!deliverySupplier}
+        onClose={() => setDeliverySupplier(null)}
+      />
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
