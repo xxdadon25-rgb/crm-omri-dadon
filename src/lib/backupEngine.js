@@ -50,8 +50,11 @@ export async function runBackup(type = "ידני") {
   const a = document.createElement("a");
   a.href = url;
   a.download = `backup_${now.toISOString().slice(0, 10)}.json`;
+  console.log(`[backup] download link created — filename: ${a.download}, url: ${url}`);
   document.body.appendChild(a);
+  console.log("[backup] calling a.click() to trigger download...");
   a.click();
+  console.log("[backup] a.click() returned — download should have started");
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 
