@@ -34,25 +34,48 @@ export default function Backup() {
 
   const handleManualBackup = async () => {
     setIsRunning(true);
+    const id = "backup-" + Date.now();
+    const now = new Date();
+    const isoNow = now.toISOString();
+
+    // Add in-progress entry immediately so the user sees it
+    const pendingEntry = {
+      id,
+      label: `גיבוי ידני — ${now.toLocaleDateString("he-IL")}`,
+      backup_type: "ידני",
+      status: "בתהליך",
+      data_url: null,
+      size_kb: 0,
+      record_counts: null,
+      created_date: isoNow,
+      updated_date: isoNow,
+    };
+    setBackups((prev) => [pendingEntry, ...prev]);
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("גיבוי חרג מ-30 שניות")), 30000)
+    );
+
     try {
-      const result = await runBackup("ידני");
+      const result = await Promise.race([runBackup("ידני"), timeout]);
 
-      const entry = {
-        id: "backup-" + Date.now(),
-        label: `גיבוי ידני — ${new Date().toLocaleDateString("he-IL")}`,
-        backup_type: "ידני",
-        status: "הושלם",
-        data_url: result.file_url,
-        size_kb: result.sizeKb,
-        record_counts: JSON.stringify(result.counts),
-        created_date: result.created_date,
-        updated_date: result.updated_date,
-      };
-
-      setBackups((prev) => [entry, ...prev]);
+      setBackups((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, status: "הושלם", data_url: result.file_url, size_kb: result.sizeKb, record_counts: JSON.stringify(result.counts), updated_date: new Date().toISOString() }
+            : b
+        )
+      );
       toast.success("גיבוי הושלם — הקובץ הורד");
     } catch (err) {
       console.error("[Backup] runBackup failed:", err);
+      setBackups((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, status: "נכשל", error_message: err.message, updated_date: new Date().toISOString() }
+            : b
+        )
+      );
       toast.error("גיבוי נכשל: " + err.message);
     } finally {
       setIsRunning(false);
