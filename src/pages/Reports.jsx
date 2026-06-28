@@ -18,7 +18,7 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState("month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [statusFilters, setStatusFilters] = useState(["ממתין לאישור", "אושר", "בהכנה", "הושלם"]);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
@@ -63,10 +63,10 @@ export default function Reports() {
       if (!order.date) return false;
       const orderDate = new Date(order.date);
       const inDateRange = orderDate >= dateStart && orderDate <= dateEnd;
-      const hasStatus = statusFilters.includes(order.status);
+      const hasStatus = statusFilter === "all" || statusFilter === order.status;
       return inDateRange && hasStatus;
     });
-  }, [orders, dateStart, dateEnd, statusFilters]);
+  }, [orders, dateStart, dateEnd, statusFilter]);
 
   // Sales Summary
   const salesToday = useMemo(() => {
@@ -74,30 +74,30 @@ export default function Reports() {
     return orders
       .filter((o) => {
         const d = new Date(o.date);
-        return d >= today && d <= endOfDay(new Date()) && statusFilters.includes(o.status);
+        return d >= today && d <= endOfDay(new Date()) && (statusFilter === "all" || statusFilter === o.status);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilters]);
+  }, [orders, statusFilter]);
 
   const salesMonth = useMemo(() => {
     const start = startOfMonth(new Date());
     return orders
       .filter((o) => {
         const d = new Date(o.date);
-        return d >= start && statusFilters.includes(o.status);
+        return d >= start && (statusFilter === "all" || statusFilter === o.status);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilters]);
+  }, [orders, statusFilter]);
 
   const salesYear = useMemo(() => {
     const start = startOfYear(new Date());
     return orders
       .filter((o) => {
         const d = new Date(o.date);
-        return d >= start && statusFilters.includes(o.status);
+        return d >= start && (statusFilter === "all" || statusFilter === o.status);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilters]);
+  }, [orders, statusFilter]);
 
   const totalOrders = filteredOrders.length;
   const avgPerOrder = totalOrders > 0 ? filteredOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0) / totalOrders : 0;
@@ -193,7 +193,7 @@ export default function Reports() {
     }
 
     orders
-      .filter((o) => statusFilters.includes(o.status))
+      .filter((o) => statusFilter === "all" || statusFilter === o.status)
       .forEach((order) => {
         if (!order.date) return;
         const key = order.date.slice(0, 7);
@@ -213,7 +213,7 @@ export default function Reports() {
       });
 
     return Object.values(months);
-  }, [orders, products, statusFilters]);
+  }, [orders, products, statusFilter]);
 
   // Top Products Chart
   const topProductsChart = topProducts.slice(0, 5).map((p) => ({
@@ -278,7 +278,7 @@ export default function Reports() {
     csv += "מטא-דאטה,\n";
     csv += `"תאריך יצוא","${format(new Date(), "dd/MM/yyyy HH:mm")}"\n`;
     csv += `"טווח דוח","${dateRange === "custom" ? `${customStart} עד ${customEnd}` : dateRange}"\n`;
-    csv += `"סטטוסים","${statusFilters.join(", ")}"\n`;
+    csv += `"סטטוסים","${statusFilter === "all" ? "הכל" : statusFilter}"\n`;
 
     const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -525,17 +525,12 @@ export default function Reports() {
 
             <div>
               <label className="text-sm font-medium mb-2 block">סטטוס הזמנה</label>
-              <Select
-                value={statusFilters.join(",")}
-                onValueChange={(val) => {
-                  const selected = val.split(",").filter((s) => s);
-                  setStatusFilters(selected.length > 0 ? selected : ["אושר", "בהכנה", "הושלם"]);
-                }}
-              >
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="בחר סטטוסים" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">הכל</SelectItem>
                   {STATUS_FILTER_OPTIONS.map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
