@@ -14,31 +14,37 @@ const TABLES = [
 ];
 
 export async function runBackup(type = "ידני") {
+  console.log("[backup] ===== START runBackup =====", { type });
   const snapshot = {};
   const counts = {};
 
   for (const table of TABLES) {
+    console.log(`[backup] fetching table: ${table} ...`);
     try {
       const { data, error } = await supabase.from(table).select("*");
       if (error) {
-        console.warn(`[backup] skipping ${table}:`, error.message);
+        console.error(`[backup] ERROR on table "${table}":`, error.code, error.message, error.details, error.hint);
         snapshot[table] = [];
         counts[table] = 0;
       } else {
         snapshot[table] = data ?? [];
         counts[table] = (data ?? []).length;
+        console.log(`[backup] OK table "${table}": ${counts[table]} rows`);
       }
     } catch (err) {
-      console.warn(`[backup] error fetching ${table}:`, err.message);
+      console.error(`[backup] EXCEPTION on table "${table}":`, err);
       snapshot[table] = [];
       counts[table] = 0;
     }
   }
 
+  console.log("[backup] all tables fetched. counts:", counts);
+
   const now = new Date();
   const json = JSON.stringify({ created_at: now.toISOString(), type, data: snapshot }, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const sizeKb = Math.round(blob.size / 1024);
+  console.log(`[backup] JSON ready — ${sizeKb} KB. Triggering download...`);
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -50,7 +56,9 @@ export async function runBackup(type = "ידני") {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 
   const isoNow = now.toISOString();
-  return { file_url: url, counts, sizeKb, created_date: isoNow, updated_date: isoNow };
+  const result = { file_url: url, counts, sizeKb, created_date: isoNow, updated_date: isoNow };
+  console.log("[backup] ===== END runBackup =====", result);
+  return result;
 }
 
 export async function restoreBackup(backup) {
