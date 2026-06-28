@@ -38,29 +38,40 @@ export default function MonthlyInvoicesTab({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const eligibleOrders = (allOrders || []).filter(o =>
+  const invoicedOrderIds = new Set((allInvoices || []).map(inv => inv.order_id).filter(Boolean));
+
+  const monthOrders = (allOrders || []).filter(o =>
     o.customer_id === selectedCustomer?.id &&
     o.date &&
     new Date(o.date).getMonth() + 1 === selectedMonth &&
     new Date(o.date).getFullYear() === selectedYear
   );
+  const eligibleOrders = monthOrders.filter(o => !invoicedOrderIds.has(o.id));
+  const excludedCount = monthOrders.length - eligibleOrders.length;
 
   const handleGenerate = async () => {
     if (!selectedCustomer) return;
     setGenerating(true);
     try {
-      // Re-fetch orders fresh before creating
-      const freshOrders = await base44.entities.Order.filter({
-        customer_id: selectedCustomer.id,
-      });
-      const eligible = freshOrders.filter(o =>
+      // Re-fetch orders and invoices fresh before creating
+      const [freshOrders, freshInvoices] = await Promise.all([
+        base44.entities.Order.filter({ customer_id: selectedCustomer.id }),
+        base44.entities.Invoice.filter({ customer_id: selectedCustomer.id }),
+      ]);
+      const freshInvoicedIds = new Set(freshInvoices.map(inv => inv.order_id).filter(Boolean));
+      const monthCandidates = freshOrders.filter(o =>
         o.date &&
         new Date(o.date).getMonth() + 1 === selectedMonth &&
         new Date(o.date).getFullYear() === selectedYear
       );
+      const eligible = monthCandidates.filter(o => !freshInvoicedIds.has(o.id));
+      const skipped = monthCandidates.length - eligible.length;
 
       if (eligible.length === 0) {
-        toast({ title: "אין הזמנות לחודש זה", description: "לא נמצאו הזמנות עבור הלקוח בחודש שנבחר.", variant: "destructive" });
+        const reason = skipped > 0
+          ? `כל ${skipped} ההזמנות לחודש זה כבר מקושרות לחשבוניות קיימות.`
+          : "לא נמצאו הזמנות עבור הלקוח בחודש שנבחר.";
+        toast({ title: "אין הזמנות פנויות", description: reason, variant: "destructive" });
         return;
       }
 
@@ -132,7 +143,8 @@ export default function MonthlyInvoicesTab({
       await queryClient.refetchQueries({ queryKey: ["invoices"] });
       await queryClient.refetchQueries({ queryKey: ["settings"] });
 
-      toast({ title: "חשבונית חודשית נוצרה", description: `חשבונית #${invoiceNumber} נוצרה עם ${eligible.length} הזמנות.` });
+      const skippedNote = skipped > 0 ? ` (${skipped} הזמנות דולגו — כבר מקושרות לחשבונית)` : "";
+      toast({ title: "חשבונית חודשית נוצרה", description: `חשבונית #${invoiceNumber} נוצרה עם ${eligible.length} הזמנות.${skippedNote}` });
     } finally {
       setGenerating(false);
     }
@@ -194,8 +206,10 @@ ${companyName}`;
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">
               {eligibleOrders.length > 0
-                ? `${eligibleOrders.length} הזמנות לחודש זה | סה״כ: ₪${eligibleOrders.reduce((s, o) => s + (o.total || 0), 0).toLocaleString()}`
-                : "אין הזמנות לחודש זה"}
+                ? `${eligibleOrders.length} הזמנות פנויות | סה״כ: ₪${eligibleOrders.reduce((s, o) => s + (o.total || 0), 0).toLocaleString()}${excludedCount > 0 ? ` | ${excludedCount} דולגו (כבר חויבו)` : ""}`
+                : monthOrders.length > 0
+                  ? `כל ${monthOrders.length} ההזמנות לחודש זה כבר מקושרות לחשבוניות`
+                  : "אין הזמנות לחודש זה"}
             </span>
             <Button
               onClick={handleGenerate}
