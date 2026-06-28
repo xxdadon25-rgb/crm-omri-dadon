@@ -25,7 +25,7 @@ async function extractFromFile(file) {
 [{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]
 אם שדה חסר השתמש ב-null.`;
 
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
   const fetchBody = JSON.stringify({
     contents: [{
       parts: [
