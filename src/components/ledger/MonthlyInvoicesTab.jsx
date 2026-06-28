@@ -38,7 +38,10 @@ export default function MonthlyInvoicesTab({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const invoicedOrderIds = new Set((allInvoices || []).map(inv => inv.order_id).filter(Boolean));
+  const invoicedOrderIds = new Set((allInvoices || []).flatMap(inv => [
+    inv.order_id,
+    ...((Array.isArray(inv.included_order_ids) ? inv.included_order_ids : [])),
+  ]).filter(Boolean));
 
   const monthOrders = (allOrders || []).filter(o =>
     o.customer_id === selectedCustomer?.id &&
@@ -58,7 +61,10 @@ export default function MonthlyInvoicesTab({
         base44.entities.Order.filter({ customer_id: selectedCustomer.id }),
         base44.entities.Invoice.filter({ customer_id: selectedCustomer.id }),
       ]);
-      const freshInvoicedIds = new Set(freshInvoices.map(inv => inv.order_id).filter(Boolean));
+      const freshInvoicedIds = new Set(freshInvoices.flatMap(inv => [
+        inv.order_id,
+        ...((Array.isArray(inv.included_order_ids) ? inv.included_order_ids : [])),
+      ]).filter(Boolean));
       const monthCandidates = freshOrders.filter(o =>
         o.date &&
         new Date(o.date).getMonth() + 1 === selectedMonth &&
