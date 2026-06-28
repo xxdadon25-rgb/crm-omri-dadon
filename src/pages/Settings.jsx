@@ -120,17 +120,24 @@ export default function Settings() {
 
     setSavingCode(true);
     try {
+      let dbError = null;
       if (existing?.id) {
         console.log("[handleChangeCode] updating existing record id:", existing.id, "new code:", newCodeInput);
         const { error } = await supabase.from("business_settings")
           .update({ profitability_access_code: newCodeInput })
           .eq("id", existing.id);
         console.log("[handleChangeCode] update result error:", error);
+        dbError = error;
       } else {
         console.log("[handleChangeCode] no existing record — inserting new");
         const { error } = await supabase.from("business_settings")
           .insert({ profitability_access_code: newCodeInput, user_id: user.id });
         console.log("[handleChangeCode] insert result error:", error);
+        dbError = error;
+      }
+      if (dbError) {
+        toast.error("שגיאה בשמירה: " + dbError.message);
+        return;
       }
       setForm(prev => ({ ...prev, profitability_access_code: newCodeInput }));
       setCurrentCodeInput("");
