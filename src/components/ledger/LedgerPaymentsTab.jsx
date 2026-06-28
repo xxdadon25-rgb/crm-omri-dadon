@@ -203,7 +203,6 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("payment-attachments").getPublicUrl(filePath);
       setReceiptState(prev => ({ ...prev, [p.id]: { loading: false, url: publicUrl } }));
-      window.open(publicUrl, "_blank");
       handlePaymentWhatsApp(p, publicUrl);
     } catch (err) {
       console.error("[receipt]", err);
