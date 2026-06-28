@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Search, Receipt, Trash2, Eye, Check } from "lucide-react";
+import { Search, Receipt, Trash2, Eye, Check, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
 import ExternalInvoiceButton from "@/components/invoices/ExternalInvoiceButton";
@@ -373,6 +373,23 @@ export default function Invoices() {
                   customerPhone={getCustomer(viewInvoice.customer_id)?.phone}
                   customerEmail={getCustomer(viewInvoice.customer_id)?.email}
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const customer = getCustomer(viewInvoice.customer_id);
+                    const phone = customer?.mobile || customer?.phone || "";
+                    const cleaned = phone.replace(/\D/g, "");
+                    const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
+                    const pdfUrl = `https://crm-omri-dadon.vercel.app/invoice-pdf/${viewInvoice.id}`;
+                    const total = (viewInvoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
+                    const msg = `שלום ${viewInvoice.customer_name},\n\nחשבונית מספר #${viewInvoice.invoice_number} ממיני סטוק\nסה"כ לתשלום: ${total}₪\n\nלצפייה בחשבונית: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
+                    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}
+                  className="text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  <Link2 className="w-4 h-4 ml-1" /> קישור WhatsApp לחשבונית
+                </Button>
                 {settings[0]?.api_url && (
                   <ExternalInvoiceButton
                     invoice={viewInvoice}
