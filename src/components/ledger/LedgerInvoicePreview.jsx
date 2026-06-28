@@ -1,8 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, MessageCircle, X, Wallet } from "lucide-react";
+import { Printer, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/api/supabaseClient";
+import { toast } from "sonner";
 
 const paymentColors = {
   "ממתין לתשלום": "bg-orange-100 text-orange-700",
@@ -11,7 +14,89 @@ const paymentColors = {
   "באיחור": "bg-red-100 text-red-700",
 };
 
+const BUCKET = "payment-attachments";
+
 export default function LedgerInvoicePreview({ invoice, onClose, businessSettings, selectedCustomer, onRecordPayment }) {
+  const [attachments, setAttachments] = useState([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
+  useEffect(() => {
+    if (invoice?.id) fetchAttachments();
+  }, [invoice?.id]);
+
+  const fetchAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const { data, error } = await supabase
+        .from("invoice_attachments")
+        .select("*")
+        .eq("invoice_id", invoice.id)
+        .order("created_at", { ascending: false });
+      if (!error) setAttachments(data || []);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  const uploadFile = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const filePath = `${invoice.id}/${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(filePath, file, { upsert: false });
+
+      if (uploadError) {
+        toast.error("שגיאה בהעלאת הקובץ: " + uploadError.message);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from("invoice_attachments")
+        .insert({ invoice_id: invoice.id, file_url: publicUrl, file_name: file.name });
+
+      if (dbError) {
+        toast.error("שגיאה בשמירת הקובץ: " + dbError.message);
+        return;
+      }
+
+      toast.success("הקובץ צורף בהצלחה");
+      fetchAttachments();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+    e.target.value = "";
+  };
+
+  const handleDelete = async (attachment) => {
+    try {
+      const url = new URL(attachment.file_url);
+      const pathParts = url.pathname.split(`/${BUCKET}/`);
+      if (pathParts[1]) {
+        await supabase.storage.from(BUCKET).remove([pathParts[1]]);
+      }
+      await supabase.from("invoice_attachments").delete().eq("id", attachment.id);
+      setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+      toast.success("הצרופה נמחקה");
+    } catch {
+      toast.error("שגיאה במחיקת הצרופה");
+    }
+  };
+
   if (!invoice) return null;
 
   const handlePDF = () => {
@@ -141,6 +226,88 @@ ${companyName}`;
             <span>{invoice.notes}</span>
           </div>
         )}
+
+        {/* ── PAYMENT ATTACHMENTS ─────────────────────────────────────────── */}
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Paperclip className="w-4 h-4" /> צירוף תשלום
+            </h4>
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-1.5 text-xs"
+              >
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                העלאת קובץ
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => cameraInputRef.current?.click()}
+                className="gap-1.5 text-xs"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                צילום
+              </Button>
+            </div>
+          </div>
+
+          {loadingAttachments ? (
+            <div className="flex justify-center py-3">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : attachments.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-2">אין צרופות עדיין</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {attachments.map(att => (
+                <li key={att.id} className="flex items-center justify-between gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                  <span className="truncate flex-1 text-xs">{att.file_name}</span>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => window.open(att.file_url, "_blank")}
+                      title="פתח"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(att)}
+                      title="מחק"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className="flex gap-2 pt-2 border-t border-border flex-wrap">
           <Button onClick={handlePDF} className="gap-2">
