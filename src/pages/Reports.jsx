@@ -18,7 +18,7 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState("month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [statusFilters, setStatusFilters] = useState(["אושר", "בהכנה", "הושלם"]);
+  const [statusFilters, setStatusFilters] = useState(["ממתין לאישור", "אושר", "בהכנה", "הושלם"]);
 
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
@@ -75,7 +75,7 @@ export default function Reports() {
         const d = new Date(o.date);
         return d >= today && d <= endOfDay(new Date()) && statusFilters.includes(o.status);
       })
-      .reduce((sum, o) => sum + (o.subtotal || 0), 0);
+      .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   }, [orders, statusFilters]);
 
   const salesMonth = useMemo(() => {
@@ -85,7 +85,7 @@ export default function Reports() {
         const d = new Date(o.date);
         return d >= start && statusFilters.includes(o.status);
       })
-      .reduce((sum, o) => sum + (o.subtotal || 0), 0);
+      .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   }, [orders, statusFilters]);
 
   const salesYear = useMemo(() => {
@@ -95,11 +95,11 @@ export default function Reports() {
         const d = new Date(o.date);
         return d >= start && statusFilters.includes(o.status);
       })
-      .reduce((sum, o) => sum + (o.subtotal || 0), 0);
+      .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   }, [orders, statusFilters]);
 
   const totalOrders = filteredOrders.length;
-  const avgPerOrder = totalOrders > 0 ? filteredOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0) / totalOrders : 0;
+  const avgPerOrder = totalOrders > 0 ? filteredOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0) / totalOrders : 0;
 
   // Profitability Summary (NET prices before VAT)
   const profitability = useMemo(() => {
@@ -107,15 +107,13 @@ export default function Reports() {
     let totalCost = 0;
 
     filteredOrders.forEach((order) => {
-      totalSales += order.subtotal || 0;
+      totalSales += order.subtotal || order.total || 0;
 
       if (order.items) {
         order.items.forEach((item) => {
-          const product = products.find((p) => p.id === item.product_id);
-          if (product) {
-            const itemCost = (product.buy_price || 0) * item.quantity;
-            totalCost += itemCost;
-          }
+          if (item.is_header) return;
+          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
+          totalCost += buyPrice * (item.quantity || 0);
         });
       }
     });
@@ -133,22 +131,17 @@ export default function Reports() {
     filteredOrders.forEach((order) => {
       if (order.items) {
         order.items.forEach((item) => {
-          const product = products.find((p) => p.id === item.product_id);
-          if (product) {
-            if (!productMap[item.product_id]) {
-              productMap[item.product_id] = {
-                id: item.product_id,
-                name: item.name,
-                quantity: 0,
-                sales: 0,
-                profit: 0,
-              };
-            }
-            productMap[item.product_id].quantity += item.quantity;
-            productMap[item.product_id].sales += item.total || 0;
-            const itemCost = (product.buy_price || 0) * item.quantity;
-            productMap[item.product_id].profit += (item.total || 0) - itemCost;
+          if (item.is_header || !item.name) return;
+          const key = item.product_id || item.name;
+          if (!productMap[key]) {
+            productMap[key] = { id: key, name: item.name, quantity: 0, sales: 0, profit: 0 };
           }
+          const qty = item.quantity || 0;
+          const itemSales = item.total || 0;
+          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
+          productMap[key].quantity += qty;
+          productMap[key].sales += itemSales;
+          productMap[key].profit += itemSales - buyPrice * qty;
         });
       }
     });
@@ -171,15 +164,15 @@ export default function Reports() {
         };
       }
       customerMap[order.customer_id].orders += 1;
-      customerMap[order.customer_id].total += order.subtotal || 0;
+      customerMap[order.customer_id].total += order.subtotal || order.total || 0;
 
       if (order.items) {
         order.items.forEach((item) => {
-          const product = products.find((p) => p.id === item.product_id);
-          if (product) {
-            const itemCost = (product.buy_price || 0) * item.quantity;
-            customerMap[order.customer_id].profit += (item.total || 0) - itemCost;
-          }
+          if (item.is_header) return;
+          const qty = item.quantity || 0;
+          const itemSales = item.total || 0;
+          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
+          customerMap[order.customer_id].profit += itemSales - buyPrice * qty;
         });
       }
     });
@@ -203,15 +196,15 @@ export default function Reports() {
       .forEach((order) => {
         const key = order.date.slice(0, 7);
         if (months[key]) {
-          months[key].sales += order.subtotal || 0;
+          months[key].sales += order.subtotal || order.total || 0;
 
           if (order.items) {
             order.items.forEach((item) => {
-              const product = products.find((p) => p.id === item.product_id);
-              if (product) {
-                const itemCost = (product.buy_price || 0) * item.quantity;
-                months[key].profit += (item.total || 0) - itemCost;
-              }
+              if (item.is_header) return;
+              const qty = item.quantity || 0;
+              const itemSales = item.total || 0;
+              const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
+              months[key].profit += itemSales - buyPrice * qty;
             });
           }
         }
