@@ -73,6 +73,7 @@ export default function Reports() {
     const today = startOfDay(new Date());
     return orders
       .filter((o) => {
+        if (!o.date) return false;
         const d = new Date(o.date);
         return d >= today && d <= endOfDay(new Date()) && (statusFilter === "all" || statusFilter === o.status);
       })
@@ -83,6 +84,7 @@ export default function Reports() {
     const start = startOfMonth(new Date());
     return orders
       .filter((o) => {
+        if (!o.date) return false;
         const d = new Date(o.date);
         return d >= start && (statusFilter === "all" || statusFilter === o.status);
       })
@@ -93,6 +95,7 @@ export default function Reports() {
     const start = startOfYear(new Date());
     return orders
       .filter((o) => {
+        if (!o.date) return false;
         const d = new Date(o.date);
         return d >= start && (statusFilter === "all" || statusFilter === o.status);
       })
@@ -110,11 +113,11 @@ export default function Reports() {
     filteredOrders.forEach((order) => {
       totalSales += order.subtotal || order.total || 0;
 
-      if (order.items) {
+      if (Array.isArray(order.items)) {
         order.items.forEach((item) => {
-          if (item.is_header) return;
-          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
-          totalCost += buyPrice * (item.quantity || 0);
+          if (!item || item.is_header) return;
+          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
+          totalCost += (isNaN(buyPrice) ? 0 : buyPrice) * (item.quantity || 0);
         });
       }
     });
@@ -130,19 +133,19 @@ export default function Reports() {
     const productMap = {};
 
     filteredOrders.forEach((order) => {
-      if (order.items) {
+      if (Array.isArray(order.items)) {
         order.items.forEach((item) => {
-          if (item.is_header || !item.name) return;
+          if (!item || item.is_header || !item.name) return;
           const key = item.product_id || item.name;
           if (!productMap[key]) {
-            productMap[key] = { id: key, name: item.name, quantity: 0, sales: 0, profit: 0 };
+            productMap[key] = { id: key, name: String(item.name), quantity: 0, sales: 0, profit: 0 };
           }
           const qty = item.quantity || 0;
           const itemSales = item.total || 0;
-          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
+          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
           productMap[key].quantity += qty;
           productMap[key].sales += itemSales;
-          productMap[key].profit += itemSales - buyPrice * qty;
+          productMap[key].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
         });
       }
     });
@@ -167,13 +170,13 @@ export default function Reports() {
       customerMap[order.customer_id].orders += 1;
       customerMap[order.customer_id].total += order.subtotal || order.total || 0;
 
-      if (order.items) {
+      if (Array.isArray(order.items)) {
         order.items.forEach((item) => {
-          if (item.is_header) return;
+          if (!item || item.is_header) return;
           const qty = item.quantity || 0;
           const itemSales = item.total || 0;
-          const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
-          customerMap[order.customer_id].profit += itemSales - buyPrice * qty;
+          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
+          customerMap[order.customer_id].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
         });
       }
     });
@@ -200,13 +203,13 @@ export default function Reports() {
         if (months[key]) {
           months[key].sales += order.subtotal || order.total || 0;
 
-          if (order.items) {
+          if (Array.isArray(order.items)) {
             order.items.forEach((item) => {
-              if (item.is_header) return;
+              if (!item || item.is_header) return;
               const qty = item.quantity || 0;
               const itemSales = item.total || 0;
-              const buyPrice = item.buy_price ?? (products.find((p) => p.id === item.product_id)?.buy_price ?? 0);
-              months[key].profit += itemSales - buyPrice * qty;
+              const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
+              months[key].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
             });
           }
         }
@@ -217,7 +220,7 @@ export default function Reports() {
 
   // Top Products Chart
   const topProductsChart = topProducts.slice(0, 5).map((p) => ({
-    name: p.name.slice(0, 15),
+    name: (p.name || "").slice(0, 15),
     sales: p.sales,
     profit: p.profit,
   }));
