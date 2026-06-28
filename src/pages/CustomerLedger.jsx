@@ -393,6 +393,7 @@ export default function CustomerLedger() {
                     onPreview={setPreviewInvoice}
                     businessSettings={businessSettings}
                     selectedCustomer={selectedCustomer}
+                    allOrders={orders}
                   />
                 </TabsContent>
 

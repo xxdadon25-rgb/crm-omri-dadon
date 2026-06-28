@@ -14,7 +14,20 @@ const paymentColors = {
   "באיחור": "bg-red-100 text-red-700",
 };
 
-export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer }) {
+export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer, allOrders = [] }) {
+  const orderMap = new Map(allOrders.map(o => [o.id, o.order_number]));
+
+  const getOrderLabel = (invoice) => {
+    if (invoice.invoice_type === "monthly" && Array.isArray(invoice.included_order_ids) && invoice.included_order_ids.length > 0) {
+      const nums = invoice.included_order_ids.map(id => orderMap.get(id)).filter(Boolean);
+      return nums.length > 0 ? `הזמנות #${nums.join(", #")}` : null;
+    }
+    if (invoice.order_id) {
+      const num = orderMap.get(invoice.order_id);
+      return num ? `הזמנה #${num}` : null;
+    }
+    return null;
+  };
   const [loadingId, setLoadingId] = useState(null);
 
   if (loading) {
@@ -73,7 +86,12 @@ ${companyName}`;
           <TableBody>
             {invoices.map(invoice => (
               <TableRow key={invoice.id} className="hover:bg-muted/30">
-                <TableCell className="font-medium text-right">#{invoice.invoice_number || "—"}</TableCell>
+                <TableCell className="font-medium text-right">
+                  <div>#{invoice.invoice_number || "—"}</div>
+                  {getOrderLabel(invoice) && (
+                    <div className="text-xs text-muted-foreground font-normal">{getOrderLabel(invoice)}</div>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">{formatDate(invoice.date)}</TableCell>
                 <TableCell className="text-right">{formatDate(invoice.due_date)}</TableCell>
                 <TableCell className="font-medium text-right">₪{(invoice.total || 0).toLocaleString()}</TableCell>
