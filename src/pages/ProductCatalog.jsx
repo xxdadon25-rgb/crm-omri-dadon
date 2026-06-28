@@ -41,14 +41,14 @@ export default function ProductCatalog() {
     <div>
       <PageHeader title="קטלוג מוצרים" description={`${products.length} מוצרים`} />
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="relative w-full">
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="חיפוש מוצר..."
+            placeholder="חיפוש מוצר לפי שם או מק״ט..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pr-9"
+            className="pr-11 h-12 text-base w-full"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
