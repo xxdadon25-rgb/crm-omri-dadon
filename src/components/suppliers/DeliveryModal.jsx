@@ -417,6 +417,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                         />
                       </td>
                       <td className="px-3 py-2">
+                        {item.priceChanged && (
+                          <p className="text-xs text-muted-foreground mb-0.5">היה: ₪{item.matched.buy_price}</p>
+                        )}
                         <Input
                           type="number"
                           value={item.unit_price}
@@ -424,7 +427,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           className={`h-7 text-sm ${item.priceChanged ? "border-red-400 text-red-600 font-semibold" : ""}`}
                         />
                         {item.priceChanged && (
-                          <p className="text-xs text-red-500 mt-0.5">היה: ₪{item.matched.buy_price}</p>
+                          <p className="text-xs text-red-500 mt-0.5">עכשיו: ₪{item.unit_price}</p>
                         )}
                       </td>
                       <td className="px-3 py-2">
@@ -437,7 +440,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {item.matched ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+                          <span className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 border ${item.priceChanged ? "text-red-700 bg-red-50 border-red-200" : "text-green-700 bg-green-50 border-green-200"}`}>
                             <CheckCircle className="w-3 h-3" /> {item.matched.name}
                           </span>
                         ) : (
