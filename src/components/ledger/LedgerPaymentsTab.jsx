@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import EmptyState from "@/components/shared/EmptyState";
 import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Loader2, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { supabase } from "@/api/supabaseClient";
 
 const methodIcons = {
   "מזומן": "💵", "כרטיס אשראי": "💳", "העברה בנקאית": "🏦",
@@ -195,19 +196,22 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     try {
       const invoice = invoiceMap.get(p.invoice_id) || null;
       const blob = await generateReceiptBlob(p, invoice, businessSettings);
-      const url = URL.createObjectURL(blob);
-      setReceiptState(prev => ({ ...prev, [p.id]: { loading: false, url } }));
+      const filePath = `receipts/${p.invoice_id}/receipt_${p.invoice_number || p.id}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("payment-attachments")
+        .upload(filePath, blob, { contentType: "application/pdf", upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("payment-attachments").getPublicUrl(filePath);
+      setReceiptState(prev => ({ ...prev, [p.id]: { loading: false, url: publicUrl } }));
     } catch (err) {
       console.error("[receipt]", err);
       setReceiptState(prev => ({ ...prev, [p.id]: { loading: false, url: null } }));
     }
   };
 
-  const handlePaymentWhatsApp = (p) => {
+  const handlePaymentWhatsApp = (p, receiptUrl) => {
     const customerName = selectedCustomer?.name || p.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const inv = invoiceMap.get(p.invoice_id);
-    const invoiceUrl = inv ? `${window.location.origin}/invoice-pdf/${inv.id}` : "";
     const msg = [
       `שלום ${customerName},`,
       ``,
@@ -217,7 +221,7 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
       `תאריך: ${fmtDate(p.payment_date)}`,
       p.reference ? `אסמכתא: ${p.reference}` : null,
       ``,
-      invoiceUrl ? `לצפייה בחשבונית: ${invoiceUrl}` : null,
+      receiptUrl ? `חשבונית מס קבלה: ${receiptUrl}` : null,
       ``,
       `בברכה,`,
       companyName,
@@ -326,12 +330,12 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                         <TableCell className="text-right">
                           {p.status === "אושר" && (
                             <div className="flex flex-col gap-1 items-end">
-                              <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 h-7 text-xs px-2 gap-1" onClick={() => handlePaymentWhatsApp(p)}>
+                              <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 h-7 text-xs px-2 gap-1" onClick={() => handlePaymentWhatsApp(p, rs?.url)}>
                                 <MessageCircle className="w-3 h-3" /> WhatsApp
                               </Button>
                               {rs?.url ? (
                                 <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 text-xs px-2 gap-1" onClick={() => window.open(rs.url, "_blank")}>
-                                  <ExternalLink className="w-3 h-3" /> פתח קבלה
+                                  <ExternalLink className="w-3 h-3" /> פתח חשבונית מס קבלה
                                 </Button>
                               ) : (
                                 <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" disabled={rs?.loading} onClick={() => handleGenerateReceipt(p)}>
