@@ -25,7 +25,7 @@ async function extractFromFile(file) {
 [{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]
 אם שדה חסר השתמש ב-null.`;
 
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const fetchBody = JSON.stringify({
     contents: [{
       parts: [
@@ -43,7 +43,7 @@ async function extractFromFile(file) {
   });
 
   if (resp.status === 503) {
-    await new Promise(res => setTimeout(res, 3000));
+    await new Promise(res => setTimeout(res, 10000));
     resp = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
