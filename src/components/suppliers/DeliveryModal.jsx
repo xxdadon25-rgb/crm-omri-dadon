@@ -301,6 +301,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
@@ -523,5 +524,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    </>
   );
 }
