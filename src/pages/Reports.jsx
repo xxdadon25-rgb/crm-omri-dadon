@@ -60,6 +60,7 @@ export default function Reports() {
   // Filter orders by date and status
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      if (!order.date) return false;
       const orderDate = new Date(order.date);
       const inDateRange = orderDate >= dateStart && orderDate <= dateEnd;
       const hasStatus = statusFilters.includes(order.status);
@@ -194,6 +195,7 @@ export default function Reports() {
     orders
       .filter((o) => statusFilters.includes(o.status))
       .forEach((order) => {
+        if (!order.date) return;
         const key = order.date.slice(0, 7);
         if (months[key]) {
           months[key].sales += order.subtotal || order.total || 0;
