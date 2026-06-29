@@ -207,7 +207,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
       console.log('[calling matchProducts] extractedItems:', extracted?.length, 'products:', products?.length);
-      setItems(matchProducts(extracted, products));
+      const matchedResult = matchProducts(extracted, products);
+      console.log('[state after match] items with priceChanged:', matchedResult.filter(i => i.priceChanged).length);
+      setItems(matchedResult);
       setStep("review");
     } catch (err) {
       toast.error("שגיאה בניתוח: " + err.message);
