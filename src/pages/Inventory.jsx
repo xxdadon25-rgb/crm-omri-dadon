@@ -54,6 +54,7 @@ export default function Inventory() {
   // Invalidate cache on mount so delivery-driven quantity updates are visible immediately
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.resetQueries({ queryKey: ["products"] });
   }, []);
 
   const { data: products = [], isLoading } = useQuery({
