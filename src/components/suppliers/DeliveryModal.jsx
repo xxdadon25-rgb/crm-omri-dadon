@@ -100,6 +100,7 @@ function matchProducts(extractedItems, products) {
       matched = products.find(p => (p.name || "").toLowerCase().trim() === byNameLower);
 
     const priceChanged = !!(matched && item.unit_price != null && matched.buy_price != null && Math.abs(Number(item.unit_price) - Number(matched.buy_price)) > 0.01);
+    console.log('[matchProducts]', item.sku, '| gemini price:', item.unit_price, '| supabase buy_price:', matched?.buy_price, '| priceChanged:', priceChanged);
 
     return {
       ...item,
