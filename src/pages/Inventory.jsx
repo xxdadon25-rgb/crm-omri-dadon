@@ -3,10 +3,7 @@ import { fetchProductsWithPending } from "@/lib/pendingProducts";
 
 // Seed from sessionStorage so module-level set is populated after page refresh
 const _rawSS = (() => { try { return JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]"); } catch { return []; } })();
-console.log("[PROOF] PAGE LOAD — sessionStorage.pendingDeletedProducts raw:", sessionStorage.getItem("pendingDeletedProducts"));
-console.log("[PROOF] PAGE LOAD — parsed ids to seed:", _rawSS);
 const deletedProductIds = new Set(_rawSS);
-console.log("[PROOF] PAGE LOAD — deletedProductIds after seeding:", [...deletedProductIds]);
 
 const getPendingDeletedProductIds = () => {
   try { return new Set(JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]")); } catch { return new Set(); }
@@ -63,18 +60,7 @@ export default function Inventory() {
     refetchOnMount: "always",
     select: (data) => {
       const sessionDeleted = getPendingDeletedProductIds();
-      const TARGET = "6a2a0632696b7fe1caf41a8e";
-      console.log("[PROOF] SELECT — deletedProductIds:", [...deletedProductIds]);
-      console.log("[PROOF] SELECT — sessionStorage pendingDeletedProducts:", sessionStorage.getItem("pendingDeletedProducts"));
-      console.log("[PROOF] SELECT — sessionDeleted set:", [...sessionDeleted]);
-      console.log("[PROOF] SELECT — input ids count:", data.length);
-      console.log("[PROOF] SELECT — target in deletedProductIds:", deletedProductIds.has(TARGET));
-      console.log("[PROOF] SELECT — target in sessionDeleted:", sessionDeleted.has(TARGET));
-      console.log("[PROOF] SELECT — target in input data:", data.some(p => p.id === TARGET));
-      const output = data.filter(p => !deletedProductIds.has(p.id) && !sessionDeleted.has(p.id));
-      console.log("[PROOF] SELECT — output ids count:", output.length);
-      console.log("[PROOF] SELECT — target in output (should be FALSE):", output.some(p => p.id === TARGET));
-      return output;
+      return data.filter(p => !deletedProductIds.has(p.id) && !sessionDeleted.has(p.id));
     },
   });
 
@@ -121,12 +107,7 @@ export default function Inventory() {
     // Add to sessionStorage (protects across refetches and page navigations)
     const pendingDeleted = getPendingDeletedProductIds();
     pendingDeleted.add(idToDelete);
-    console.log("[WRITE PROOF] BEFORE setPendingDeletedProductIds — set contents:", [...pendingDeleted]);
-    console.log("[WRITE PROOF] BEFORE setPendingDeletedProductIds — sessionStorage raw:", sessionStorage.getItem("pendingDeletedProducts"));
     setPendingDeletedProductIds(pendingDeleted);
-    console.log("[WRITE PROOF] AFTER setPendingDeletedProductIds — sessionStorage raw:", sessionStorage.getItem("pendingDeletedProducts"));
-    console.log("[WRITE PROOF] AFTER — parsed:", JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]"));
-    console.log("[DELETE PROOF] single delete: added to pendingDeletedProducts:", idToDelete);
 
     queryClient.setQueryData(["products"], (old = []) => old.filter(p => p.id !== idToDelete));
 
@@ -134,7 +115,6 @@ export default function Inventory() {
       await base44.entities.Product.delete(idToDelete);
       toast.success("המוצר נמחק בהצלחה");
     } catch (error) {
-      console.log("[DELETE PROOF] delete API error (product stays hidden):", error.message);
       toast.error("שגיאה במחיקת המוצר");
       // NOTE: No rollback — product stays hidden in UI.
       // Rollback caused the product to reappear after a 404 response.
