@@ -149,6 +149,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setPreview(null);
     setItems([]);
     setSummary(null);
+    matchedResultRef.current = [];
     stopCamera();
   };
 

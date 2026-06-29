@@ -321,6 +321,7 @@ export default function Suppliers() {
       </AlertDialog>
 
       <DeliveryModal
+        key={deliverySupplier?.id}
         supplier={deliverySupplier}
         open={!!deliverySupplier}
         onClose={() => setDeliverySupplier(null)}
