@@ -1,5 +1,6 @@
 // updated buttons - force redeploy
 import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,7 @@ function matchProducts(extractedItems, products) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function DeliveryModal({ supplier, open, onClose }) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState("upload"); // upload | processing | review | saving | done
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -353,6 +355,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       }
 
       setSummary({ updatedCount, priceChanges, addedCount });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setStep("done");
     } catch (err) {
       toast.error("שגיאה בשמירה: " + err.message);
