@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 
 // Seed from sessionStorage so module-level set is populated after page refresh
@@ -51,9 +51,15 @@ export default function Inventory() {
   const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
+  // Invalidate cache on mount so delivery-driven quantity updates are visible immediately
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  }, []);
+
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")),
+    refetchOnMount: "always",
     select: (data) => {
       const sessionDeleted = getPendingDeletedProductIds();
       const TARGET = "6a2a0632696b7fe1caf41a8e";
