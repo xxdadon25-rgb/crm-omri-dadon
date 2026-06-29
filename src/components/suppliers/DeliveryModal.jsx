@@ -329,7 +329,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             name: item.product_name || "מוצר חדש",
             sku: item.sku || null,
             buy_price: Number(item.unit_price) || 0,
-            sell_price: 0,
             quantity: Number(item.quantity) || 0,
             supplier_id: supplier.id,
             supplier: supplier.name,
