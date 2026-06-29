@@ -254,7 +254,11 @@ export default function Inventory() {
                           <span className={isOutOfStock ? "text-red-600 font-bold" : isLow ? "text-orange-600 font-medium" : ""}>{p.quantity}</span>
                         </div>
                       </TableCell>
-                      {showProfit && <TableCell className="text-green-600 font-medium">₪{profit}</TableCell>}
+                      {showProfit && (
+                        <TableCell className={Number(profit) >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                          {Math.abs(Number(profit)).toFixed(2)}₪{Number(profit) < 0 ? "-" : ""}
+                        </TableCell>
+                      )}
                       <TableCell className="min-w-[90px]">
                         <div className="flex items-center gap-1 flex-nowrap">
                           <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" onClick={() => {setEditProduct(p);setDialogOpen(true);}}>
