@@ -382,8 +382,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-right px-3 py-2 min-w-[180px]">מוצר</th>
-                    <th className="text-right px-3 py-2 min-w-[120px]">מק&quot;ט</th>
+                    <th className="text-right px-3 py-2 min-w-[140px]">מוצר</th>
+                    <th className="text-right px-3 py-2 min-w-[80px]">מק&quot;ט</th>
                     <th className="text-right px-3 py-2 w-20">כמות</th>
                     <th className="text-right px-3 py-2 w-28">מחיר יחידה</th>
                     <th className="text-right px-3 py-2 w-28">סה&quot;כ</th>
@@ -413,7 +413,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           type="number"
                           value={item.quantity ?? ""}
                           onChange={e => updateItem(i, "quantity", e.target.value)}
-                          className="h-7 text-sm"
+                          className="h-7 text-sm w-20"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -424,7 +424,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           type="number"
                           value={item.unit_price ?? ""}
                           onChange={e => updateItem(i, "unit_price", e.target.value)}
-                          className={`h-7 text-sm ${item.priceChanged ? "border-red-400 text-red-600 font-semibold" : ""}`}
+                          className={`h-7 text-sm w-20 ${item.priceChanged ? "border-red-400 text-red-600 font-semibold" : ""}`}
                         />
                         {item.priceChanged && (
                           <p className="text-xs text-red-500 mt-0.5">עכשיו: ₪{item.unit_price}</p>
@@ -435,7 +435,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           type="number"
                           value={item.total ?? ""}
                           onChange={e => updateItem(i, "total", e.target.value)}
-                          className="h-7 text-sm"
+                          className="h-7 text-sm w-24"
                         />
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
