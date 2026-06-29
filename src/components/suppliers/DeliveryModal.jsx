@@ -411,7 +411,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       <td className="px-3 py-2">
                         <Input
                           type="number"
-                          value={item.quantity}
+                          value={item.quantity ?? ""}
                           onChange={e => updateItem(i, "quantity", e.target.value)}
                           className="h-7 text-sm"
                         />
@@ -422,7 +422,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                         )}
                         <Input
                           type="number"
-                          value={item.unit_price}
+                          value={item.unit_price ?? ""}
                           onChange={e => updateItem(i, "unit_price", e.target.value)}
                           className={`h-7 text-sm ${item.priceChanged ? "border-red-400 text-red-600 font-semibold" : ""}`}
                         />
@@ -433,7 +433,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       <td className="px-3 py-2">
                         <Input
                           type="number"
-                          value={item.total}
+                          value={item.total ?? ""}
                           onChange={e => updateItem(i, "total", e.target.value)}
                           className="h-7 text-sm"
                         />
