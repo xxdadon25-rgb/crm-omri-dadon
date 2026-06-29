@@ -389,7 +389,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                     <th className="text-right px-3 py-2 w-20">כמות</th>
                     <th className="text-right px-3 py-2 w-28">מחיר יחידה</th>
                     <th className="text-right px-3 py-2 w-28">סה&quot;כ</th>
-                    <th className="text-right px-3 py-2">סטטוס</th>
+                    <th className="text-right px-3 py-2">שם המוצר / סטטוס</th>
                     <th className="text-center px-3 py-2 w-16">דלג</th>
                   </tr>
                 </thead>
@@ -434,7 +434,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <p className="text-sm font-medium mb-1">{item.product_name}</p>
                         {item.matched ? (
                           <span className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 border ${item.priceChanged ? "text-red-700 bg-red-50 border-red-200" : "text-green-700 bg-green-50 border-green-200"}`}>
                             <CheckCircle className="w-3 h-3" /> {item.matched.name}
