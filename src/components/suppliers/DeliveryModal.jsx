@@ -125,6 +125,10 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [summary, setSummary] = useState(null);
   const [newProductsDialog, setNewProductsDialog] = useState(false);
   const [retryMsg, setRetryMsg] = useState("");
+  const [priceQueue, setPriceQueue] = useState([]);
+  const [priceQueueIdx, setPriceQueueIdx] = useState(0);
+  const [priceDecisions, setPriceDecisions] = useState({});
+  const [addNewPending, setAddNewPending] = useState(false);
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
@@ -228,8 +232,33 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     }
   };
 
-  const handleSave = async (addNew) => {
+  const handleSave = (addNew) => {
     setNewProductsDialog(false);
+    setAddNewPending(addNew);
+    const changedItems = items.filter(i => !i.skip && i.matched && i.priceChanged);
+    if (changedItems.length > 0) {
+      setPriceQueue(changedItems);
+      setPriceQueueIdx(0);
+      setPriceDecisions({});
+    } else {
+      executeSave(addNew, {});
+    }
+  };
+
+  const handlePriceDecision = (updatePrice) => {
+    const item = priceQueue[priceQueueIdx];
+    const newDecisions = { ...priceDecisions, [item.matched.id]: updatePrice };
+    const nextIdx = priceQueueIdx + 1;
+    if (nextIdx >= priceQueue.length) {
+      setPriceQueue([]);
+      executeSave(addNewPending, newDecisions);
+    } else {
+      setPriceDecisions(newDecisions);
+      setPriceQueueIdx(nextIdx);
+    }
+  };
+
+  const executeSave = async (addNew, decisions) => {
     setStep("saving");
     const now = new Date().toISOString();
     let updatedCount = 0;
@@ -254,7 +283,12 @@ export default function DeliveryModal({ supplier, open, onClose }) {
           const qty = Number(item.quantity) || 0;
           const price = Number(item.unit_price) || 0;
           const newQty = (Number(item.matched.quantity) || 0) + qty;
-          await supabase.from("products").update({ quantity: newQty }).eq("id", item.matched.id);
+          const updatePayload = { quantity: newQty };
+          if (item.priceChanged && decisions[item.matched.id] === true) {
+            updatePayload.buy_price = price;
+            priceChanges++;
+          }
+          await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
@@ -264,9 +298,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             recorded_at: now,
             user_id: user?.id,
           });
-          if (item.priceChanged) priceChanges++;
         } else if (addNew) {
-          // Insert as new product
           const { data: newProduct } = await supabase.from("products").insert({
             name: item.product_name || "מוצר חדש",
             sku: item.sku || null,
@@ -496,6 +528,27 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         )}
       </DialogContent>
     </Dialog>
+
+    {/* ── Price change confirmation dialog ── */}
+    {priceQueue.length > 0 && priceQueueIdx < priceQueue.length && (() => {
+      const item = priceQueue[priceQueueIdx];
+      return (
+        <AlertDialog open={true}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>שינוי מחיר ({priceQueueIdx + 1}/{priceQueue.length})</AlertDialogTitle>
+              <AlertDialogDescription>
+                מחיר <strong>{item.matched.name}</strong> השתנה מ-₪{item.matched.buy_price} ל-₪{item.unit_price}. לעדכן?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row-reverse gap-2">
+              <Button onClick={() => handlePriceDecision(true)}>כן, עדכן מחיר</Button>
+              <Button variant="outline" onClick={() => handlePriceDecision(false)}>לא, השאר כמו שהיה</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      );
+    })()}
 
     {/* ── New products confirmation dialog ── */}
     <AlertDialog open={newProductsDialog} onOpenChange={setNewProductsDialog}>
