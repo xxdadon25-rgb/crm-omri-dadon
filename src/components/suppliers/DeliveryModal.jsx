@@ -101,7 +101,6 @@ function matchProducts(extractedItems, products) {
       matched = products.find(p => (p.name || "").toLowerCase().trim() === byNameLower);
 
     const priceChanged = !!(matched && item.unit_price != null && matched.buy_price != null && Math.abs(Number(item.unit_price) - Number(matched.buy_price)) > 0.01);
-    console.log('[matchProducts]', item.sku, '| gemini price:', item.unit_price, '| supabase buy_price:', matched?.buy_price, '| priceChanged:', priceChanged);
 
     return {
       ...item,
@@ -209,9 +208,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       });
       if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
-      console.log('[calling matchProducts] extractedItems:', extracted?.length, 'products:', products?.length);
       const matchedResult = matchProducts(extracted, products);
-      console.log('[state after match] items with priceChanged:', matchedResult.filter(i => i.priceChanged).length);
       matchedResultRef.current = matchedResult;
       setItems(matchedResult);
       setStep("review");
@@ -243,16 +240,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const handleSave = (addNew) => {
     setNewProductsDialog(false);
     setAddNewPending(addNew);
-    console.log('[handleSave] all items:', items.map(i => ({
-      product_name: i.product_name,
-      skip: i.skip,
-      matched: i.matched?.name,
-      priceChanged: i.priceChanged,
-      unit_price: i.unit_price,
-      matched_buy_price: i.matched?.buy_price,
-    })));
     const changedItems = matchedResultRef.current.filter(i => !i.skip && i.matched && i.priceChanged);
-    console.log('[handleSave] changedItems count:', changedItems.length);
     if (changedItems.length > 0) {
       setPriceQueue(changedItems);
       setPriceQueueIdx(0);
@@ -266,9 +254,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     const item = priceQueue[priceQueueIdx];
     const newDecisions = { ...priceDecisions, [item.matched.id]: updatePrice };
     const nextIdx = priceQueueIdx + 1;
-    console.log('[handlePriceDecision] item:', item.matched?.name, 'updatePrice:', updatePrice, 'nextIdx:', nextIdx, 'queueLen:', priceQueue.length);
     if (nextIdx >= priceQueue.length) {
-      console.log('[handlePriceDecision] queue done, calling executeSave with decisions:', newDecisions);
       setPriceQueue([]);
       executeSave(addNewPending, newDecisions);
     } else {
@@ -284,7 +270,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   };
 
   const executeSave = async (addNew, decisions) => {
-    console.log('[executeSave] called with addNew:', addNew, 'decisions:', decisions);
     setStep("saving");
     const now = new Date().toISOString();
     let updatedCount = 0;
@@ -314,13 +299,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             updatePayload.buy_price = price;
             priceChanges++;
           }
-          console.log('[executeSave] updating product:', item.matched.id, 'payload:', updatePayload, 'existing qty:', item.matched.quantity, 'added qty:', qty);
-          console.log('[executeSave] SENDING TO SUPABASE id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
-          const { data: updateData, error: updateError } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id).select();
-          console.log('[executeSave] update result:', JSON.stringify({ data: updateData, error: updateError }));
-          if (!updateData || updateData.length === 0) {
-            console.warn('[executeSave] UPDATE BLOCKED - no rows updated for id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
-          }
+          await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
