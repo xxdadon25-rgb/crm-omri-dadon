@@ -300,7 +300,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         .single();
       if (delErr) throw delErr;
 
-      for (const item of items) {
+      for (const item of matchedResultRef.current) {
         if (item.skip) continue;
 
         if (item.matched) {
