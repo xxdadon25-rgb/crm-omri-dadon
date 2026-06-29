@@ -313,6 +313,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             priceChanges++;
           }
           console.log('[executeSave] updating product:', item.matched.id, 'payload:', updatePayload, 'existing qty:', item.matched.quantity, 'added qty:', qty);
+          console.log('[executeSave] SENDING TO SUPABASE id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
           const { error: updateErr } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
           console.log('[executeSave] update result error:', updateErr);
           updatedCount++;
