@@ -385,7 +385,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-right px-3 py-2 min-w-[140px]">מוצר</th>
                     <th className="text-right px-3 py-2 min-w-[80px]">מק&quot;ט</th>
                     <th className="text-right px-3 py-2 w-20">כמות</th>
                     <th className="text-right px-3 py-2 w-28">מחיר יחידה</th>
@@ -397,13 +396,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 <tbody>
                   {items.map((item, i) => (
                     <tr key={i} className={`border-t border-border ${item.skip ? "opacity-40" : ""}`}>
-                      <td className="px-3 py-2">
-                        <Input
-                          value={item.product_name || ""}
-                          onChange={e => updateItem(i, "product_name", e.target.value)}
-                          className="h-7 text-sm"
-                        />
-                      </td>
                       <td className="px-3 py-2">
                         <Input
                           value={item.sku || ""}
@@ -441,7 +433,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           className="h-7 text-sm w-24"
                         />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className="px-3 py-2">
+                        <p className="text-sm font-medium mb-1">{item.product_name}</p>
                         {item.matched ? (
                           <span className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 border ${item.priceChanged ? "text-red-700 bg-red-50 border-red-200" : "text-green-700 bg-green-50 border-green-200"}`}>
                             <CheckCircle className="w-3 h-3" /> {item.matched.name}
