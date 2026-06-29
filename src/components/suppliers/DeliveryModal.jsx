@@ -456,7 +456,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       </td>
                       <td className="px-3 py-2">
                         {item.priceChanged && (
-                          <p className="text-xs text-muted-foreground mb-0.5">היה: ₪{item.matched.buy_price}</p>
+                          <p className="text-xs text-muted-foreground mb-0.5">מחיר קיים במערכת: ₪{item.matched.buy_price}</p>
                         )}
                         <Input
                           type="number"
@@ -464,9 +464,11 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           onChange={e => updateItem(i, "unit_price", e.target.value)}
                           className={`h-7 text-sm w-20 ${item.priceChanged ? "border-red-400 text-red-600 font-semibold" : ""}`}
                         />
-                        {item.priceChanged && (
-                          <p className="text-xs text-red-500 mt-0.5">עכשיו: ₪{item.unit_price}</p>
-                        )}
+                        {item.priceChanged && (() => {
+                          const diff = Math.abs(Number(item.unit_price) - Number(item.matched.buy_price)).toFixed(2);
+                          const up = Number(item.unit_price) > Number(item.matched.buy_price);
+                          return <p className="text-xs text-red-500 mt-0.5">מחיר חדש לפי תעודה: ₪{item.unit_price} ({up ? `עלה ב-₪${diff}` : `ירד ב-₪${diff}`})</p>;
+                        })()}
                       </td>
                       <td className="px-3 py-2">
                         <Input
@@ -549,12 +551,15 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             <AlertDialogHeader>
               <AlertDialogTitle>שינוי מחיר ({priceQueueIdx + 1}/{priceQueue.length})</AlertDialogTitle>
               <AlertDialogDescription>
-                מחיר <strong>{item.matched.name}</strong> השתנה מ-₪{item.matched.buy_price} ל-₪{item.unit_price}. לעדכן?
+                <strong>{item.matched.name}</strong><br />
+                מחיר קיים במערכת: ₪{item.matched.buy_price}<br />
+                מחיר חדש לפי תעודה: ₪{item.unit_price} ({Number(item.unit_price) > Number(item.matched.buy_price) ? `עלה ב-₪${Math.abs(Number(item.unit_price) - Number(item.matched.buy_price)).toFixed(2)}` : `ירד ב-₪${Math.abs(Number(item.unit_price) - Number(item.matched.buy_price)).toFixed(2)}`})<br />
+                האם לעדכן את מחיר הקנייה במערכת?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-row-reverse gap-2">
-              <Button onClick={() => handlePriceDecision(true)}>כן, עדכן מחיר</Button>
-              <Button variant="outline" onClick={() => handlePriceDecision(false)}>לא, השאר כמו שהיה</Button>
+              <Button onClick={() => handlePriceDecision(true)}>עדכן מחיר + מלאי</Button>
+              <Button variant="outline" onClick={() => handlePriceDecision(false)}>עדכן מלאי בלבד</Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
