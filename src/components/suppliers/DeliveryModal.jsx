@@ -9,7 +9,7 @@ import { Upload, Camera, X, Loader2, CheckCircle, AlertTriangle, PackagePlus } f
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 
-async function extractFromFile(file) {
+async function extractFromFile(file, onRetry) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("מפתח VITE_GEMINI_API_KEY חסר ב-.env.local");
 
@@ -37,19 +37,16 @@ async function extractFromFile(file) {
     generationConfig: { temperature: 0, maxOutputTokens: 8192 },
   });
 
-  let resp = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: fetchBody,
-  });
+  const fetchOpts = { method: "POST", headers: { "content-type": "application/json" }, body: fetchBody };
+  let resp = await fetch(GEMINI_URL, fetchOpts);
 
-  if (resp.status === 503) {
-    await new Promise(res => setTimeout(res, 10000));
-    resp = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: fetchBody,
-    });
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+  while (resp.status === 503 && attempt < MAX_RETRIES) {
+    attempt++;
+    onRetry?.(attempt, MAX_RETRIES);
+    await new Promise(res => setTimeout(res, 5000));
+    resp = await fetch(GEMINI_URL, fetchOpts);
   }
 
   if (!resp.ok) {
@@ -127,6 +124,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [newProductsDialog, setNewProductsDialog] = useState(false);
+  const [retryMsg, setRetryMsg] = useState("");
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
@@ -196,13 +194,18 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const handleProcess = async () => {
     if (!file) return;
     setStep("processing");
+    setRetryMsg("");
     try {
-      const extracted = await extractFromFile(file);
+      const extracted = await extractFromFile(file, (attempt, max) => {
+        setRetryMsg(`השרת עמוס, מנסה שוב (${attempt}/${max})...`);
+      });
       if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
+      setRetryMsg("");
       setItems(matchProducts(extracted, products));
       setStep("review");
     } catch (err) {
       toast.error("שגיאה בניתוח: " + err.message);
+      setRetryMsg("");
       setStep("upload");
     }
   };
@@ -370,7 +373,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         {step === "processing" && (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <p className="text-muted-foreground">מנתח את המסמך עם AI...</p>
+            <p className="text-muted-foreground">{retryMsg || "מנתח את המסמך עם AI..."}</p>
           </div>
         )}
 
