@@ -314,8 +314,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
           }
           console.log('[executeSave] updating product:', item.matched.id, 'payload:', updatePayload, 'existing qty:', item.matched.quantity, 'added qty:', qty);
           console.log('[executeSave] SENDING TO SUPABASE id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
-          const { error: updateErr } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
-          console.log('[executeSave] update result error:', updateErr);
+          const { data: updateData, error: updateError } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id).select();
+          console.log('[executeSave] update result:', JSON.stringify({ data: updateData, error: updateError }));
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
