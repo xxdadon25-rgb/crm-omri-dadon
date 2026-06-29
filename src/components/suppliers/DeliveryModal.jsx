@@ -133,6 +133,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
+  const matchedResultRef = useRef([]);
 
   // Load products for matching
   useEffect(() => {
@@ -209,6 +210,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       console.log('[calling matchProducts] extractedItems:', extracted?.length, 'products:', products?.length);
       const matchedResult = matchProducts(extracted, products);
       console.log('[state after match] items with priceChanged:', matchedResult.filter(i => i.priceChanged).length);
+      matchedResultRef.current = matchedResult;
       setItems(matchedResult);
       setStep("review");
     } catch (err) {
@@ -247,7 +249,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       unit_price: i.unit_price,
       matched_buy_price: i.matched?.buy_price,
     })));
-    const changedItems = items.filter(i => !i.skip && i.matched && i.priceChanged);
+    const changedItems = matchedResultRef.current.filter(i => !i.skip && i.matched && i.priceChanged);
     console.log('[handleSave] changedItems count:', changedItems.length);
     if (changedItems.length > 0) {
       setPriceQueue(changedItems);
