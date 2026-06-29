@@ -299,7 +299,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             updatePayload.buy_price = price;
             priceChanges++;
           }
-          await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
+          console.log('[executeSave] updating id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
+          const { data: updateData, error: updateError } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id).select();
+          console.log('[executeSave] result:', JSON.stringify({ data: updateData, error: updateError }));
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
