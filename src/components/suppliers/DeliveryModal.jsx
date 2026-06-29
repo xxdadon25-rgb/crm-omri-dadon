@@ -355,8 +355,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       }
 
       setSummary({ updatedCount, priceChanges, addedCount });
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      await queryClient.refetchQueries({ queryKey: ["products"] });
+      queryClient.removeQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setStep("done");
     } catch (err) {
       toast.error("שגיאה בשמירה: " + err.message);
