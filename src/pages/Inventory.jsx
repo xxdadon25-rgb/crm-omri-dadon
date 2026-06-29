@@ -46,6 +46,7 @@ export default function Inventory() {
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showProfit, setShowProfit] = useState(false);
   const queryClient = useQueryClient();
 
   // Invalidate cache on mount so delivery-driven quantity updates are visible immediately
@@ -167,6 +168,9 @@ export default function Inventory() {
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="w-4 h-4 ml-1" /> ייצוא
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowProfit(v => !v)}>
+          {showProfit ? "הסתר רווח" : "הצג רווח"}
+        </Button>
         <Button size="sm" onClick={() => {setEditProduct(null);setDialogOpen(true);}}>
           <Plus className="w-4 h-4 ml-1" /> מוצר חדש
         </Button>
@@ -218,7 +222,7 @@ export default function Inventory() {
                   <TableHead className="text-right">מחיר קנייה</TableHead>
                   <TableHead className="text-right">מחיר מכירה</TableHead>
                   <TableHead className="text-right">כמות</TableHead>
-                  <TableHead className="text-right">רווח</TableHead>
+                  {showProfit && <TableHead className="text-right">רווח</TableHead>}
                   <TableHead className="text-right min-w-[90px]">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
@@ -250,7 +254,7 @@ export default function Inventory() {
                           <span className={isOutOfStock ? "text-red-600 font-bold" : isLow ? "text-orange-600 font-medium" : ""}>{p.quantity}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-green-600 font-medium">₪{profit}</TableCell>
+                      {showProfit && <TableCell className="text-green-600 font-medium">₪{profit}</TableCell>}
                       <TableCell className="min-w-[90px]">
                         <div className="flex items-center gap-1 flex-nowrap">
                           <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" onClick={() => {setEditProduct(p);setDialogOpen(true);}}>
