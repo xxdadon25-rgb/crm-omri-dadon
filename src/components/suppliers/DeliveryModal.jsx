@@ -382,8 +382,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-right px-3 py-2">מוצר</th>
-                    <th className="text-right px-3 py-2">מק&quot;ט</th>
+                    <th className="text-right px-3 py-2 min-w-[180px]">מוצר</th>
+                    <th className="text-right px-3 py-2 min-w-[120px]">מק&quot;ט</th>
                     <th className="text-right px-3 py-2 w-20">כמות</th>
                     <th className="text-right px-3 py-2 w-28">מחיר יחידה</th>
                     <th className="text-right px-3 py-2 w-28">סה&quot;כ</th>
