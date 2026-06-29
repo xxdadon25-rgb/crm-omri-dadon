@@ -98,8 +98,7 @@ function matchProducts(extractedItems, products) {
     if (!matched && byNameLower)
       matched = products.find(p => (p.name || "").toLowerCase().trim() === byNameLower);
 
-    const priceChanged = matched && item.unit_price != null && matched.buy_price != null
-      && Math.abs(Number(item.unit_price) - Number(matched.buy_price)) > 0.01;
+    const priceChanged = !!(matched && item.unit_price != null && matched.buy_price != null && Math.abs(Number(item.unit_price) - Number(matched.buy_price)) > 0.01);
 
     return {
       ...item,
@@ -558,7 +557,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-row-reverse gap-2">
-              <Button onClick={() => handlePriceDecision(true)}>עדכן מחיר + מלאי</Button>
+              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black" onClick={() => handlePriceDecision(true)}>עדכן מחיר + מלאי</Button>
               <Button variant="outline" onClick={() => handlePriceDecision(false)}>עדכן מלאי בלבד</Button>
             </AlertDialogFooter>
           </AlertDialogContent>
