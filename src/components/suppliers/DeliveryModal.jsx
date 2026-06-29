@@ -235,7 +235,16 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const handleSave = (addNew) => {
     setNewProductsDialog(false);
     setAddNewPending(addNew);
+    console.log('[handleSave] all items:', items.map(i => ({
+      product_name: i.product_name,
+      skip: i.skip,
+      matched: i.matched?.name,
+      priceChanged: i.priceChanged,
+      unit_price: i.unit_price,
+      matched_buy_price: i.matched?.buy_price,
+    })));
     const changedItems = items.filter(i => !i.skip && i.matched && i.priceChanged);
+    console.log('[handleSave] changedItems count:', changedItems.length);
     if (changedItems.length > 0) {
       setPriceQueue(changedItems);
       setPriceQueueIdx(0);
@@ -288,7 +297,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             updatePayload.buy_price = price;
             priceChanges++;
           }
-          await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
+          console.log('[executeSave] updating product:', item.matched.id, 'payload:', updatePayload, 'existing qty:', item.matched.quantity, 'added qty:', qty);
+          const { error: updateErr } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id);
+          console.log('[executeSave] update result error:', updateErr);
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
