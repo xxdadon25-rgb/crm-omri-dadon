@@ -258,7 +258,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     const item = priceQueue[priceQueueIdx];
     const newDecisions = { ...priceDecisions, [item.matched.id]: updatePrice };
     const nextIdx = priceQueueIdx + 1;
+    console.log('[handlePriceDecision] item:', item.matched?.name, 'updatePrice:', updatePrice, 'nextIdx:', nextIdx, 'queueLen:', priceQueue.length);
     if (nextIdx >= priceQueue.length) {
+      console.log('[handlePriceDecision] queue done, calling executeSave with decisions:', newDecisions);
       setPriceQueue([]);
       executeSave(addNewPending, newDecisions);
     } else {
@@ -267,7 +269,14 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     }
   };
 
+  const handleBackToReview = () => {
+    setPriceQueue([]);
+    setPriceDecisions({});
+    setPriceQueueIdx(0);
+  };
+
   const executeSave = async (addNew, decisions) => {
+    console.log('[executeSave] called with addNew:', addNew, 'decisions:', decisions);
     setStep("saving");
     const now = new Date().toISOString();
     let updatedCount = 0;
@@ -557,9 +566,10 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 האם לעדכן את מחיר הקנייה במערכת?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogFooter className="flex-row-reverse gap-2 flex-wrap">
               <Button className="bg-yellow-400 hover:bg-yellow-500 text-black" onClick={() => handlePriceDecision(true)}>עדכן מחיר + מלאי</Button>
               <Button variant="outline" onClick={() => handlePriceDecision(false)}>עדכן מלאי בלבד</Button>
+              <Button variant="ghost" className="text-muted-foreground" onClick={handleBackToReview}>חזור לעריכה</Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
