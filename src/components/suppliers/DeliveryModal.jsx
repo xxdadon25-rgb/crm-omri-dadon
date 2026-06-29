@@ -316,6 +316,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
           console.log('[executeSave] SENDING TO SUPABASE id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
           const { data: updateData, error: updateError } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id).select();
           console.log('[executeSave] update result:', JSON.stringify({ data: updateData, error: updateError }));
+          if (!updateData || updateData.length === 0) {
+            console.warn('[executeSave] UPDATE BLOCKED - no rows updated for id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
+          }
           updatedCount++;
           await supabase.from("supplier_price_history").insert({
             product_id: item.matched.id,
