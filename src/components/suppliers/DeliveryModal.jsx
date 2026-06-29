@@ -206,6 +206,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       });
       if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
+      console.log('[calling matchProducts] extractedItems:', extracted?.length, 'products:', products?.length);
       setItems(matchProducts(extracted, products));
       setStep("review");
     } catch (err) {
