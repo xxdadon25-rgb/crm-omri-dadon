@@ -125,7 +125,7 @@ export default function Suppliers() {
     setDocsSupplier(supplier);
     setLoadingDocs(true);
     console.log('[openDocsModal] querying supplier_id:', supplier.id);
-    const { data, error } = await supabase.from("supplier_deliveries").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("supplier_deliveries").select("id,supplier_id,delivery_date,file_url,status,created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false });
     console.log('[openDocsModal] result:', data, 'error:', error);
     setDeliveries(data || []);
     setLoadingDocs(false);
@@ -364,7 +364,6 @@ export default function Suppliers() {
                       })}
                     </p>
                     <p className="text-muted-foreground">{d.status}</p>
-                    {d.notes && <p className="text-xs text-muted-foreground">{d.notes}</p>}
                   </div>
                   {d.file_url ? (
                     <a
