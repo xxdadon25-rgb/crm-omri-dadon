@@ -1,13 +1,17 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, BookUser } from "lucide-react";
 
+const DEBT_BLOCK_THRESHOLD = 5000;
+
 export default function DebtSummary() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const syncedRef = useRef(false);
 
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ["customers"],
@@ -37,11 +41,37 @@ export default function DebtSummary() {
           id: customerId,
           name: c?.name || "לקוח לא ידוע",
           phone: c?.mobile || c?.phone || "—",
+          isBlocked: !!c?.is_blocked,
           totalDebt,
         };
       })
       .sort((a, b) => b.totalDebt - a.totalDebt);
   }, [invoices, customers]);
+
+  // Auto-block/unblock based on debt threshold, runs once per load when data is ready
+  useEffect(() => {
+    if (loadingCustomers || loadingInvoices || syncedRef.current) return;
+    if (customers.length === 0) return;
+    syncedRef.current = true;
+
+    const debtMap = new Map(rows.map(r => [r.id, r.totalDebt]));
+    const updates = [];
+
+    for (const c of customers) {
+      const debt = debtMap.get(c.id) || 0;
+      if (debt > DEBT_BLOCK_THRESHOLD && !c.is_blocked) {
+        updates.push(base44.entities.Customer.update(c.id, { is_blocked: true }));
+      } else if (debt <= DEBT_BLOCK_THRESHOLD && c.is_blocked) {
+        updates.push(base44.entities.Customer.update(c.id, { is_blocked: false }));
+      }
+    }
+
+    if (updates.length > 0) {
+      Promise.all(updates).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["customers"] });
+      });
+    }
+  }, [loadingCustomers, loadingInvoices, customers, rows]);
 
   const grandTotal = rows.reduce((s, r) => s + r.totalDebt, 0);
   const loading = loadingCustomers || loadingInvoices;
@@ -82,6 +112,7 @@ export default function DebtSummary() {
                     <TableHead className="text-right">שם לקוח</TableHead>
                     <TableHead className="text-right">טלפון</TableHead>
                     <TableHead className="text-right">יתרת חוב</TableHead>
+                    <TableHead className="text-right">סטטוס</TableHead>
                     <TableHead className="text-right">כרטסת</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -93,6 +124,11 @@ export default function DebtSummary() {
                       <TableCell className="text-right text-muted-foreground">{row.phone}</TableCell>
                       <TableCell className="text-right font-bold text-red-600">
                         ₪{row.totalDebt.toLocaleString("he-IL", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {row.isBlocked && (
+                          <span className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">🚫 חסום</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

@@ -44,6 +44,7 @@ export default function QuoteEditor() {
   });
   const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: () => base44.entities.Category.list() });
+  const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list(), staleTime: 60_000 });
   const businessSettings = settings[0];
 
   const [form, setForm] = useState({
@@ -122,7 +123,13 @@ export default function QuoteEditor() {
 
   const handleCustomerChange = (id) => {
     const c = customers.find(x => x.id === id);
-    if (c?.is_blocked) toast.warning("⚠️ לקוח זה מסומן כחסום");
+    if (c?.is_blocked) {
+      const debt = invoices
+        .filter(inv => inv.customer_id === id && inv.payment_status !== "שולם")
+        .reduce((s, inv) => s + Math.max(0, (inv.total || 0) - (inv.paid_amount || 0)), 0);
+      const debtStr = debt > 0 ? ` (חוב: ${debt.toLocaleString("he-IL", { minimumFractionDigits: 0 })}₪)` : "";
+      toast.warning(`⚠️ לקוח זה מסומן כחסום${debtStr}`);
+    }
     setForm(prev => ({ ...prev, customer_id: id, customer_name: c?.name || "", customer_type: c?.customer_type || "פרטי" }));
   };
 

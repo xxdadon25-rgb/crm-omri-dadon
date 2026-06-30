@@ -32,6 +32,12 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
   });
   const businessSettings = settings[0];
 
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: () => base44.entities.Invoice.list(),
+    staleTime: 60_000,
+  });
+
   const emptyForm = () => ({
     customer_id: "",
     customer_name: "",
@@ -65,7 +71,13 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
 
   const handleCustomerChange = (id) => {
     const c = customers.find(x => x.id === id);
-    if (c?.is_blocked) toast.warning("⚠️ לקוח זה מסומן כחסום");
+    if (c?.is_blocked) {
+      const debt = invoices
+        .filter(inv => inv.customer_id === id && inv.payment_status !== "שולם")
+        .reduce((s, inv) => s + Math.max(0, (inv.total || 0) - (inv.paid_amount || 0)), 0);
+      const debtStr = debt > 0 ? ` (חוב: ${debt.toLocaleString("he-IL", { minimumFractionDigits: 0 })}₪)` : "";
+      toast.warning(`⚠️ לקוח זה מסומן כחסום${debtStr}`);
+    }
     setForm(prev => ({
       ...prev,
       customer_id: id,
