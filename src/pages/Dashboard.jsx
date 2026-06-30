@@ -87,7 +87,7 @@ export default function Dashboard() {
           <h3 className="font-semibold text-gray-700 text-sm mb-4">מכירות חודשיות</h3>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData} margin={{ right: 8 }}>
+              <BarChart data={monthlyData} margin={{ right: 8, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11, dx: -4 }} tickMargin={6} width={62} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
