@@ -66,7 +66,7 @@ export default function ProductCatalog() {
       </div>
 
       {/* Desktop: sidebar + content */}
-      <div className="flex flex-row-reverse gap-6 items-start">
+      <div className="flex flex-row gap-6 items-start">
 
         {/* Vertical category sidebar — desktop only */}
         <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
