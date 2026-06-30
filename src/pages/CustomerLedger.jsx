@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import LedgerSummaryBar from "@/components/ledger/LedgerSummaryBar";
@@ -15,9 +16,15 @@ import MonthlyInvoicesTab from "@/components/ledger/MonthlyInvoicesTab";
 import LedgerPaymentsTab from "@/components/ledger/LedgerPaymentsTab";
 import PaymentDialog from "@/components/payments/PaymentDialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { BookUser, Search, Users } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BookUser, Search, Users, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
 
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
@@ -68,6 +75,13 @@ export default function CustomerLedger() {
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [previewMonthlyInvoice, setPreviewMonthlyInvoice] = useState(null);
   const [recordPaymentInvoice, setRecordPaymentInvoice] = useState(null);
+
+  // Tasks
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", due_date: "" });
+  const [savingTask, setSavingTask] = useState(false);
+  const [deleteTaskId, setDeleteTaskId] = useState(null);
+  const [deletingTask, setDeletingTask] = useState(false);
 
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ["customers"],
@@ -130,6 +144,70 @@ export default function CustomerLedger() {
   });
 
   const businessSettings = settings[0] || {};
+
+  const { data: tasks = [], isLoading: loadingTasks } = useQuery({
+    queryKey: ["customer_tasks", selectedCustomerId],
+    enabled: !!selectedCustomerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_tasks")
+        .select("*")
+        .eq("customer_id", selectedCustomerId)
+        .order("status") // 'פתוח' < 'סגור' alphabetically, open first
+        .order("due_date", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const openTasks = tasks.filter(t => t.status === "פתוח");
+  const closedTasks = tasks.filter(t => t.status !== "פתוח");
+  const sortedTasks = [...openTasks, ...closedTasks];
+
+  const handleAddTask = async () => {
+    if (!taskForm.title.trim()) return;
+    setSavingTask(true);
+    try {
+      const { error } = await supabase.from("customer_tasks").insert({
+        customer_id: selectedCustomerId,
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || null,
+        due_date: taskForm.due_date || null,
+        status: "פתוח",
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+      setTaskForm({ title: "", description: "", due_date: "" });
+      setTaskDialogOpen(false);
+      toast.success("משימה נוספה");
+    } catch (err) {
+      toast.error("שגיאה בהוספת משימה: " + err.message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleToggleTask = async (task) => {
+    const newStatus = task.status === "פתוח" ? "סגור" : "פתוח";
+    const { error } = await supabase.from("customer_tasks").update({ status: newStatus }).eq("id", task.id);
+    if (error) { toast.error("שגיאה בעדכון משימה"); return; }
+    queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+  };
+
+  const handleDeleteTask = async () => {
+    setDeletingTask(true);
+    try {
+      const { error } = await supabase.from("customer_tasks").delete().eq("id", deleteTaskId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+      toast.success("משימה נמחקה");
+    } catch (err) {
+      toast.error("שגיאה במחיקה: " + err.message);
+    } finally {
+      setDeleteTaskId(null);
+      setDeletingTask(false);
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) return customers;
@@ -363,12 +441,13 @@ export default function CustomerLedger() {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
-                <TabsList className="w-full grid grid-cols-5" dir="rtl">
+                <TabsList className="w-full grid grid-cols-6" dir="rtl">
                   <TabsTrigger value="quotes">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
                   <TabsTrigger value="orders">📦 הזמנות ({customerOrders.length})</TabsTrigger>
                   <TabsTrigger value="invoices">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
                   <TabsTrigger value="monthly">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
                   <TabsTrigger value="payments">💳 תשלומים ({customerPayments.length})</TabsTrigger>
+                  <TabsTrigger value="tasks">✅ משימות ({openTasks.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="quotes" className="mt-4">
@@ -426,6 +505,48 @@ export default function CustomerLedger() {
                     businessSettings={businessSettings}
                   />
                 </TabsContent>
+
+                <TabsContent value="tasks" className="mt-4">
+                  <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">משימות</h3>
+                      <Button size="sm" className="gap-1" onClick={() => { setTaskForm({ title: "", description: "", due_date: "" }); setTaskDialogOpen(true); }}>
+                        <Plus className="w-3.5 h-3.5" /> משימה חדשה
+                      </Button>
+                    </div>
+                    {loadingTasks ? (
+                      <div className="flex justify-center py-8"><div className="w-6 h-6 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+                    ) : sortedTasks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">אין משימות עבור לקוח זה</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sortedTasks.map(task => {
+                          const isOpen = task.status === "פתוח";
+                          const overdue = isOpen && task.due_date && new Date(task.due_date) < new Date();
+                          return (
+                            <div key={task.id} className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${isOpen ? "border-border bg-background" : "border-border/50 bg-muted/30 opacity-60"}`}>
+                              <button onClick={() => handleToggleTask(task)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                                {isOpen ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium ${!isOpen ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
+                                {task.description && <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>}
+                                {task.due_date && (
+                                  <p className={`text-xs mt-1 ${overdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+                                    {overdue ? "⚠️ " : ""}תאריך יעד: {task.due_date}
+                                  </p>
+                                )}
+                              </div>
+                              <button onClick={() => setDeleteTaskId(task.id)} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors mt-0.5">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
               </Tabs>
             </>
           )}
@@ -470,6 +591,63 @@ export default function CustomerLedger() {
           queryClient.invalidateQueries({ queryKey: ["invoices"] });
         }}
       />
+
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>משימה חדשה — {selectedCustomer?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-1">
+              <Label>כותרת <span className="text-destructive">*</span></Label>
+              <Input
+                value={taskForm.title}
+                onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="תיאור קצר של המשימה"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>פירוט (אופציונלי)</Label>
+              <Textarea
+                value={taskForm.description}
+                onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="הוסף פרטים נוספים..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>תאריך יעד (אופציונלי)</Label>
+              <Input
+                type="date"
+                value={taskForm.due_date}
+                onChange={e => setTaskForm(f => ({ ...f, due_date: e.target.value }))}
+              />
+            </div>
+            <div className="flex gap-2 pt-2 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setTaskDialogOpen(false)}>ביטול</Button>
+              <Button className="flex-1" disabled={!taskForm.title.trim() || savingTask} onClick={handleAddTask}>
+                {savingTask ? "שומר..." : "הוסף משימה"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteTaskId} onOpenChange={(o) => { if (!o) setDeleteTaskId(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת משימה</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק משימה זו? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={deletingTask}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTask} disabled={deletingTask} className="bg-destructive text-destructive-foreground">
+              {deletingTask ? "מוחק..." : "מחק"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
