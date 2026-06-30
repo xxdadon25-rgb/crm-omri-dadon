@@ -16,6 +16,12 @@ const CustomYAxisTick = ({ x, y, payload }) => (
   </text>
 );
 
+const CustomYAxisTickCount = ({ x, y, payload }) => (
+  <text x={x - 40} y={y} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#666">
+    {Number(payload.value).toLocaleString()}
+  </text>
+);
+
 const PlaceholderCard = ({ title }) => (
   <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
     <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
@@ -97,6 +103,7 @@ export default function Dashboard() {
 
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
+  const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date") });
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: dueTasks = [] } = useQuery({
@@ -118,6 +125,8 @@ export default function Dashboard() {
   const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
   const monthlyData = getMonthlyData(invoices);
   const topProducts = getTopProducts(invoices);
+  const ordersPerMonth = getOrdersPerMonth(orders);
+  const monthlyProfit = getMonthlyProfit(orders, products);
 
   // Month-over-month sparkline data
   const last6 = getLast6Months();
@@ -204,9 +213,37 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Placeholder charts */}
-        <PlaceholderCard title="הזמנות חודשיות" />
-        <PlaceholderCard title="רווח חודשי" />
+        {/* Live: monthly orders count bar chart */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-700 text-sm mb-4">הזמנות חודשיות</h3>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ordersPerMonth} margin={{ right: 8, left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={<CustomYAxisTickCount />} tickLine={false} axisLine={true} width={130} allowDecimals={false} />
+                <Tooltip formatter={(val) => val.toLocaleString()} />
+                <Bar dataKey="count" fill="hsl(200, 60%, 50%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Live: monthly profit bar chart */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-700 text-sm mb-4">רווח חודשי</h3>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyProfit} margin={{ right: 8, left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={130} />
+                <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
+                <Bar dataKey="profit" fill="hsl(150, 50%, 45%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       {/* ── Section 3: Operational lists (placeholders) ──────────────────── */}
@@ -279,6 +316,36 @@ function getMonthlyData(invoices) {
       const m = new Date(inv.date).getMonth();
       data[m].total += inv.total || 0;
     }
+  });
+  return data;
+}
+
+function getOrdersPerMonth(orders) {
+  const months = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
+  const data = months.map((month) => ({ month, count: 0 }));
+  orders.forEach(order => {
+    if (order.date) {
+      const m = new Date(order.date).getMonth();
+      data[m].count += 1;
+    }
+  });
+  return data;
+}
+
+// Same profit formula as src/pages/Reports.jsx (profitability/monthlyData): per item, profit = item.total - buy_price * quantity
+function getMonthlyProfit(orders, products) {
+  const months = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
+  const data = months.map((month) => ({ month, profit: 0 }));
+  orders.forEach(order => {
+    if (!order.date || !Array.isArray(order.items)) return;
+    const m = new Date(order.date).getMonth();
+    order.items.forEach(item => {
+      if (!item || item.is_header) return;
+      const qty = item.quantity || 0;
+      const itemSales = item.total || 0;
+      const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find(p => p.id === item.product_id)?.buy_price || 0);
+      data[m].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
+    });
   });
   return data;
 }
