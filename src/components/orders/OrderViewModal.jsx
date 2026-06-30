@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, FileText, Loader2, CheckCircle2, Link2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import DocumentActions from "@/components/documents/DocumentActions";
+import DocumentTotals from "@/components/documents/DocumentTotals";
 
 const statusColors = {
   "טיוטה": "bg-gray-100 text-gray-700",
@@ -95,20 +96,24 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
           )}
 
           {/* Totals */}
-          <div className="space-y-2 bg-muted/30 rounded-lg p-4">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">סה"כ לפני מע"מ</span>
-              <span className="font-medium">₪{order.subtotal?.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">מע"מ ({order.vat_rate || 17}%)</span>
-              <span className="font-medium">₪{order.vat_amount?.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-base font-semibold border-t pt-2">
-              <span>סה"כ לתשלום</span>
-              <span>₪{order.total?.toLocaleString()}</span>
-            </div>
-          </div>
+          {(() => {
+            const items = order.items || [];
+            const computedGross = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
+            const grossTotal = order.gross_total != null ? order.gross_total : computedGross;
+            const subtotal = order.subtotal || 0;
+            const discountTotal = order.discount_amount != null ? order.discount_amount : grossTotal - subtotal;
+            const effectivePct = grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0;
+            return (
+              <DocumentTotals
+                grossTotal={grossTotal}
+                netSubtotal={subtotal}
+                discountTotal={discountTotal}
+                effectiveDiscountPercent={effectivePct}
+                vatRate={order.vat_rate || 17}
+                total={order.total}
+              />
+            );
+          })()}
 
           {/* Notes */}
           {order.notes && (

@@ -204,7 +204,10 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
             />
             <div className="mt-4">
               <DocumentTotals
+                grossTotal={grossTotal}
                 netSubtotal={subtotal}
+                discountTotal={discountTotal}
+                effectiveDiscountPercent={grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0}
                 vatRate={vatRate}
                 total={total}
               />
