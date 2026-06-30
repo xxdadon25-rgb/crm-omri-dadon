@@ -260,6 +260,10 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       setRetryMsg("");
       fileUrlRef.current = uploadedUrl;
 
+      console.log('[supplier check] extracted supplier:', JSON.stringify(extractedSupplier));
+      console.log('[supplier check] selected supplier:', JSON.stringify({ name: supplier?.name, tax_id: supplier?.tax_id }));
+      console.log('[supplier check] match result:', suppliersMatch(extractedSupplier, supplier));
+
       // Only warn if Gemini found supplier info AND it doesn't match
       const hasExtractedInfo = extractedSupplier?.name || extractedSupplier?.tax_id;
       if (hasExtractedInfo && !suppliersMatch(extractedSupplier, supplier)) {
