@@ -90,7 +90,7 @@ export default function Dashboard() {
               <BarChart data={monthlyData} margin={{ right: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} width={62} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
+                <YAxis tick={{ fontSize: 11, dx: -4 }} tickMargin={6} width={62} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
                 <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -115,6 +115,7 @@ export default function Dashboard() {
                     iconType="circle"
                     iconSize={8}
                     wrapperStyle={{ fontSize: "11px", paddingTop: "12px", lineHeight: "20px" }}
+                    formatter={(value) => <span dir="auto">{value}</span>}
                   />
                 </PieChart>
               </ResponsiveContainer>
