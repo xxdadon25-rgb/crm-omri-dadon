@@ -63,8 +63,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
       <aside className={cn(
-        "fixed top-0 right-0 h-full bg-card border-l border-border z-50 transition-all duration-300 flex flex-col",
+        "fixed top-0 right-0 h-full bg-card border-l border-border transition-all duration-300 flex flex-col",
         collapsed ? "w-[72px]" : "w-[240px]",
+        // z-50 only when open as drawer (so it layers above backdrop); z-30 when off-screen so it never blocks TopBar touch targets
+        mobileOpen ? "z-50" : "z-30 lg:z-50",
         // Hidden off-screen on tablet/mobile; slides in as drawer when mobileOpen
         mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
