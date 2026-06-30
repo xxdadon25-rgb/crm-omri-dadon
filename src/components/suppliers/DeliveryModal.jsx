@@ -207,7 +207,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${supplierId}/${timestamp}-${safeName}`;
     const { error } = await supabase.storage.from("delivery-documents").upload(path, f, { upsert: false });
-    if (error) { console.error('[uploadFileToStorage] FAILED:', error); throw error; }
+    if (error) { console.error('[uploadFileToStorage] FAILED:', error?.message, error?.statusCode, JSON.stringify(error)); throw error; }
     const { data } = supabase.storage.from("delivery-documents").getPublicUrl(path);
     console.log('[uploadFileToStorage] success, url:', data.publicUrl);
     return data.publicUrl;
