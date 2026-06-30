@@ -23,7 +23,7 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose onClick={() => { console.log('[ToastClose] clicked, id:', id); dismiss(id); }} />
+            <ToastClose onClick={() => dismiss(id)} />
           </Toast>
         );
       })}
