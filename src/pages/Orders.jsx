@@ -240,6 +240,7 @@ export default function Orders() {
       const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
       console.log('[deductInventory] update result error:', updateErr, 'newQty:', newQty);
     }
+    queryClient.removeQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
@@ -252,6 +253,7 @@ export default function Orders() {
       const newQty = (product.quantity || 0) + (item.quantity || 0);
       await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
     }
+    queryClient.removeQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
