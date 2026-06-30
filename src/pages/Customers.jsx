@@ -267,7 +267,7 @@ export default function Customers() {
                                 {c.customer_type === "עסקי" ? "🏢 עסקי" : "👤 פרטי"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-sm">{c.phone || "-"}</TableCell>
+                            <TableCell className="text-sm">{c.mobile || c.phone || "-"}</TableCell>
                             <TableCell className="text-center"><Badge variant="secondary">{stats.orders}</Badge></TableCell>
                             <TableCell className="font-medium">₪{stats.total.toLocaleString()}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{formatDate(stats.lastOrder) || "-"}</TableCell>
@@ -368,7 +368,7 @@ export default function Customers() {
                       <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border text-sm">
                         <div>
                           <p className="text-xs text-muted-foreground">טלפון</p>
-                          <p className="font-medium">{c.phone || "-"}</p>
+                          <p className="font-medium">{c.mobile || c.phone || "-"}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">הזמנות</p>
