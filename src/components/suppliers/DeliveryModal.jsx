@@ -226,13 +226,16 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const matchedResultRef = useRef([]);
   const fileUrlRef = useRef(null);
 
-  // Load products and open supplier order when modal opens
+  // Load products and open supplier order every time the modal opens
   useEffect(() => {
     if (!open || !supplier?.id) return;
     supabase.from("products").select("id,name,sku,buy_price,quantity")
       .then(({ data }) => setProducts(data ?? []));
+    // Always re-fetch so a newly created order is picked up on re-open
+    openSupplierOrderRef.current = null;
+    setOpenSupplierOrder(null);
     supabase.from("supplier_orders")
-      .select("id,items,status")
+      .select("id,items,status,order_date")
       .eq("supplier_id", supplier.id)
       .eq("status", "ממתין לאישור")
       .order("order_date", { ascending: false })
@@ -242,7 +245,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         openSupplierOrderRef.current = order;
         setOpenSupplierOrder(order);
       });
-  }, [open, supplier?.id]);
+  }, [open, supplier?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     setStep("upload");
@@ -380,6 +383,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const handleSave = (addNew) => {
     setNewProductsDialog(false);
     setAddNewPending(addNew);
+    // Sync ref with live items state so skip flags are current
+    matchedResultRef.current = items;
     const changedItems = matchedResultRef.current.filter(i => !i.skip && i.matched && i.priceChanged);
     if (changedItems.length > 0) {
       setPriceQueue(changedItems);
