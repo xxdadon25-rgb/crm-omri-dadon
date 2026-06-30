@@ -99,6 +99,36 @@ async function extractFromFile(file, onRetry) {
   }
 }
 
+// ── Shortage detection ────────────────────────────────────────────────────────
+
+function detectShortages(orderedItems, receivedItems) {
+  const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  return orderedItems
+    .map(ordered => {
+      // Match by SKU first, then fuzzy name
+      let received = null;
+      if (ordered.sku) {
+        received = receivedItems.find(r => norm(r.sku) === norm(ordered.sku));
+      }
+      if (!received) {
+        received = receivedItems.find(r => norm(r.product_name) === norm(ordered.product_name));
+        if (!received) {
+          received = receivedItems.find(r =>
+            norm(r.product_name).includes(norm(ordered.product_name)) ||
+            norm(ordered.product_name).includes(norm(r.product_name))
+          );
+        }
+      }
+      const orderedQty = Number(ordered.quantity) || 0;
+      const receivedQty = received ? Number(received.quantity) || 0 : 0;
+      if (receivedQty < orderedQty) {
+        return { name: ordered.product_name, ordered: orderedQty, received: receivedQty };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
 // ── Supplier mismatch check ───────────────────────────────────────────────────
 
 function normalize(str) {
@@ -162,19 +192,33 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [priceQueueIdx, setPriceQueueIdx] = useState(0);
   const [priceDecisions, setPriceDecisions] = useState({});
   const [addNewPending, setAddNewPending] = useState(false);
-  const [supplierMismatch, setSupplierMismatch] = useState(null); // {extracted, selected, pendingItems}
+  const [supplierMismatch, setSupplierMismatch] = useState(null);
+  const [openSupplierOrder, setOpenSupplierOrder] = useState(null); // loaded supplier_order record
+  const [shortages, setShortages] = useState([]); // [{name, ordered, received}]
+  const openSupplierOrderRef = useRef(null);
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
   const matchedResultRef = useRef([]);
   const fileUrlRef = useRef(null);
 
-  // Load products for matching
+  // Load products and open supplier order when modal opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || !supplier?.id) return;
     supabase.from("products").select("id,name,sku,buy_price,quantity")
       .then(({ data }) => setProducts(data ?? []));
-  }, [open]);
+    supabase.from("supplier_orders")
+      .select("id,items,status")
+      .eq("supplier_id", supplier.id)
+      .eq("status", "ממתין לאישור")
+      .order("order_date", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const order = data?.[0] || null;
+        openSupplierOrderRef.current = order;
+        setOpenSupplierOrder(order);
+      });
+  }, [open, supplier?.id]);
 
   const reset = () => {
     setStep("upload");
@@ -184,7 +228,10 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setSummary(null);
     matchedResultRef.current = [];
     fileUrlRef.current = null;
+    openSupplierOrderRef.current = null;
     setSupplierMismatch(null);
+    setOpenSupplierOrder(null);
+    setShortages([]);
     stopCamera();
   };
 
@@ -280,6 +327,11 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     matchedResultRef.current = matchedResult;
     setItems(matchedResult);
     setSupplierMismatch(null);
+    // Compute shortages against open supplier order if one exists
+    const order = openSupplierOrderRef.current;
+    if (order?.items?.length) {
+      setShortages(detectShortages(order.items, extractedItems));
+    }
     setStep("review");
   };
 
@@ -407,6 +459,11 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         }
       }
 
+      // Mark open supplier order as completed
+      if (openSupplierOrderRef.current?.id) {
+        await supabase.from("supplier_orders").update({ status: "הושלם" }).eq("id", openSupplierOrderRef.current.id);
+      }
+
       setSummary({ updatedCount, priceChanges, addedCount });
       queryClient.removeQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -499,6 +556,23 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         {step === "review" && (
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">בדוק ותקן את הפריטים שחולצו לפני אישור.</p>
+
+            {/* Shortage summary vs open supplier order */}
+            {shortages.length > 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1">
+                  ⚠️ חוסרים שזוהו לעומת הזמנת הספק
+                </p>
+                <div className="space-y-1">
+                  {shortages.map((s, i) => (
+                    <div key={i} className="flex justify-between text-sm text-amber-900">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-xs">הוזמן: {s.ordered} | התקבל: {s.received}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">

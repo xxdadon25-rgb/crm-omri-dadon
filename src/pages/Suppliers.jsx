@@ -11,7 +11,7 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,12 @@ export default function Suppliers() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [deleteDeliveryId, setDeleteDeliveryId] = useState(null);
   const [deletingDelivery, setDeletingDelivery] = useState(false);
+  const [orderSupplier, setOrderSupplier] = useState(null);
+  const [orderItems, setOrderItems] = useState([]);
+  const [orderProductSearch, setOrderProductSearch] = useState("");
+  const [orderFreeText, setOrderFreeText] = useState({ name: "", sku: "", quantity: "" });
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -150,6 +156,57 @@ export default function Suppliers() {
     } finally {
       setDeleteDeliveryId(null);
       setDeletingDelivery(false);
+    }
+  };
+
+  const openOrderModal = async (supplier) => {
+    setOrderSupplier(supplier);
+    setOrderItems([]);
+    setOrderProductSearch("");
+    setOrderFreeText({ name: "", sku: "", quantity: "" });
+    const { data } = await supabase.from("products").select("id,name,sku,buy_price").eq("is_active", true).order("name");
+    setCatalogProducts(data || []);
+  };
+
+  const addCatalogProduct = (product) => {
+    setOrderItems(prev => {
+      const exists = prev.find(i => i.product_id === product.id);
+      if (exists) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product_id: product.id, product_name: product.name, sku: product.sku || null, quantity: 1 }];
+    });
+    setOrderProductSearch("");
+  };
+
+  const addFreeTextProduct = () => {
+    if (!orderFreeText.name.trim() || !orderFreeText.quantity) return;
+    setOrderItems(prev => [...prev, {
+      product_id: null,
+      product_name: orderFreeText.name.trim(),
+      sku: orderFreeText.sku.trim() || null,
+      quantity: parseFloat(orderFreeText.quantity) || 1,
+    }]);
+    setOrderFreeText({ name: "", sku: "", quantity: "" });
+  };
+
+  const saveSupplierOrder = async () => {
+    if (!orderItems.length) { toast.error("יש להוסיף לפחות פריט אחד"); return; }
+    setOrderSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("supplier_orders").insert({
+        supplier_id: orderSupplier.id,
+        order_date: new Date().toISOString(),
+        status: "ממתין לאישור",
+        items: orderItems,
+        user_id: user?.id,
+      });
+      if (error) throw error;
+      toast.success("הזמנה נשמרה בהצלחה");
+      setOrderSupplier(null);
+    } catch (err) {
+      toast.error("שגיאה בשמירת הזמנה: " + err.message);
+    } finally {
+      setOrderSaving(false);
     }
   };
 
@@ -302,6 +359,7 @@ export default function Suppliers() {
                     <TableCell>{s.tax_id || "-"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 gap-1" onClick={() => openOrderModal(s)}><ShoppingCart className="w-3.5 h-3.5" /> הזמנה מספק</Button>
                         <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-1" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /> קבלת סחורה</Button>
                         <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50 gap-1" onClick={() => openDocsModal(s)}><FolderOpen className="w-3.5 h-3.5" /> קבצי סחורה</Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
@@ -430,6 +488,97 @@ export default function Suppliers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Supplier order modal */}
+      <Dialog open={!!orderSupplier} onOpenChange={(o) => { if (!o) setOrderSupplier(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>הזמנה מספק — {orderSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 mt-2">
+            {/* Catalog search */}
+            <div className="space-y-2">
+              <Label className="font-semibold">הוסף מוצר מהקטלוג</Label>
+              <Input
+                placeholder="חפש מוצר לפי שם..."
+                value={orderProductSearch}
+                onChange={e => setOrderProductSearch(e.target.value)}
+              />
+              {orderProductSearch.trim() && (
+                <div className="border border-border rounded-lg max-h-40 overflow-y-auto">
+                  {catalogProducts
+                    .filter(p => p.name.toLowerCase().includes(orderProductSearch.toLowerCase()) || (p.sku || "").toLowerCase().includes(orderProductSearch.toLowerCase()))
+                    .slice(0, 10)
+                    .map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addCatalogProduct(p)}
+                        className="w-full text-right px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2 border-b border-border last:border-0"
+                      >
+                        <span>{p.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{p.sku || ""}</span>
+                      </button>
+                    ))}
+                  {catalogProducts.filter(p => p.name.toLowerCase().includes(orderProductSearch.toLowerCase())).length === 0 && (
+                    <p className="text-sm text-muted-foreground px-3 py-2">לא נמצאו מוצרים</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Free-text product */}
+            <div className="space-y-2">
+              <Label className="font-semibold">או הוסף מוצר חדש / לא מוכר</Label>
+              <div className="flex gap-2">
+                <Input placeholder="שם מוצר" value={orderFreeText.name} onChange={e => setOrderFreeText(p => ({ ...p, name: e.target.value }))} className="flex-1" />
+                <Input placeholder='מק"ט' value={orderFreeText.sku} onChange={e => setOrderFreeText(p => ({ ...p, sku: e.target.value }))} className="w-28" />
+                <Input type="number" placeholder="כמות" min="1" value={orderFreeText.quantity} onChange={e => setOrderFreeText(p => ({ ...p, quantity: e.target.value }))} className="w-20" />
+                <Button type="button" variant="outline" onClick={addFreeTextProduct} disabled={!orderFreeText.name.trim() || !orderFreeText.quantity}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Items list */}
+            {orderItems.length > 0 && (
+              <div className="space-y-2">
+                <Label className="font-semibold">פריטי הזמנה ({orderItems.length})</Label>
+                <div className="border border-border rounded-lg overflow-hidden">
+                  {orderItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-border last:border-0 text-sm">
+                      <div className="flex-1">
+                        <span className="font-medium">{item.product_name}</span>
+                        {item.sku && <span className="text-xs text-muted-foreground mr-2">{item.sku}</span>}
+                        {!item.product_id && <span className="text-xs text-orange-500 mr-2">חדש</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={e => setOrderItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 1 } : it))}
+                          className="w-16 h-7 text-center"
+                        />
+                        <button type="button" onClick={() => setOrderItems(prev => prev.filter((_, i) => i !== idx))} className="text-destructive hover:text-destructive/80">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setOrderSupplier(null)}>ביטול</Button>
+              <Button className="flex-1" onClick={saveSupplierOrder} disabled={orderSaving || !orderItems.length}>
+                {orderSaving ? "שומר..." : "שמור הזמנה"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
