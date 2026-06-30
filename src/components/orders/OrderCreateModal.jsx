@@ -66,6 +66,8 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
 
   const vatRate = form.vat_rate || 17;
   const subtotal = useMemo(() => form.items.reduce((s, i) => s + (i.total || 0), 0), [form.items]);
+  const grossTotal = useMemo(() => form.items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0), [form.items]);
+  const discountTotal = grossTotal - subtotal;
   const vatAmount = subtotal * (vatRate / 100);
   const total = subtotal + vatAmount;
 
@@ -104,6 +106,8 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
         delivery_address: form.delivery_address || "",
         items: form.items,
         subtotal,
+        gross_total: grossTotal,
+        discount_amount: discountTotal,
         vat_rate: vatRate,
         vat_amount: vatAmount,
         total,

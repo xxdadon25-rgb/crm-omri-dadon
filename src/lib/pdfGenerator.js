@@ -216,15 +216,14 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
     logo:    businessSettings?.logo_url      || "",
   };
 
-  // ── TOTALS — prices include VAT, so we derive backward ───────────────────
-  const total       = parseFloat(doc.total)           || 0;
-  const discountAmt = parseFloat(doc.discount_amount) || 0;
-  const vatRate     = parseFloat(doc.vat_rate)        || 17;
-  const vatFactor   = 1 + vatRate / 100;
-  const grossBeforeDiscount = total + discountAmt;
-  const subtotal      = grossBeforeDiscount / vatFactor;
-  const afterDiscount = total / vatFactor;
-  const vatAmount     = total - afterDiscount;
+  // ── TOTALS — net-first model: subtotal is post-discount net, total = subtotal + VAT ──
+  const grossTotal  = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
+  const subtotal    = parseFloat(doc.subtotal)    || 0;
+  const discountAmt = grossTotal > 0 ? grossTotal - subtotal : parseFloat(doc.discount_amount) || 0;
+  const vatRate     = parseFloat(doc.vat_rate)    || 17;
+  const vatAmount   = parseFloat(doc.vat_amount)  || subtotal * (vatRate / 100);
+  const total       = parseFloat(doc.total)       || subtotal + vatAmount;
+  const discountPct = grossTotal > 0 && discountAmt > 0.001 ? (discountAmt / grossTotal) * 100 : 0;
 
   const agentName    = doc.agent_name    || "";
   const paymentTerms = doc.payment_terms || businessSettings?.payment_terms || "";
@@ -234,8 +233,6 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
     doc.delivery_notes ? doc.delivery_notes : null,
     (!doc.customer_notes && doc.notes) ? doc.notes : null,
   ].filter(Boolean);
-
-  const discountPct = grossBeforeDiscount > 0 ? (discountAmt / grossBeforeDiscount) * 100 : 0;
 
   return `
 <div style="width:794px;min-height:1123px;background:#fff;font-family:'Heebo',Arial,sans-serif;direction:rtl;font-size:12px;color:#111;box-sizing:border-box;display:flex;flex-direction:column;border:2px solid #111;margin:0;padding:0">
@@ -353,18 +350,19 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
         <tbody>
           <tr style="height:18px;line-height:18px">
             <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">סה"כ ללא מע"מ:</td>
-            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(subtotal)}</td>
+            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(grossTotal)}</td>
           </tr>
+          ${discountAmt > 0.001 ? `
           <tr style="height:18px;line-height:18px">
-            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">הנחה ${discountPct.toFixed(2)}%:</td>
-            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(discountAmt)}</td>
+            <td style="padding:2px 8px;text-align:right;color:#c00;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">הנחה ${discountPct.toFixed(1)}%:</td>
+            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;color:#c00;vertical-align:middle;height:18px">-${fmt(discountAmt)}</td>
           </tr>
           <tr style="height:18px;line-height:18px">
             <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">סה"כ לאחר הנחה:</td>
-            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(afterDiscount)}</td>
-          </tr>
+            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(subtotal)}</td>
+          </tr>` : ""}
           <tr style="height:18px;line-height:18px">
-            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">מע"מ ${vatRate.toFixed(2)}%:</td>
+            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">מע"מ ${vatRate}%:</td>
             <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(vatAmount)}</td>
           </tr>
           <tr style="background:#F5C518;height:18px;line-height:18px">
