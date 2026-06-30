@@ -49,7 +49,7 @@ export default function MonthlyInvoicesTab({
     new Date(o.date).getMonth() + 1 === selectedMonth &&
     new Date(o.date).getFullYear() === selectedYear
   );
-  const eligibleOrders = monthOrders.filter(o => !invoicedOrderIds.has(o.id));
+  const eligibleOrders = monthOrders.filter(o => !invoicedOrderIds.has(o.id) && !o.invoiced_at);
   const excludedCount = monthOrders.length - eligibleOrders.length;
 
   const handleGenerate = async () => {
@@ -70,7 +70,7 @@ export default function MonthlyInvoicesTab({
         new Date(o.date).getMonth() + 1 === selectedMonth &&
         new Date(o.date).getFullYear() === selectedYear
       );
-      const eligible = monthCandidates.filter(o => !freshInvoicedIds.has(o.id));
+      const eligible = monthCandidates.filter(o => !freshInvoicedIds.has(o.id) && !o.invoiced_at);
       const skipped = monthCandidates.length - eligible.length;
 
       if (eligible.length === 0) {
@@ -146,8 +146,13 @@ export default function MonthlyInvoicesTab({
       });
 
       sessionStorage.setItem("pendingInvoice", JSON.stringify(invoice));
+
+      // Step 3: mark each included order as invoiced
+      const invoicedAt = new Date().toISOString();
+      await Promise.all(eligible.map(o => base44.entities.Order.update(o.id, { invoiced_at: invoicedAt })));
       await queryClient.refetchQueries({ queryKey: ["invoices"] });
       await queryClient.refetchQueries({ queryKey: ["settings"] });
+      await queryClient.refetchQueries({ queryKey: ["orders"] });
 
       const skippedNote = skipped > 0 ? ` (${skipped} הזמנות דולגו — כבר מקושרות לחשבונית)` : "";
       toast({ title: "חשבונית חודשית נוצרה", description: `חשבונית #${invoiceNumber} נוצרה עם ${eligible.length} הזמנות.${skippedNote}` });

@@ -250,9 +250,18 @@ export default function Orders() {
   });
 
   const handleCreateInvoice = async (order) => {
+    // Step 4: fast guard via invoiced_at flag on the order itself
+    if (order.invoiced_at) {
+      toast.error("כבר הופקה חשבונית עבור הזמנה זו");
+      return;
+    }
+
     // Duplicate guard: fetch invoices on-demand to check if one already exists
     const invoicesList = await base44.entities.Invoice.list("-created_date");
-    const existing = invoicesList.find(inv => inv.order_id === order.id);
+    const existing = invoicesList.find(inv =>
+      inv.order_id === order.id ||
+      (Array.isArray(inv.included_order_ids) && inv.included_order_ids.includes(order.id))
+    );
     if (existing) {
       toast.error(`חשבונית כבר קיימת עבור הזמנה זו (#${existing.invoice_number})`);
       return;
@@ -283,6 +292,12 @@ export default function Orders() {
       });
 
       queryClient.setQueryData(["invoices"], (old = []) => [newInvoice, ...(old)]);
+
+      // Step 2: mark order as invoiced
+      await base44.entities.Order.update(order.id, { invoiced_at: new Date().toISOString() });
+      queryClient.setQueryData(["orders"], (old = []) =>
+        old.map(o => o.id === order.id ? { ...o, invoiced_at: new Date().toISOString() } : o)
+      );
 
       // Update invoice counter
       if (businessSettings.id) {
