@@ -538,7 +538,7 @@ export default function CustomerLedger() {
                                 {task.description && <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>}
                                 {task.due_date && (
                                   <p className={`text-xs mt-1 ${overdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                                    {overdue ? "⚠️ " : ""}תאריך יעד: {task.due_date}
+                                    {overdue ? "⚠️ " : ""}תאריך יעד: {task.due_date?.split("-").reverse().join("/")}
                                   </p>
                                 )}
                               </div>
