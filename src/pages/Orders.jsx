@@ -283,6 +283,8 @@ export default function Orders() {
         date: new Date().toISOString().split("T")[0],
         items: order.items || [],
         subtotal: order.subtotal || 0,
+        gross_total: order.gross_total || order.subtotal || 0,
+        discount_amount: order.discount_amount || 0,
         vat_rate: order.vat_rate || 17,
         vat_amount: order.vat_amount || 0,
         total: order.total || 0,

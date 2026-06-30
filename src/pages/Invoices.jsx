@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import DocumentActions from "@/components/documents/DocumentActions";
+import DocumentTotals from "@/components/documents/DocumentTotals";
 
 // Seed from sessionStorage so module-level set is populated after hot reload
 const deletedInvoiceIds = new Set((() => { try { return JSON.parse(sessionStorage.getItem("pendingDeletedInvoices") || "[]"); } catch { return []; } })());
@@ -371,11 +372,23 @@ export default function Invoices() {
                   </tbody>
                 </table>
               </div>
-              <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-1 max-w-xs mr-auto">
-                <div className="flex justify-between"><span>סה״כ לפני מע״מ</span><span>₪{(viewInvoice.subtotal || 0).toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>מע״מ</span><span>₪{(viewInvoice.vat_amount || 0).toFixed(2)}</span></div>
-                <div className="flex justify-between font-bold border-t pt-1"><span>סה״כ</span><span>₪{(viewInvoice.total || 0).toFixed(2)}</span></div>
-              </div>
+              {(() => {
+                const invItems = viewInvoice.items || [];
+                const grossTotal = invItems.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
+                const netSubtotal = viewInvoice.subtotal || 0;
+                const discountTotal = grossTotal - netSubtotal;
+                const effectivePct = grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0;
+                return (
+                  <DocumentTotals
+                    grossTotal={grossTotal}
+                    netSubtotal={netSubtotal}
+                    discountTotal={discountTotal}
+                    effectiveDiscountPercent={effectivePct}
+                    vatRate={viewInvoice.vat_rate || 17}
+                    total={viewInvoice.total}
+                  />
+                );
+              })()}
               <div className="flex flex-wrap gap-2">
                 <DocumentActions
                   type="invoice"
