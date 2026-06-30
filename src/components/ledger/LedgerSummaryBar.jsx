@@ -43,8 +43,8 @@ export default function LedgerSummaryBar({ summary }) {
       {cards.map(card => (
         <div key={card.label} className={`${card.color} rounded-xl border p-5`}>
           <div className="flex items-center gap-2 mb-2">
-            <card.Icon className="w-4 h-4 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">{card.label}</p>
+            <card.Icon className="w-5 h-5 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{card.label}</p>
           </div>
           <p className="text-2xl font-bold leading-tight">{card.value}</p>
         </div>
