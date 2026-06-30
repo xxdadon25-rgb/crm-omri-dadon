@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Plus, User, Phone, Mail, Building2, ArrowRight, ChevronLeft, Trash2, Check } from "lucide-react";
+import { Search, Plus, User, ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CustomerSelector({ onConfirm, onBack }) {
@@ -140,10 +140,66 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                 </Button>
               </div>
             ) : (
+              /* ── TABLE LAYOUT ───────────────────────────────────────────────── */
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                {/* Table header */}
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-4 py-2 border-b border-gray-200 bg-gray-50">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">שם לקוח</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 w-28 text-right">טלפון</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 w-16 text-center">סוג</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 w-16 text-center">סטטוס</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 w-8"></span>
+                </div>
+
+                {/* Table rows */}
+                <div className="divide-y divide-gray-100">
+                  {filtered.map((c) => (
+                    <div
+                      key={c.id}
+                      className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                      onClick={() => onConfirm(c)}
+                    >
+                      {/* שם לקוח */}
+                      <span className="font-semibold text-sm truncate">{c.name}</span>
+
+                      {/* טלפון */}
+                      <span className="text-sm text-gray-500 w-28 text-right tabular-nums">{c.phone || c.mobile || "—"}</span>
+
+                      {/* סוג */}
+                      <span className="w-16 flex justify-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                          {c.customer_type || "פרטי"}
+                        </span>
+                      </span>
+
+                      {/* סטטוס */}
+                      <span className="w-16 flex justify-center">
+                        {c.is_active === false ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700">חסום</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">פעיל</span>
+                        )}
+                      </span>
+
+                      {/* פעולות */}
+                      <span className="w-8 flex justify-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}
+                          className="p-1.5 rounded text-gray-400 hover:text-destructive hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              /* ── END TABLE LAYOUT ─────────────────────────────────────────── */
+
+              /* ── OLD CARD LAYOUT (commented out, kept for easy restore) ──────
               <div className="grid gap-2">
                 {filtered.map((c) => (
                   <div key={c.id} className="relative flex items-center gap-2">
-                    {/* Checkbox */}
                     <button
                       onClick={(e) => toggleSelect(c.id, e)}
                       className="w-5 h-5 border border-input rounded flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
@@ -151,8 +207,6 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                     >
                       {selected.has(c.id) && <Check className="w-3 h-3 text-primary-foreground" />}
                     </button>
-
-                    {/* Customer row */}
                     <button
                       onClick={() => onConfirm(c)}
                       className="flex-1 text-right bg-card border border-border rounded-xl px-4 py-3.5 hover:border-primary hover:bg-primary/5 transition-all flex items-center gap-4 group"
@@ -180,8 +234,6 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                       </div>
                       <ChevronLeft className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </button>
-
-                    {/* Delete button */}
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}
                       className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0"
@@ -191,6 +243,7 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                   </div>
                 ))}
               </div>
+              ── END OLD CARD LAYOUT ── */
             )}
           </div>
         ) : (
