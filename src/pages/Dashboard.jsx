@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
 import { useNavigate } from "react-router-dom";
@@ -104,28 +104,33 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Live: top products pie chart */}
+        {/* Live: top products pie chart + custom legend */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-700 text-sm mb-4">מוצרים נמכרים ביותר</h3>
+          <h3 className="font-semibold text-gray-700 text-sm mb-3">מוצרים נמכרים ביותר</h3>
           {topProducts.length > 0 ? (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={65}>
-                    {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(val) => val} />
-                  <Legend
-                    verticalAlign="bottom"
-                    align="center"
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: "11px", paddingTop: "12px", lineHeight: "20px" }}
-                    formatter={(value) => <span dir="auto">{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>
+                      {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(val) => val} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div dir="rtl" className="mt-3">
+                {topProducts.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-sm text-gray-700 truncate" dir="auto">{item.name}</span>
+                    </div>
+                    <span className="shrink-0 text-sm font-medium text-gray-400">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">אין נתונים עדיין</div>
           )}
