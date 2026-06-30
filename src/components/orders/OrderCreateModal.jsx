@@ -48,6 +48,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
     items: [],
     notes: "",
     status: "ממתין לאישור",
+    fulfilled: false,
     vat_rate: businessSettings?.vat_rate || 17,
   });
 
@@ -113,6 +114,8 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
         total,
         notes: form.notes || "",
         status: form.status,
+        fulfilled: !!form.fulfilled,
+        inventory_deducted: false,
       };
 
       const created = await base44.entities.Order.create(orderData);
@@ -212,6 +215,20 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
                 total={total}
               />
             </div>
+          </div>
+
+          {/* Fulfilled toggle */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+            <input
+              type="checkbox"
+              id="fulfilled"
+              checked={!!form.fulfilled}
+              onChange={e => setForm({ ...form, fulfilled: e.target.checked })}
+              className="h-4 w-4 accent-green-600 cursor-pointer"
+            />
+            <label htmlFor="fulfilled" className="text-sm font-medium cursor-pointer select-none">
+              ✅ סופק ללקוח
+            </label>
           </div>
 
           {/* Notes */}

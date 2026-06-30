@@ -12,6 +12,7 @@ const setPendingDeletedOrderIds = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +58,7 @@ export default function Orders() {
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [restoreStockDialog, setRestoreStockDialog] = useState(null); // { updates, order }
   const queryClient = useQueryClient();
 
   const { data: orders = [], isLoading } = useQuery({
@@ -225,19 +227,72 @@ export default function Orders() {
     }
   };
 
-  const handleEditSave = async (updates) => {
+  const deductInventory = async (items) => {
+    for (const item of items) {
+      if (!item.product_id) continue;
+      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", item.product_id).single();
+      if (!product) continue;
+      const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
+      await supabase.from("products").update({ quantity: newQty }).eq("id", item.product_id);
+    }
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  const restoreInventory = async (items) => {
+    for (const item of items) {
+      if (!item.product_id) continue;
+      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", item.product_id).single();
+      if (!product) continue;
+      const newQty = (product.quantity || 0) + (item.quantity || 0);
+      await supabase.from("products").update({ quantity: newQty }).eq("id", item.product_id);
+    }
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  const commitEditSave = async (updates, order, restoreStock = false) => {
     setSaving(true);
     try {
-      const updated = await base44.entities.Order.update(editOrder.id, updates);
+      const items = order.items || [];
+      const wasFulfilled = !!order.inventory_deducted;
+      const willBeCancelled = updates.status === "בוטל";
+      const willBeFulfilled = !!updates.fulfilled;
+
+      if (willBeCancelled && wasFulfilled) {
+        if (restoreStock) {
+          await restoreInventory(items);
+          updates.inventory_deducted = false;
+        }
+      } else if (willBeFulfilled && !wasFulfilled) {
+        await deductInventory(items);
+        updates.inventory_deducted = true;
+      } else if (!willBeFulfilled && wasFulfilled && !willBeCancelled) {
+        await restoreInventory(items);
+        updates.inventory_deducted = false;
+      }
+
+      const updated = await base44.entities.Order.update(order.id, updates);
       sessionStorage.setItem("pendingOrderUpdate", JSON.stringify(updated));
       queryClient.setQueryData(["orders"], (old = []) => old.map(o => o.id === updated.id ? updated : o));
       setEditOrder(null);
+      setRestoreStockDialog(null);
       toast.success("ההזמנה עודכנה בהצלחה");
     } catch (error) {
       toast.error("שגיאה בעדכון ההזמנה");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditSave = async (updates) => {
+    const order = editOrder;
+    const willBeCancelled = updates.status === "בוטל";
+    const wasFulfilled = !!order.inventory_deducted;
+
+    if (willBeCancelled && wasFulfilled) {
+      setRestoreStockDialog({ updates, order });
+      return;
+    }
+    await commitEditSave(updates, order);
   };
 
   const handleGenerateDocument = (order) => {
@@ -492,6 +547,15 @@ export default function Orders() {
         <OrderCreateModal
           open={createOpen}
           onOpenChange={setCreateOpen}
+          onCreated={async (created) => {
+            if (created.fulfilled && !created.inventory_deducted) {
+              await deductInventory(created.items || []);
+              await base44.entities.Order.update(created.id, { inventory_deducted: true });
+              queryClient.setQueryData(["orders"], (old = []) =>
+                old.map(o => o.id === created.id ? { ...o, inventory_deducted: true } : o)
+              );
+            }
+          }}
         />
 
         <OrderEditModal
@@ -504,6 +568,27 @@ export default function Orders() {
          categories={categories}
          invoices={invoices}
         />
+
+        {/* Restore stock dialog — shown when cancelling a fulfilled order */}
+        <AlertDialog open={!!restoreStockDialog} onOpenChange={(o) => { if (!o) setRestoreStockDialog(null); }}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>החזרת מלאי</AlertDialogTitle>
+              <AlertDialogDescription>
+                הזמנה זו סופקה ומלאי כבר נוכה. האם להחזיר את המלאי למערכת?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row-reverse gap-2">
+              <AlertDialogAction onClick={() => commitEditSave(restoreStockDialog.updates, restoreStockDialog.order, true)}>
+                כן, החזר מלאי
+              </AlertDialogAction>
+              <AlertDialogCancel onClick={() => commitEditSave(restoreStockDialog.updates, restoreStockDialog.order, false)}>
+                לא, בטל בלי להחזיר מלאי
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         </div>
         );
         }

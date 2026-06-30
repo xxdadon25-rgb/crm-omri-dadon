@@ -13,7 +13,7 @@ const STATUSES = ["טיוטה", "ממתין לאישור", "אושר", "בהכנ
 const EDITABLE_STATUSES = ["טיוטה", "ממתין לאישור", "בהכנה"];
 
 export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [] }) {
-  const [form, setForm] = useState({ status: "", notes: "", items: [] });
+  const [form, setForm] = useState({ status: "", notes: "", items: [], fulfilled: false });
 
   useEffect(() => {
     if (order) {
@@ -21,6 +21,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
         status: order.status || "",
         notes: order.notes || "",
         items: order.items || [],
+        fulfilled: !!order.fulfilled,
       });
     }
   }, [order]);
@@ -48,7 +49,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
   const grandTotal = netSubtotal + vatAmount;
 
   const handleSave = async () => {
-    const updates = { status: form.status, notes: form.notes, items: form.items };
+    const updates = { status: form.status, notes: form.notes, items: form.items, fulfilled: form.fulfilled };
     if (canEditItems) {
       updates.subtotal = netSubtotal;
       updates.gross_total = grossTotal;
@@ -83,6 +84,23 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Fulfilled toggle */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+            <input
+              type="checkbox"
+              id="fulfilled"
+              checked={!!form.fulfilled}
+              onChange={e => setForm({ ...form, fulfilled: e.target.checked })}
+              className="h-4 w-4 accent-green-600 cursor-pointer"
+            />
+            <label htmlFor="fulfilled" className="text-sm font-medium cursor-pointer select-none">
+              ✅ סופק ללקוח
+            </label>
+            {order?.inventory_deducted && (
+              <span className="text-xs text-muted-foreground mr-auto">מלאי עודכן</span>
+            )}
           </div>
 
           {/* Invoice lock notice */}
