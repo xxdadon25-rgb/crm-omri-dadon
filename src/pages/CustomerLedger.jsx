@@ -340,19 +340,26 @@ export default function CustomerLedger() {
               <div className="w-6 h-6 border-4 border-muted border-t-primary rounded-full animate-spin" />
             </div>
           ) : (
-            <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto thin-scrollbar divide-y divide-gray-100">
               {filteredCustomers.map(c => (
                 <button
                   key={c.id}
                   onClick={() => handleSelectCustomer(c.id)}
-                  className={`w-full text-right px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  className={`w-full text-right py-3 px-3 rounded-md transition-colors duration-150 ${
                     selectedCustomerId === c.id
                       ? "bg-primary text-primary-foreground font-medium"
-                      : "hover:bg-muted text-foreground"
+                      : "hover:bg-gray-50 text-foreground"
                   }`}
                 >
-                  <div className="font-medium">{c.name}</div>
-                  {c.phone && <div className="text-xs opacity-70">{c.phone}</div>}
+                  <div className="font-semibold text-base leading-snug">{c.name}</div>
+                  <div className="flex gap-2 mt-0.5">
+                    {c.phone && (
+                      <span className={`text-xs ${selectedCustomerId === c.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{c.phone}</span>
+                    )}
+                    {c.customer_type && (
+                      <span className={`text-xs ${selectedCustomerId === c.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{c.customer_type}</span>
+                    )}
+                  </div>
                 </button>
               ))}
               {filteredCustomers.length === 0 && (
