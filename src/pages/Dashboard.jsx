@@ -90,7 +90,7 @@ export default function Dashboard() {
               <BarChart data={monthlyData} margin={{ right: 8, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} tickMargin={8} width={56} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
+                <YAxis tick={{ fontSize: 11, dx: -10 }} tickLine={false} tickMargin={8} width={80} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
                 <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
