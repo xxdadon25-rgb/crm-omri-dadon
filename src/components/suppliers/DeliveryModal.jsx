@@ -240,7 +240,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       .select("id,items,status,order_date")
       .eq("supplier_id", supplier.id)
       .eq("status", "ממתין לאישור")
-      .order("order_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1)
       .then(({ data }) => {
         const order = data?.[0] || null;

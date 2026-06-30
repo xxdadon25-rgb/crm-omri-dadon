@@ -11,7 +11,7 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart, History } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
@@ -61,6 +61,9 @@ export default function Suppliers() {
   const [orderSaving, setOrderSaving] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [orderCatalogOpen, setOrderCatalogOpen] = useState(false);
+  const [historySupplier, setHistorySupplier] = useState(null);
+  const [historyOrders, setHistoryOrders] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -159,6 +162,19 @@ export default function Suppliers() {
       setDeleteDeliveryId(null);
       setDeletingDelivery(false);
     }
+  };
+
+  const openHistoryModal = async (supplier) => {
+    setHistorySupplier(supplier);
+    setHistoryOrders([]);
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("supplier_orders")
+      .select("id,status,order_date,created_at,items")
+      .eq("supplier_id", supplier.id)
+      .order("created_at", { ascending: false });
+    setHistoryOrders(data || []);
+    setLoadingHistory(false);
   };
 
   const openOrderModal = async (supplier) => {
@@ -382,6 +398,7 @@ export default function Suppliers() {
                         <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 gap-1" onClick={() => openOrderModal(s)}><ShoppingCart className="w-3.5 h-3.5" /> הזמנה מספק</Button>
                         <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-1" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /> קבלת סחורה</Button>
                         <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50 gap-1" onClick={() => openDocsModal(s)}><FolderOpen className="w-3.5 h-3.5" /> קבצי סחורה</Button>
+                        <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50 gap-1" onClick={() => openHistoryModal(s)}><History className="w-3.5 h-3.5" /> היסטוריית הזמנות</Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -602,6 +619,42 @@ export default function Suppliers() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Supplier order history modal ─────────────────────────────────── */}
+      <Dialog open={!!historySupplier} onOpenChange={(o) => { if (!o) setHistorySupplier(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>היסטוריית הזמנות — {historySupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {loadingHistory ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">טוען...</p>
+          ) : historyOrders.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">אין הזמנות עבור ספק זה</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {historyOrders.map((order) => {
+                const isOpen = order.status === "ממתין לאישור";
+                const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+                const itemSummary = Array.isArray(order.items)
+                  ? order.items.slice(0, 3).map(i => i.product_name || i.name || "").filter(Boolean).join(", ") + (itemCount > 3 ? ` ועוד ${itemCount - 3}` : "")
+                  : "";
+                const date = order.order_date || order.created_at?.slice(0, 10) || "";
+                return (
+                  <div key={order.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{date}</p>
+                      {itemSummary && <p className="text-xs text-muted-foreground mt-0.5 truncate">{itemCount} פריטים: {itemSummary}</p>}
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5 border ${isOpen ? "bg-yellow-50 text-yellow-800 border-yellow-300" : "bg-green-50 text-green-800 border-green-300"}`}>
+                      {isOpen ? "ממתין לאישור" : "הושלם"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
