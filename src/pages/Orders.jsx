@@ -228,13 +228,17 @@ export default function Orders() {
   };
 
   const deductInventory = async (items) => {
+    console.log('[deductInventory] called with items:', JSON.stringify(items));
     for (const item of items) {
-      const pid = item.product_id || item.id;
-      if (!pid) continue;
-      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", pid).single();
+      const productId = item.product_id || item.id;
+      console.log('[deductInventory] processing item, productId:', productId, 'quantity:', item.quantity);
+      if (!productId) { console.log('[deductInventory] SKIPPED - no productId'); continue; }
+      const { data: product, error: fetchErr } = await supabase.from("products").select("id,quantity").eq("id", productId).single();
+      console.log('[deductInventory] fetched product:', product, 'error:', fetchErr);
       if (!product) continue;
       const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
-      await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
+      const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
+      console.log('[deductInventory] update result error:', updateErr, 'newQty:', newQty);
     }
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
