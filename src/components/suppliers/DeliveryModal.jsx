@@ -22,10 +22,10 @@ async function extractFromFile(file, onRetry) {
     r.readAsDataURL(file);
   });
 
-  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את כל פריטי המוצרים.
-החזר תשובה כ-JSON בלבד. אין להוסיף \`\`\`json או \`\`\` או כל טקסט אחר. רק מערך JSON טהור.
+  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את פרטי הספק ואת כל פריטי המוצרים.
+החזר תשובה כ-JSON בלבד. אין להוסיף \`\`\`json או \`\`\` או כל טקסט אחר. רק JSON טהור.
 פורמט נדרש:
-[{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]
+{"supplier":{"name":"שם הספק או null","tax_id":"ח.פ או עוסק מורשה או null"},"items":[{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]}
 אם שדה חסר השתמש ב-null.`;
 
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -65,27 +65,58 @@ async function extractFromFile(file, onRetry) {
   // Strip markdown code fences if Gemini added them despite instructions
   const text = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
 
-  const match = text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
+  // Try to parse the new wrapper format {supplier, items}
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  if (!objMatch) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
 
   try {
-    return JSON.parse(match[0]);
+    const parsed = JSON.parse(objMatch[0]);
+    // New format: {supplier: {...}, items: [...]}
+    if (parsed && Array.isArray(parsed.items)) {
+      return { supplier: parsed.supplier || null, items: parsed.items };
+    }
+    // Fallback: Gemini returned a bare array wrapped in {}  — shouldn't happen but guard it
+    throw new Error("מבנה JSON לא צפוי");
   } catch (error) {
     console.log('Parse error:', error);
-    // If truncated due to token limit, recover all complete objects before the cutoff
+    // Recovery for MAX_TOKENS truncation — extract items array from partial response
     if (finishReason === "MAX_TOKENS") {
-      const partial = match[0];
-      const lastClose = partial.lastIndexOf("}");
-      if (lastClose !== -1) {
-        try {
-          return JSON.parse(partial.slice(0, lastClose + 1) + "]");
-        } catch (e) {
-          console.log('Partial parse error:', e);
+      const arrMatch = objMatch[0].match(/\[[\s\S]*/);
+      if (arrMatch) {
+        const partial = arrMatch[0];
+        const lastClose = partial.lastIndexOf("}");
+        if (lastClose !== -1) {
+          try {
+            const recoveredItems = JSON.parse(partial.slice(0, lastClose + 1) + "]");
+            return { supplier: null, items: recoveredItems };
+          } catch (e) {
+            console.log('Partial parse error:', e);
+          }
         }
       }
     }
     throw new Error("שגיאה בפענוח תשובת ה-AI");
   }
+}
+
+// ── Supplier mismatch check ───────────────────────────────────────────────────
+
+function normalize(str) {
+  return (str || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function suppliersMatch(extracted, selected) {
+  const exName = normalize(extracted?.name);
+  const exTax = normalize(extracted?.tax_id);
+  const selName = normalize(selected?.name);
+  const selTax = normalize(selected?.tax_id);
+
+  if (exTax && selTax && exTax.replace(/[^0-9]/g, "") === selTax.replace(/[^0-9]/g, "")) return true;
+  if (exName && selName) {
+    if (exName === selName) return true;
+    if (exName.includes(selName) || selName.includes(exName)) return true;
+  }
+  return false;
 }
 
 // ── Product matching ──────────────────────────────────────────────────────────
@@ -131,6 +162,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [priceQueueIdx, setPriceQueueIdx] = useState(0);
   const [priceDecisions, setPriceDecisions] = useState({});
   const [addNewPending, setAddNewPending] = useState(false);
+  const [supplierMismatch, setSupplierMismatch] = useState(null); // {extracted, selected, pendingItems}
   const fileInputRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef();
@@ -152,6 +184,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setSummary(null);
     matchedResultRef.current = [];
     fileUrlRef.current = null;
+    setSupplierMismatch(null);
     stopCamera();
   };
 
@@ -216,24 +249,38 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setStep("processing");
     setRetryMsg("");
     try {
-      const [extracted, uploadedUrl] = await Promise.all([
+      const [result, uploadedUrl] = await Promise.all([
         extractFromFile(file, (attempt, max) => {
           setRetryMsg(`השרת עמוס, מנסה שוב (${attempt}/${max})...`);
         }),
         uploadFileToStorage(file, supplier.id).catch(() => null),
       ]);
-      if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
+      const { supplier: extractedSupplier, items: extractedItems } = result;
+      if (!extractedItems.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
       fileUrlRef.current = uploadedUrl;
-      const matchedResult = matchProducts(extracted, products);
-      matchedResultRef.current = matchedResult;
-      setItems(matchedResult);
-      setStep("review");
+
+      // Only warn if Gemini found supplier info AND it doesn't match
+      const hasExtractedInfo = extractedSupplier?.name || extractedSupplier?.tax_id;
+      if (hasExtractedInfo && !suppliersMatch(extractedSupplier, supplier)) {
+        setSupplierMismatch({ extracted: extractedSupplier, pendingItems: extractedItems });
+        setStep("upload"); // stay on upload step, mismatch dialog will show
+      } else {
+        proceedToReview(extractedItems);
+      }
     } catch (err) {
       toast.error("שגיאה בניתוח: " + err.message);
       setRetryMsg("");
       setStep("upload");
     }
+  };
+
+  const proceedToReview = (extractedItems) => {
+    const matchedResult = matchProducts(extractedItems, products);
+    matchedResultRef.current = matchedResult;
+    setItems(matchedResult);
+    setSupplierMismatch(null);
+    setStep("review");
   };
 
   // ── Editable items ────────────────────────────────────────────────────────
@@ -596,6 +643,27 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     })()}
 
     {/* ── New products confirmation dialog ── */}
+    <AlertDialog open={!!supplierMismatch} onOpenChange={(o) => { if (!o) setSupplierMismatch(null); }}>
+      <AlertDialogContent dir="rtl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>⚠️ אי-התאמה בשם הספק</AlertDialogTitle>
+          <AlertDialogDescription>
+            שם הספק בתעודה: <strong>{supplierMismatch?.extracted?.name || supplierMismatch?.extracted?.tax_id || "לא זוהה"}</strong>
+            <br />
+            ספק שנבחר במערכת: <strong>{supplier?.name}</strong>
+            <br /><br />
+            האם להמשיך בכל זאת?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex-row-reverse gap-2">
+          <AlertDialogCancel onClick={() => setSupplierMismatch(null)}>בטל</AlertDialogCancel>
+          <AlertDialogAction onClick={() => proceedToReview(supplierMismatch.pendingItems)}>
+            המשך בכל זאת
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     <AlertDialog open={newProductsDialog} onOpenChange={setNewProductsDialog}>
       <AlertDialogContent dir="rtl">
         <AlertDialogHeader>
