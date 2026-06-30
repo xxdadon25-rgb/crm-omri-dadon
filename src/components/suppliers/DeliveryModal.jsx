@@ -208,7 +208,6 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [step, setStep] = useState("upload"); // upload | processing | review | saving | done
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -223,8 +222,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [shortages, setShortages] = useState([]); // [{name, ordered, received}]
   const openSupplierOrderRef = useRef(null);
   const fileInputRef = useRef();
-  const videoRef = useRef();
-  const streamRef = useRef();
+  const cameraInputRef = useRef();
   const matchedResultRef = useRef([]);
   const fileUrlRef = useRef(null);
 
@@ -261,42 +259,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setSupplierMismatch(null);
     setOpenSupplierOrder(null);
     setShortages([]);
-    stopCamera();
   };
 
   const handleClose = () => { reset(); onClose(); };
-
-  // ── Camera ────────────────────────────────────────────────────────────────
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraActive(true);
-    } catch {
-      toast.error("לא ניתן לגשת למצלמה");
-    }
-  };
-
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setCameraActive(false);
-  };
-
-  const capturePhoto = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
-    canvas.toBlob((blob) => {
-      const f = new File([blob], "camera.jpg", { type: "image/jpeg" });
-      setFile(f);
-      setPreview(URL.createObjectURL(f));
-      stopCamera();
-    }, "image/jpeg", 0.9);
-  };
 
   // ── File pick ─────────────────────────────────────────────────────────────
 
@@ -518,38 +483,36 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         {/* ── Upload ── */}
         {step === "upload" && (
           <div className="space-y-4 mt-2">
-            {cameraActive ? (
-              <div className="space-y-3">
-                <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg bg-black" />
-                <div className="flex gap-2 justify-center">
-                  <Button onClick={capturePhoto}><Camera className="w-4 h-4 ml-1" /> צלם</Button>
-                  <Button variant="outline" onClick={stopCamera}><X className="w-4 h-4 ml-1" /> ביטול</Button>
-                </div>
+            <>
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                <p className="font-medium">גרור קובץ לכאן או לחץ להעלאה</p>
+                <p className="text-sm text-muted-foreground mt-1">תמונה (JPG, PNG) או PDF</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={handleFilePick}
+                />
               </div>
-            ) : (
-              <>
-                <div
-                  className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                  <p className="font-medium">גרור קובץ לכאן או לחץ להעלאה</p>
-                  <p className="text-sm text-muted-foreground mt-1">תמונה (JPG, PNG) או PDF</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={handleFilePick}
-                  />
-                </div>
-                <div className="flex justify-center">
-                  <Button variant="outline" onClick={startCamera}>
-                    <Camera className="w-4 h-4 ml-1" /> צלם עם מצלמה
-                  </Button>
-                </div>
-              </>
-            )}
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="w-4 h-4 ml-1" /> צלם עם מצלמה
+                </Button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFilePick}
+                />
+              </div>
+            </>
 
             {preview && (
               <div className="relative">
