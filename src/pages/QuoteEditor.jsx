@@ -283,6 +283,7 @@ export default function QuoteEditor() {
           <ItemsEditor
             items={form.items}
             setItems={(items) => setForm({ ...form, items })}
+            defaultDiscount={customers.find(c => c.id === form.customer_id)?.discount_percent || 0}
             products={products}
             customerType={form.customer_type}
             vatRate={vatRate}

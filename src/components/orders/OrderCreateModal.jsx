@@ -193,6 +193,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
             <ItemsEditor
               items={form.items}
               setItems={(items) => setForm({ ...form, items })}
+              defaultDiscount={customers.find(c => c.id === form.customer_id)?.discount_percent || 0}
               products={products}
               categories={categories}
               vatRate={vatRate}

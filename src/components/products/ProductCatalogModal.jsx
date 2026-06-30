@@ -58,7 +58,7 @@ const ProductCard = memo(({ product, qty, onUpdate }) => (
 ));
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
-export default function ProductCatalogModal({ open, onOpenChange, products, onAddProducts }) {
+export default function ProductCatalogModal({ open, onOpenChange, products, onAddProducts, defaultDiscount = 0 }) {
   const pendingDeletedIds = (() => {
     try { return new Set(JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]")); } catch { return new Set(); }
   })();
@@ -172,8 +172,8 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
         quantity: qty,
         unit_price: product.sell_price || 0,
         buy_price: product.buy_price || 0,
-        discount: 0,
-        total: qty * (product.sell_price || 0),
+        discount: defaultDiscount,
+        total: qty * (product.sell_price || 0) * (1 - defaultDiscount / 100),
       };
     });
     onAddProducts(toAdd);

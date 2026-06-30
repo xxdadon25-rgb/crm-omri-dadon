@@ -14,7 +14,7 @@ import ProductCatalogModal from "@/components/products/ProductCatalogModal";
  * For private customers: show only gross total in DocumentTotals.
  * The line items themselves are always net — the distinction is only in the summary.
  */
-export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [] }) {
+export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0 }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const addProductsFromCatalog = (selectedItems) => {
@@ -48,6 +48,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
         products={products}
         onAddProducts={addProductsFromCatalog}
         categories={categories}
+        defaultDiscount={defaultDiscount}
       />
 
       {items.length > 0 ? (
