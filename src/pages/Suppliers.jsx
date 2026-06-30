@@ -11,7 +11,7 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,8 @@ export default function Suppliers() {
   const [docsSupplier, setDocsSupplier] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [deleteDeliveryId, setDeleteDeliveryId] = useState(null);
+  const [deletingDelivery, setDeletingDelivery] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -127,6 +129,28 @@ export default function Suppliers() {
     const { data } = await supabase.from("supplier_deliveries").select("id,supplier_id,delivery_date,file_url,status,created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false });
     setDeliveries(data || []);
     setLoadingDocs(false);
+  };
+
+  const handleDeleteDelivery = async () => {
+    const delivery = deliveries.find(d => d.id === deleteDeliveryId);
+    if (!delivery) return;
+    setDeletingDelivery(true);
+    try {
+      if (delivery.file_url) {
+        const url = new URL(delivery.file_url);
+        const pathParts = url.pathname.split("/storage/v1/object/public/delivery-documents/");
+        if (pathParts[1]) {
+          await supabase.storage.from("delivery-documents").remove([decodeURIComponent(pathParts[1])]);
+        }
+      }
+      await supabase.from("supplier_deliveries").delete().eq("id", deleteDeliveryId);
+      setDeliveries(prev => prev.filter(d => d.id !== deleteDeliveryId));
+    } catch (err) {
+      toast.error("שגיאה במחיקה: " + err.message);
+    } finally {
+      setDeleteDeliveryId(null);
+      setDeletingDelivery(false);
+    }
   };
 
   const openDialog = (item) => {
@@ -353,7 +377,7 @@ export default function Suppliers() {
           ) : (
             <div className="space-y-3 mt-2">
               {deliveries.map((d) => (
-                <div key={d.id} className="flex items-start justify-between gap-4 border border-border rounded-lg p-3">
+                <div key={d.id} className="flex items-center justify-between gap-4 border border-border rounded-lg p-3">
                   <div className="space-y-1 text-sm">
                     <p className="font-medium">
                       {new Date(d.delivery_date).toLocaleString("he-IL", {
@@ -363,24 +387,49 @@ export default function Suppliers() {
                     </p>
                     <p className="text-muted-foreground">{d.status}</p>
                   </div>
-                  {d.file_url ? (
-                    <a
-                      href={d.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-blue-600 hover:underline shrink-0"
+                  <div className="flex items-center gap-2 shrink-0">
+                    {d.file_url ? (
+                      <a
+                        href={d.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> פתח קובץ
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">אין קובץ</span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteDeliveryId(d.id)}
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> פתח קובץ
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground shrink-0">אין קובץ</span>
-                  )}
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteDeliveryId} onOpenChange={(o) => { if (!o) setDeleteDeliveryId(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת רשומת סחורה</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק קובץ זה? פעולה זו אינה הפיכה.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={deletingDelivery}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDelivery} disabled={deletingDelivery} className="bg-destructive text-destructive-foreground">
+              {deletingDelivery ? "מוחק..." : "מחק"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
