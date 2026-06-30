@@ -31,6 +31,56 @@ const PlaceholderCard = ({ title }) => (
   </div>
 );
 
+const orderStatusColors = {
+  "טיוטה": "bg-gray-100 text-gray-700",
+  "ממתין לאישור": "bg-yellow-100 text-yellow-800",
+  "אושר": "bg-blue-100 text-blue-800",
+  "בהכנה": "bg-purple-100 text-purple-800",
+  "הושלם": "bg-green-100 text-green-800",
+  "בוטל": "bg-red-100 text-red-800",
+};
+
+const paymentStatusColors = {
+  "ממתין לתשלום": "bg-amber-100 text-amber-700",
+  "שולם חלקית": "bg-blue-100 text-blue-700",
+  "שולם": "bg-green-100 text-green-700",
+  "באיחור": "bg-red-100 text-red-700",
+};
+
+function ListCard({ title, count, items, emptyText, renderItem, onClick }) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
+        {count > 0 && (
+          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center py-6">
+          <span className="text-xs text-gray-400">{emptyText}</span>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item, i) => {
+            const content = renderItem(item);
+            const clickable = !!onClick;
+            return (
+              <div
+                key={item.id || i}
+                onClick={clickable ? () => onClick(item) : undefined}
+                className={`flex items-center justify-between py-2 border-b border-gray-100 last:border-0 gap-2 ${clickable ? "cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" : ""}`}
+              >
+                {content}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Returns array of {month, value} for the last 6 calendar months (oldest→newest)
 function getLast6Months() {
   const now = new Date();
@@ -127,6 +177,22 @@ export default function Dashboard() {
   const topProducts = getTopProducts(invoices);
   const ordersPerMonth = getOrdersPerMonth(orders);
   const monthlyProfit = getMonthlyProfit(orders, products);
+
+  const now = new Date();
+  const newCustomersThisMonth = customers
+    .filter(c => {
+      const d = c.created_date ? new Date(c.created_date) : null;
+      return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+
+  const openOrders = orders
+    .filter(o => o.status && o.status !== "הושלם" && o.status !== "בוטל")
+    .sort((a, b) => new Date(b.date || b.created_date) - new Date(a.date || a.created_date));
+
+  const unpaidInvoices = invoices
+    .filter(inv => inv.payment_status && inv.payment_status !== "שולם")
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   // Month-over-month sparkline data
   const last6 = getLast6Months();
@@ -248,9 +314,53 @@ export default function Dashboard() {
 
       {/* ── Section 3: Operational lists (placeholders) ──────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <PlaceholderCard title="לקוחות חדשים החודש" />
-        <PlaceholderCard title="הזמנות פתוחות" />
-        <PlaceholderCard title="חשבוניות לא שולמו" />
+        <ListCard
+          title="לקוחות חדשים החודש"
+          count={newCustomersThisMonth.length}
+          items={newCustomersThisMonth.slice(0, 5)}
+          emptyText="אין לקוחות חדשים החודש"
+          onClick={(c) => navigate(`/customers/${c.id}`)}
+          renderItem={(c) => (
+            <>
+              <span className="text-sm text-gray-700 truncate">{c.name}</span>
+              <span className="shrink-0 text-xs text-gray-400">{c.created_date?.slice(0, 10).split("-").reverse().join("/")}</span>
+            </>
+          )}
+        />
+
+        <ListCard
+          title="הזמנות פתוחות"
+          count={openOrders.length}
+          items={openOrders.slice(0, 5)}
+          emptyText="אין הזמנות פתוחות"
+          onClick={() => navigate("/orders")}
+          renderItem={(o) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm text-gray-700 truncate block">{o.customer_name || `הזמנה #${o.order_number || o.id}`}</span>
+                <span className="text-xs text-gray-400">{o.date?.slice(0, 10).split("-").reverse().join("/")}</span>
+              </div>
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${orderStatusColors[o.status] || "bg-gray-100 text-gray-700"}`}>{o.status}</span>
+            </>
+          )}
+        />
+
+        <ListCard
+          title="חשבוניות לא שולמו"
+          count={unpaidInvoices.length}
+          items={unpaidInvoices.slice(0, 5)}
+          emptyText="כל החשבוניות שולמו"
+          onClick={() => navigate("/invoices")}
+          renderItem={(inv) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm text-gray-700 truncate block">{inv.customer_name}</span>
+                <span className="text-xs text-gray-400">{inv.date?.slice(0, 10).split("-").reverse().join("/")} · ₪{((inv.total || 0) - (inv.paid_amount || 0)).toLocaleString()}</span>
+              </div>
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${paymentStatusColors[inv.payment_status] || "bg-gray-100 text-gray-700"}`}>{inv.payment_status}</span>
+            </>
+          )}
+        />
       </div>
 
       {/* ── Section 4: Alerts ────────────────────────────────────────────── */}
