@@ -140,6 +140,8 @@ function detectShortages(orderedItems, receivedItems) {
     const receivedQty = matchIdx !== -1 ? Number(receivedItems[matchIdx].quantity) || 0 : 0;
     if (receivedQty < orderedQty) {
       results.push({ type: "shortage", name: orderedName, ordered: orderedQty, received: receivedQty });
+    } else if (receivedQty > orderedQty) {
+      results.push({ type: "excess", name: orderedName, ordered: orderedQty, received: receivedQty });
     }
   }
 
@@ -357,11 +359,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     // Compute shortages against open supplier order if one exists
     const order = openSupplierOrderRef.current;
     if (order?.items?.length) {
-      const shortageResult = detectShortages(order.items, extractedItems);
-      console.log('[shortage result]', JSON.stringify(shortageResult));
-      console.log('[shortage ordered]', JSON.stringify(order.items));
-      console.log('[shortage received]', JSON.stringify(extractedItems));
-      setShortages(shortageResult);
+      setShortages(detectShortages(order.items, extractedItems));
     }
     setStep("review");
   };
@@ -600,6 +598,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       <span className="font-medium">{s.name}</span>
                       {s.type === "shortage" ? (
                         <span className="text-xs">הוזמן: {s.ordered} | התקבל: {s.received}</span>
+                      ) : s.type === "excess" ? (
+                        <span className="text-xs text-teal-700">הוזמן: {s.ordered} | התקבל: {s.received} (עודף)</span>
                       ) : (
                         <span className="text-xs text-orange-700">התקבל מוצר שלא הוזמן — כמות: {s.received}</span>
                       )}
@@ -633,7 +633,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                       return false;
                     });
                     return (
-                    <tr key={i} className={`border-t border-border ${item.skip ? "opacity-40" : ""} ${rowShortage?.type === "shortage" ? "bg-red-50/40" : rowShortage?.type === "unordered" ? "bg-purple-50/40" : ""}`}>
+                    <tr key={i} className={`border-t border-border ${item.skip ? "opacity-40" : ""} ${rowShortage?.type === "shortage" ? "bg-red-50/40" : rowShortage?.type === "excess" ? "bg-teal-50/40" : rowShortage?.type === "unordered" ? "bg-purple-50/40" : ""}`}>
                       <td className="px-3 py-2">
                         <Input
                           value={item.sku || ""}
@@ -650,6 +650,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                         />
                         {rowShortage?.type === "shortage" && (
                           <p className="text-xs text-red-600 mt-0.5">הוזמן: {rowShortage.ordered}</p>
+                        )}
+                        {rowShortage?.type === "excess" && (
+                          <p className="text-xs text-teal-600 mt-0.5">הוזמן: {rowShortage.ordered}</p>
                         )}
                       </td>
                       <td className="px-3 py-2">
@@ -690,6 +693,11 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                           {rowShortage?.type === "shortage" && (
                             <span className="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 border border-red-300 rounded px-2 py-0.5 font-semibold">
                               ⚠️ חוסר
+                            </span>
+                          )}
+                          {rowShortage?.type === "excess" && (
+                            <span className="inline-flex items-center gap-1 text-xs text-teal-700 bg-teal-50 border border-teal-300 rounded px-2 py-0.5">
+                              📦 עודף
                             </span>
                           )}
                           {rowShortage?.type === "unordered" && (
