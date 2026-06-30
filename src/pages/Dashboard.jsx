@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target } from "lucide-react";
+import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target, Pencil } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
@@ -205,7 +205,14 @@ function GoalProgressCard({ goal, salesActual, profitActual, ordersActual, month
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-700 text-sm">יעד מול ביצוע</h3>
-        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onOpenDialog}>עריכת יעד</Button>
+        <button
+          type="button"
+          onClick={onOpenDialog}
+          title="עריכת יעד"
+          className="w-8 h-8 flex items-center justify-center rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer shrink-0"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
       </div>
       <div className="space-y-4">
         <GoalProgressBar label="מכירות" actual={salesActual} goal={goal.sales_goal || 0} formatValue={(v) => `${Math.round(v).toLocaleString()} ₪`} />
