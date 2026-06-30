@@ -135,6 +135,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const videoRef = useRef();
   const streamRef = useRef();
   const matchedResultRef = useRef([]);
+  const fileUrlRef = useRef(null);
 
   // Load products for matching
   useEffect(() => {
@@ -150,6 +151,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setItems([]);
     setSummary(null);
     matchedResultRef.current = [];
+    fileUrlRef.current = null;
     stopCamera();
   };
 
@@ -199,16 +201,30 @@ export default function DeliveryModal({ supplier, open, onClose }) {
 
   // ── Process ───────────────────────────────────────────────────────────────
 
+  const uploadFileToStorage = async (f, supplierId) => {
+    const timestamp = Date.now();
+    const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${supplierId}/${timestamp}-${safeName}`;
+    const { error } = await supabase.storage.from("delivery-documents").upload(path, f, { upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from("delivery-documents").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const handleProcess = async () => {
     if (!file) return;
     setStep("processing");
     setRetryMsg("");
     try {
-      const extracted = await extractFromFile(file, (attempt, max) => {
-        setRetryMsg(`השרת עמוס, מנסה שוב (${attempt}/${max})...`);
-      });
+      const [extracted, uploadedUrl] = await Promise.all([
+        extractFromFile(file, (attempt, max) => {
+          setRetryMsg(`השרת עמוס, מנסה שוב (${attempt}/${max})...`);
+        }),
+        uploadFileToStorage(file, supplier.id).catch(() => null),
+      ]);
       if (!extracted.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
+      fileUrlRef.current = uploadedUrl;
       const matchedResult = matchProducts(extracted, products);
       matchedResultRef.current = matchedResult;
       setItems(matchedResult);
@@ -283,7 +299,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       // Insert delivery record
       const { data: delivery, error: delErr } = await supabase
         .from("supplier_deliveries")
-        .insert({ supplier_id: supplier.id, delivery_date: now, file_url: null, status: "הושלם", created_at: now, user_id: user?.id })
+        .insert({ supplier_id: supplier.id, delivery_date: now, file_url: fileUrlRef.current || null, status: "הושלם", created_at: now, user_id: user?.id })
         .select()
         .single();
       if (delErr) throw delErr;

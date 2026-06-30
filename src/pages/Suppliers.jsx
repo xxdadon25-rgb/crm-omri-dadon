@@ -11,7 +11,8 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink } from "lucide-react";
+import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,9 @@ export default function Suppliers() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deliverySupplier, setDeliverySupplier] = useState(null);
+  const [docsSupplier, setDocsSupplier] = useState(null);
+  const [deliveries, setDeliveries] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -116,6 +120,18 @@ export default function Suppliers() {
   const filtered = useMemo(() => {
     return suppliers.filter(s => !search || [s.name, s.phone, s.email].some(f => f?.toLowerCase().includes(search.toLowerCase())));
   }, [suppliers, search]);
+
+  const openDocsModal = async (supplier) => {
+    setDocsSupplier(supplier);
+    setLoadingDocs(true);
+    const { data } = await supabase
+      .from("supplier_deliveries")
+      .select("id,delivery_date,file_url,status,notes")
+      .eq("supplier_id", supplier.id)
+      .order("delivery_date", { ascending: false });
+    setDeliveries(data || []);
+    setLoadingDocs(false);
+  };
 
   const openDialog = (item) => {
     setEditItem(item);
@@ -267,6 +283,7 @@ export default function Suppliers() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-1" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /> קבלת סחורה</Button>
+                        <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50 gap-1" onClick={() => openDocsModal(s)}><FolderOpen className="w-3.5 h-3.5" /> קבצי סחורה</Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -326,6 +343,49 @@ export default function Suppliers() {
         open={!!deliverySupplier}
         onClose={() => setDeliverySupplier(null)}
       />
+
+      {/* Delivery documents modal */}
+      <Dialog open={!!docsSupplier} onOpenChange={(o) => { if (!o) setDocsSupplier(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>קבצי סחורה — {docsSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {loadingDocs ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">טוען...</p>
+          ) : deliveries.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">אין תיעוד קבלות סחורה עבור ספק זה</p>
+          ) : (
+            <div className="space-y-3 mt-2">
+              {deliveries.map((d) => (
+                <div key={d.id} className="flex items-start justify-between gap-4 border border-border rounded-lg p-3">
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">
+                      {new Date(d.delivery_date).toLocaleString("he-IL", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </p>
+                    <p className="text-muted-foreground">{d.status}</p>
+                    {d.notes && <p className="text-xs text-muted-foreground">{d.notes}</p>}
+                  </div>
+                  {d.file_url ? (
+                    <a
+                      href={d.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-blue-600 hover:underline shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> פתח קובץ
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">אין קובץ</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
