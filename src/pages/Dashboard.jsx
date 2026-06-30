@@ -12,7 +12,7 @@ const COLORS = ["hsl(48, 96%, 53%)", "hsl(200, 60%, 50%)", "hsl(150, 50%, 45%)",
 
 const CustomYAxisTick = ({ x, y, payload }) => (
   <text x={x - 12} y={y} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#666">
-    {payload.value === 0 ? "0" : `${(payload.value / 1000).toFixed(0)}K`}
+    {`${Number(payload.value).toLocaleString()} ₪`}
   </text>
 );
 
@@ -96,7 +96,7 @@ export default function Dashboard() {
               <BarChart data={monthlyData} margin={{ right: 8, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={60} />
+                <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={95} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
                 <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
