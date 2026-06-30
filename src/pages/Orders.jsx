@@ -239,6 +239,14 @@ export default function Orders() {
       const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
       const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
       console.log('[deductInventory] update result error:', updateErr, 'newQty:', newQty);
+      const raw = sessionStorage.getItem("pendingProductUpdates");
+      if (raw) {
+        try {
+          const filtered = JSON.parse(raw).filter(p => p.id !== productId);
+          if (filtered.length === 0) sessionStorage.removeItem("pendingProductUpdates");
+          else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
+        } catch (e) {}
+      }
     }
     queryClient.removeQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -252,6 +260,14 @@ export default function Orders() {
       if (!product) continue;
       const newQty = (product.quantity || 0) + (item.quantity || 0);
       await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
+      const raw = sessionStorage.getItem("pendingProductUpdates");
+      if (raw) {
+        try {
+          const filtered = JSON.parse(raw).filter(p => p.id !== pid);
+          if (filtered.length === 0) sessionStorage.removeItem("pendingProductUpdates");
+          else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
+        } catch (e) {}
+      }
     }
     queryClient.removeQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
