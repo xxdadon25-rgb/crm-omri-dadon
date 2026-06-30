@@ -108,6 +108,8 @@ function detectShortages(orderedItems, receivedItems) {
 
   // Pass 1: match each ordered item to at most one received item
   for (const ordered of orderedItems) {
+    // Support both product_name (new) and name (legacy) field
+    const orderedName = ordered.product_name || ordered.name || "";
     let matchIdx = -1;
 
     // SKU match first
@@ -119,15 +121,15 @@ function detectShortages(orderedItems, receivedItems) {
     // Exact name match
     if (matchIdx === -1) {
       matchIdx = receivedItems.findIndex((r, i) =>
-        !matchedReceivedIndexes.has(i) && norm(r.product_name) === norm(ordered.product_name)
+        !matchedReceivedIndexes.has(i) && norm(r.product_name) === norm(orderedName)
       );
     }
     // Substring name match (only if ordered name is at least 3 chars to avoid false positives)
-    if (matchIdx === -1 && norm(ordered.product_name).length >= 3) {
+    if (matchIdx === -1 && norm(orderedName).length >= 3) {
       matchIdx = receivedItems.findIndex((r, i) => {
         if (matchedReceivedIndexes.has(i)) return false;
         const rn = norm(r.product_name);
-        const on = norm(ordered.product_name);
+        const on = norm(orderedName);
         return rn.includes(on) || on.includes(rn);
       });
     }
@@ -137,7 +139,7 @@ function detectShortages(orderedItems, receivedItems) {
     const orderedQty = Number(ordered.quantity) || 0;
     const receivedQty = matchIdx !== -1 ? Number(receivedItems[matchIdx].quantity) || 0 : 0;
     if (receivedQty < orderedQty) {
-      results.push({ type: "shortage", name: ordered.product_name, ordered: orderedQty, received: receivedQty });
+      results.push({ type: "shortage", name: orderedName, ordered: orderedQty, received: receivedQty });
     }
   }
 

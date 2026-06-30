@@ -217,7 +217,7 @@ export default function Suppliers() {
         supplier_id: orderSupplier.id,
         order_date: new Date().toISOString(),
         status: "ממתין לאישור",
-        items: orderItems,
+        items: orderItems.map(i => ({ product_id: i.product_id || null, product_name: i.product_name || i.name || "", sku: i.sku || null, quantity: i.quantity })),
         user_id: user?.id,
       });
       if (error) throw error;
