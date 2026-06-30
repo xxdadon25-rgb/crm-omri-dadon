@@ -14,6 +14,7 @@ import { base44 } from "@/api/base44Client";
 import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
+import ProductCatalogModal from "@/components/products/ProductCatalogModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,7 @@ export default function Suppliers() {
   const [orderFreeText, setOrderFreeText] = useState({ name: "", sku: "", quantity: "" });
   const [orderSaving, setOrderSaving] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState([]);
+  const [orderCatalogOpen, setOrderCatalogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -175,6 +177,24 @@ export default function Suppliers() {
       return [...prev, { product_id: product.id, product_name: product.name, sku: product.sku || null, quantity: 1 }];
     });
     setOrderProductSearch("");
+  };
+
+  const addProductsFromCatalog = (selectedItems) => {
+    const mapped = selectedItems.map(item => ({
+      product_id: item.product_id || null,
+      product_name: item.name,
+      sku: item.sku || null,
+      quantity: item.quantity || 1,
+    }));
+    setOrderItems(prev => {
+      const merged = [...prev];
+      for (const item of mapped) {
+        const exists = merged.findIndex(i => i.product_id && i.product_id === item.product_id);
+        if (exists >= 0) merged[exists] = { ...merged[exists], quantity: merged[exists].quantity + item.quantity };
+        else merged.push(item);
+      }
+      return merged;
+    });
   };
 
   const addFreeTextProduct = () => {
@@ -498,7 +518,12 @@ export default function Suppliers() {
           <div className="space-y-5 mt-2">
             {/* Catalog search */}
             <div className="space-y-2">
-              <Label className="font-semibold">הוסף מוצר מהקטלוג</Label>
+              <div className="flex items-center justify-between">
+                <Label className="font-semibold">הוסף מוצר מהקטלוג</Label>
+                <Button type="button" size="sm" variant="outline" onClick={() => setOrderCatalogOpen(true)}>
+                  <Plus className="w-3.5 h-3.5 ml-1" /> פתח קטלוג מוצרים
+                </Button>
+              </div>
               <Input
                 placeholder="חפש מוצר לפי שם..."
                 value={orderProductSearch}
@@ -577,6 +602,14 @@ export default function Suppliers() {
               </Button>
             </div>
           </div>
+          <ProductCatalogModal
+            open={orderCatalogOpen}
+            onOpenChange={setOrderCatalogOpen}
+            products={catalogProducts}
+            onAddProducts={(items) => { addProductsFromCatalog(items); setOrderCatalogOpen(false); }}
+            categories={[]}
+            defaultDiscount={0}
+          />
         </DialogContent>
       </Dialog>
 
