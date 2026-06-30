@@ -119,6 +119,18 @@ export default function CustomerDialog({ open, onOpenChange, customer, onSaved }
               <Label>הערות</Label>
               <Textarea {...f("notes")} rows={2} />
             </div>
+            <div className="sm:col-span-2 flex items-center gap-3 pt-1">
+              <input
+                type="checkbox"
+                id="is_blocked"
+                checked={!!form.is_blocked}
+                onChange={e => setForm({ ...form, is_blocked: e.target.checked })}
+                className="h-4 w-4 accent-red-500 cursor-pointer"
+              />
+              <label htmlFor="is_blocked" className="text-sm font-medium text-red-600 cursor-pointer select-none">
+                🚫 לקוח חסום
+              </label>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ביטול</Button>

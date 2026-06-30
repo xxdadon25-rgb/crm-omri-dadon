@@ -122,6 +122,7 @@ export default function QuoteEditor() {
 
   const handleCustomerChange = (id) => {
     const c = customers.find(x => x.id === id);
+    if (c?.is_blocked) toast.warning("⚠️ לקוח זה מסומן כחסום");
     setForm(prev => ({ ...prev, customer_id: id, customer_name: c?.name || "", customer_type: c?.customer_type || "פרטי" }));
   };
 

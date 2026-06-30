@@ -65,6 +65,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
 
   const handleCustomerChange = (id) => {
     const c = customers.find(x => x.id === id);
+    if (c?.is_blocked) toast.warning("⚠️ לקוח זה מסומן כחסום");
     setForm(prev => ({
       ...prev,
       customer_id: id,
