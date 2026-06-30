@@ -64,6 +64,8 @@ export default function Suppliers() {
   const [historySupplier, setHistorySupplier] = useState(null);
   const [historyOrders, setHistoryOrders] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deleteOrderId, setDeleteOrderId] = useState(null);
+  const [deletingOrder, setDeletingOrder] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -175,6 +177,19 @@ export default function Suppliers() {
       .order("created_at", { ascending: false });
     setHistoryOrders(data || []);
     setLoadingHistory(false);
+  };
+
+  const handleDeleteOrder = async () => {
+    setDeletingOrder(true);
+    try {
+      await supabase.from("supplier_orders").delete().eq("id", deleteOrderId);
+      setHistoryOrders(prev => prev.filter(o => o.id !== deleteOrderId));
+    } catch (err) {
+      toast.error("שגיאה במחיקה: " + err.message);
+    } finally {
+      setDeleteOrderId(null);
+      setDeletingOrder(false);
+    }
   };
 
   const openOrderModal = async (supplier) => {
@@ -624,7 +639,7 @@ export default function Suppliers() {
 
       {/* ── Supplier order history modal ─────────────────────────────────── */}
       <Dialog open={!!historySupplier} onOpenChange={(o) => { if (!o) setHistorySupplier(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>היסטוריית הזמנות — {historySupplier?.name}</DialogTitle>
           </DialogHeader>
@@ -642,14 +657,23 @@ export default function Suppliers() {
                   : "";
                 const date = order.order_date || order.created_at?.slice(0, 10) || "";
                 return (
-                  <div key={order.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{date}</p>
-                      {itemSummary && <p className="text-xs text-muted-foreground mt-0.5 truncate">{itemCount} פריטים: {itemSummary}</p>}
+                  <div key={order.id} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">{date}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5 border ${isOpen ? "bg-yellow-50 text-yellow-800 border-yellow-300" : "bg-green-50 text-green-800 border-green-300"}`}>
+                          {isOpen ? "ממתין לאישור" : "הושלם"}
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => setDeleteOrderId(order.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <span className={`shrink-0 inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5 border ${isOpen ? "bg-yellow-50 text-yellow-800 border-yellow-300" : "bg-green-50 text-green-800 border-green-300"}`}>
-                      {isOpen ? "ממתין לאישור" : "הושלם"}
-                    </span>
+                    {itemSummary && (
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        <span className="font-medium">{itemCount} פריטים:</span> {itemSummary}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -657,6 +681,21 @@ export default function Suppliers() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteOrderId} onOpenChange={(o) => { if (!o) setDeleteOrderId(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת הזמנה</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק הזמנה זו? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={deletingOrder}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteOrder} disabled={deletingOrder} className="bg-destructive text-destructive-foreground">
+              {deletingOrder ? "מוחק..." : "מחק הזמנה"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ProductCatalogModal
         open={orderCatalogOpen}
