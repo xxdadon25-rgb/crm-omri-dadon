@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
 import { useNavigate } from "react-router-dom";
@@ -105,10 +105,11 @@ export default function Dashboard() {
             <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name }) => name}>
+                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={70}>
                     {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(val) => val} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -118,7 +119,7 @@ export default function Dashboard() {
         </div>
 
         {/* Placeholder charts */}
-        <PlaceholderCard title="גביות חודשיות" />
+        <PlaceholderCard title="הזמנות חודשיות" />
         <PlaceholderCard title="רווח חודשי" />
       </div>
 
