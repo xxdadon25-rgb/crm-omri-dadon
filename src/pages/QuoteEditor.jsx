@@ -92,6 +92,9 @@ export default function QuoteEditor() {
   // total = subtotal + vatAmount (gross)
   const vatRate = form.vat_rate || 18;
   const subtotal = useMemo(() => form.items.reduce((s, i) => s + (i.total || 0), 0), [form.items]);
+  const grossTotal = useMemo(() => form.items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0), [form.items]);
+  const discountTotal = grossTotal - subtotal;
+  const effectiveDiscountPercent = grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0;
   const vatAmount = subtotal * (vatRate / 100);
   const total = subtotal + vatAmount;
 
@@ -291,10 +294,12 @@ export default function QuoteEditor() {
           />
           <div className="mt-4">
             <DocumentTotals
+              grossTotal={grossTotal}
               netSubtotal={subtotal}
+              discountTotal={discountTotal}
+              effectiveDiscountPercent={effectiveDiscountPercent}
               vatRate={vatRate}
               total={total}
-              discountAmount={form.discount_amount || 0}
             />
           </div>
         </div>
