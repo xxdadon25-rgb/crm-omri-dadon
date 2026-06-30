@@ -70,9 +70,11 @@ export default function QuotePDFPreview() {
   );
 
   const items = Array.isArray(quote.items) ? quote.items : [];
+  const grossTotal = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
   const subtotal = parseFloat(quote.subtotal) || 0;
-  const discount = parseFloat(quote.discount_amount) || 0;
-  const afterDiscount = subtotal - discount;
+  const discount = grossTotal > 0 ? grossTotal - subtotal : parseFloat(quote.discount_amount) || 0;
+  const effectivePct = grossTotal > 0 && discount > 0.001 ? (discount / grossTotal * 100) : 0;
+  const afterDiscount = subtotal;
   const vatRate = parseFloat(quote.vat_rate) || 18;
   const vatAmount = parseFloat(quote.vat_amount) || afterDiscount * (vatRate / 100);
   const total = parseFloat(quote.total) || afterDiscount + vatAmount;
@@ -176,20 +178,22 @@ export default function QuotePDFPreview() {
               <tbody>
                 <tr>
                   <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ ללא מע"מ:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(subtotal)}</td>
+                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(grossTotal)}</td>
                 </tr>
+                {discount > 0.001 && (
+                  <tr>
+                    <td style={{ padding: "4px 8px", color: "#c00", textAlign: "right", borderBottom: "1px solid #ddd" }}>הנחה ({effectivePct.toFixed(1)}%):</td>
+                    <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, color: "#c00", borderBottom: "1px solid #ddd" }}>-₪{fmt(discount)}</td>
+                  </tr>
+                )}
+                {discount > 0.001 && (
+                  <tr>
+                    <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ לאחר הנחה:</td>
+                    <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(afterDiscount)}</td>
+                  </tr>
+                )}
                 <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>הנחה:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>
-                    {discount > 0 ? `-₪${fmt(discount)}` : "0.00%"}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>סה"כ לאחר הנחה:</td>
-                  <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(afterDiscount)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>מע"מ {vatRate}.00%:</td>
+                  <td style={{ padding: "4px 8px", color: "#555", textAlign: "right", borderBottom: "1px solid #ddd" }}>מע"מ {vatRate}%:</td>
                   <td style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #ddd" }}>₪{fmt(vatAmount)}</td>
                 </tr>
                 <tr style={{ background: GOLD }}>

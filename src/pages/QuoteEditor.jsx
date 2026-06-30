@@ -142,7 +142,7 @@ export default function QuoteEditor() {
     setSaving(true);
     console.log("[SAVE] setSaving(true), quoteId:", quoteId);
     try {
-      const data = { ...form, subtotal, vat_amount: vatAmount, total };
+      const data = { ...form, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal };
       ['date', 'valid_until'].forEach(f => { if (!data[f]) data[f] = null; });
       console.log("[SAVE] data to save:", data);
       if (quoteId) {
@@ -179,7 +179,7 @@ export default function QuoteEditor() {
     if (!quoteId) return;
     setSaving(true);
     // Save latest state first
-    await base44.entities.Quote.update(quoteId, { ...form, subtotal, vat_amount: vatAmount, total });
+    await base44.entities.Quote.update(quoteId, { ...form, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal });
     const customer = customers.find(c => c.id === form.customer_id);
     const counter = (businessSettings?.order_counter || 1000) + 1;
     const orderData = {
