@@ -36,6 +36,12 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
     () => form.items.reduce((sum, item) => sum + (item.total || 0), 0),
     [form.items]
   );
+  const grossTotal = useMemo(
+    () => form.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0),
+    [form.items]
+  );
+  const discountTotal = grossTotal - netSubtotal;
+  const effectiveDiscountPercent = grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0;
 
   const vatRate = order?.vat_rate || 17;
   const vatAmount = netSubtotal * (vatRate / 100);
@@ -45,6 +51,8 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
     const updates = { status: form.status, notes: form.notes, items: form.items };
     if (canEditItems) {
       updates.subtotal = netSubtotal;
+      updates.gross_total = grossTotal;
+      updates.discount_amount = discountTotal;
       updates.vat_amount = vatAmount;
       updates.total = grandTotal;
       updates.vat_rate = vatRate;
@@ -96,8 +104,12 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                 vatRate={vatRate}
               />
               <DocumentTotals
+                grossTotal={grossTotal}
                 netSubtotal={netSubtotal}
+                discountTotal={discountTotal}
+                effectiveDiscountPercent={effectiveDiscountPercent}
                 vatRate={vatRate}
+                total={grandTotal}
               />
             </div>
           ) : (
