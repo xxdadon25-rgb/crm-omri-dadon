@@ -179,6 +179,7 @@ export default function CustomerLedger() {
       });
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+      queryClient.invalidateQueries({ queryKey: ["due-tasks"] });
       setTaskForm({ title: "", description: "", due_date: "" });
       setTaskDialogOpen(false);
       toast.success("משימה נוספה");
@@ -194,6 +195,7 @@ export default function CustomerLedger() {
     const { error } = await supabase.from("customer_tasks").update({ status: newStatus }).eq("id", task.id);
     if (error) { toast.error("שגיאה בעדכון משימה"); return; }
     queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+    queryClient.invalidateQueries({ queryKey: ["due-tasks"] });
   };
 
   const handleDeleteTask = async () => {
@@ -202,6 +204,7 @@ export default function CustomerLedger() {
       const { error } = await supabase.from("customer_tasks").delete().eq("id", deleteTaskId);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["customer_tasks", selectedCustomerId] });
+      queryClient.invalidateQueries({ queryKey: ["due-tasks"] });
       toast.success("משימה נמחקה");
     } catch (err) {
       toast.error("שגיאה במחיקה: " + err.message);
