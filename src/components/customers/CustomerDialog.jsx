@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ const empty = {
 const CRM_STATUSES = ["ליד חדש", "בטיפול", "הצעת מחיר נשלחה", "ממתין לתשובה", "לקוח פעיל", "VIP", "לא פעיל", "לא רלוונטי"];
 
 export default function CustomerDialog({ open, onOpenChange, customer, onSaved }) {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
 
@@ -28,10 +30,12 @@ export default function CustomerDialog({ open, onOpenChange, customer, onSaved }
     setSaving(true);
     if (customer?.id) {
       const updated = await base44.entities.Customer.update(customer.id, form);
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
       onSaved(updated);
     } else {
       const created = await base44.entities.Customer.create(form);
       sessionStorage.setItem("pendingCustomer", JSON.stringify(created));
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
       onSaved(created);
     }
     setSaving(false);

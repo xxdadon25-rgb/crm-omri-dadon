@@ -343,7 +343,7 @@ export default function QuoteEditor() {
               type="quote"
               doc={{ ...form, subtotal, vat_amount: vatAmount, total }}
               businessSettings={businessSettings}
-              customerPhone={selectedCustomer?.phone}
+              customerPhone={selectedCustomer?.mobile || selectedCustomer?.phone}
               customerEmail={selectedCustomer?.email}
             />
           )}

@@ -394,7 +394,7 @@ export default function Invoices() {
                   type="invoice"
                   doc={docWithOrder}
                   businessSettings={settings[0]}
-                  customerPhone={getCustomer(viewInvoice.customer_id)?.phone}
+                  customerPhone={getCustomer(viewInvoice.customer_id)?.mobile || getCustomer(viewInvoice.customer_id)?.phone}
                   customerEmail={getCustomer(viewInvoice.customer_id)?.email}
                 />
                 <Button
