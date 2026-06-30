@@ -83,12 +83,12 @@ export default function CustomerDialog({ open, onOpenChange, customer, onSaved }
               <Input {...f("contact_person")} />
             </div>
             <div className="space-y-1.5">
-              <Label>טלפון עסק</Label>
-              <Input {...f("phone")} />
-            </div>
-            <div className="space-y-1.5">
               <Label>נייד איש קשר</Label>
               <Input {...f("mobile")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>טלפון עסק</Label>
+              <Input {...f("phone")} />
             </div>
             <div className="space-y-1.5">
               <Label>אימייל</Label>
