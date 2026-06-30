@@ -554,11 +554,11 @@ export default function Dashboard() {
         )}
 
         {lowStock.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-red-200 p-5">
-            <h3 className="font-semibold mb-3 flex items-center gap-2 text-red-600 text-sm">
+          <div className="bg-white rounded-lg shadow-sm border border-red-200 p-5 flex flex-col max-h-[280px]">
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-red-600 text-sm shrink-0">
               <AlertTriangle className="w-4 h-4" /> התראות מלאי נמוך
             </h3>
-            <div className="space-y-1">
+            <div className="space-y-1 overflow-y-auto thin-scrollbar pr-1">
               {lowStock.map(p => (
                 <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <span className="font-medium text-sm">{p.name}</span>
