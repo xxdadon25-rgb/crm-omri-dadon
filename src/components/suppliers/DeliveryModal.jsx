@@ -356,6 +356,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setSupplierMismatch(null);
     // Compute shortages against open supplier order if one exists
     const order = openSupplierOrderRef.current;
+    console.log('[shortage check] openSupplierOrder items:', JSON.stringify(order?.items));
+    console.log('[shortage check] received items:', JSON.stringify(extractedItems));
     if (order?.items?.length) {
       setShortages(detectShortages(order.items, extractedItems));
     }
