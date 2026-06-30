@@ -61,7 +61,9 @@ export default function CustomerLedger() {
 
   useEffect(() => {
     const id = searchParams.get("customer");
+    const tab = searchParams.get("tab");
     if (id) setSelectedCustomerId(id);
+    if (tab) setActiveTab(tab);
   }, []);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState(String(currentYear));

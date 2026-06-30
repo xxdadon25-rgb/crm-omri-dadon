@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, Wrench, CheckCircle2, DollarSign, AlertCircle } from "lucide-react";
+import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, Wrench, CheckCircle2, DollarSign, AlertCircle, CalendarClock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
@@ -45,6 +46,23 @@ export default function Dashboard() {
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
   const { data: tickets = [] } = useQuery({ queryKey: ["repair-tickets"], queryFn: () => base44.entities.RepairTicket.list("-created_date") });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: dueTasks = [] } = useQuery({
+    queryKey: ["due-tasks", today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_tasks")
+        .select("id, customer_id, title, due_date")
+        .eq("status", "פתוח")
+        .lte("due_date", today)
+        .order("due_date", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
 
   const lowStock = products.filter(p => !pendingDeletedIds.has(p.id) && p.quantity <= (p.min_quantity || 0));
   const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
@@ -172,6 +190,35 @@ export default function Dashboard() {
                 {t.final_cost && <span className="text-sm font-semibold text-green-700">₪{Number(t.final_cost).toLocaleString()}</span>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Due tasks alert */}
+      {dueTasks.length > 0 && (
+        <div className="bg-card rounded-xl border border-amber-300/50 p-5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-amber-700">
+            <CalendarClock className="w-4 h-4" /> משימות לביצוע היום ({dueTasks.length})
+          </h3>
+          <div className="space-y-2">
+            {dueTasks.map(task => {
+              const isOverdue = task.due_date < today;
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => navigate(`/customer-ledger?customer=${task.customer_id}&tab=tasks`)}
+                  className="w-full flex items-center justify-between py-2 border-b border-border last:border-0 hover:bg-muted/40 rounded px-1 transition-colors text-right"
+                >
+                  <div className="min-w-0">
+                    <span className="font-medium text-sm block truncate">{task.title}</span>
+                    <span className="text-xs text-muted-foreground">{customerMap[task.customer_id] || "לקוח לא ידוע"}</span>
+                  </div>
+                  <span className={`shrink-0 text-xs font-medium mr-3 ${isOverdue ? "text-red-600" : "text-amber-700"}`}>
+                    {isOverdue ? "⚠️ " : "📅 "}{task.due_date}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
