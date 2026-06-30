@@ -59,7 +59,6 @@ export async function fetchProductsWithPending(listFn, callerLabel) {
       const backendCaughtUp = backendProduct.updated_date && pending._savedAt &&
         new Date(backendProduct.updated_date).getTime() >= pending._savedAt;
       console.log(`[UPDATE GUARD] id=${pending.id} | backendCaughtUp=${backendCaughtUp} (backend_ts=${backendProduct.updated_date ? new Date(backendProduct.updated_date).getTime() : "N/A"} vs _savedAt=${pending._savedAt})`);
-      console.log('[fetchProductsWithPending] product:', pending.id, 'backendCaughtUp:', backendCaughtUp, 'backend qty:', backendProduct?.quantity, 'pending qty:', pending.quantity);
 
       if (backendCaughtUp) {
         console.log(`[UPDATE GUARD] id=${pending.id} | backend caught up — counting confirmation, _confirmCount=${(pending._confirmCount || 0) + 1}`);
