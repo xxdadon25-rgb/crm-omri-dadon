@@ -69,7 +69,7 @@ export default function ProductCatalog() {
       <div className="flex flex-row gap-6 items-start">
 
         {/* Vertical category sidebar — desktop only */}
-        <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+        <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden sticky top-6">
           <div className="px-3 py-2.5 border-b border-gray-100">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">קטגוריות</p>
           </div>
