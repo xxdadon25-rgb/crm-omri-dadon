@@ -27,14 +27,26 @@ export default function LedgerSummaryBar({ summary }) {
   ];
 
   return (
+    // OLD - can restore:
+    // <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    //   {cards.map(card => (
+    //     <div key={card.label} className={`${card.color} rounded-xl border p-3`}>
+    //       <div className="flex items-center gap-1.5 mb-1">
+    //         <card.Icon className="w-3.5 h-3.5 text-muted-foreground" />
+    //         <p className="text-xs text-muted-foreground">{card.label}</p>
+    //       </div>
+    //       <p className="text-lg font-bold leading-tight">{card.value}</p>
+    //     </div>
+    //   ))}
+    // </div>
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {cards.map(card => (
-        <div key={card.label} className={`${card.color} rounded-xl border p-3`}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <card.Icon className="w-3.5 h-3.5 text-muted-foreground" />
+        <div key={card.label} className={`${card.color} rounded-xl border p-5`}>
+          <div className="flex items-center gap-2 mb-2">
+            <card.Icon className="w-4 h-4 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">{card.label}</p>
           </div>
-          <p className="text-lg font-bold leading-tight">{card.value}</p>
+          <p className="text-2xl font-bold leading-tight">{card.value}</p>
         </div>
       ))}
     </div>

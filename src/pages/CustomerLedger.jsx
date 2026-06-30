@@ -445,6 +445,7 @@ export default function CustomerLedger() {
               </div>
 
               {/* Tabs */}
+              {/* OLD - can restore:
               <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
                 <TabsList className="w-full grid grid-cols-6" dir="rtl">
                   <TabsTrigger value="quotes">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
@@ -453,6 +454,16 @@ export default function CustomerLedger() {
                   <TabsTrigger value="monthly">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
                   <TabsTrigger value="payments">💳 תשלומים ({customerPayments.length})</TabsTrigger>
                   <TabsTrigger value="tasks">✅ משימות ({openTasks.length})</TabsTrigger>
+                </TabsList>
+              */}
+              <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
+                <TabsList className="w-full grid grid-cols-6 h-auto p-1" dir="rtl">
+                  <TabsTrigger value="quotes" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
+                  <TabsTrigger value="orders" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📦 הזמנות ({customerOrders.length})</TabsTrigger>
+                  <TabsTrigger value="invoices" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
+                  <TabsTrigger value="monthly" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
+                  <TabsTrigger value="payments" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">💳 תשלומים ({customerPayments.length})</TabsTrigger>
+                  <TabsTrigger value="tasks" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">✅ משימות ({openTasks.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="quotes" className="mt-4">
