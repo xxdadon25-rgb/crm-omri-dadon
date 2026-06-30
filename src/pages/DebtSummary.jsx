@@ -143,32 +143,34 @@ export default function DebtSummary() {
                 />
               </div>
             </div>
-            <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-16rem)] divide-y divide-gray-100">
+            <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-16rem)] space-y-2 p-2">
               {filteredRows.map(row => (
                 <button
                   key={row.id}
                   onClick={() => setSelectedId(row.id)}
-                  className={`w-full text-right py-3 px-4 transition-colors duration-150 ${
+                  className={`w-full text-right rounded-lg p-4 transition-all duration-150 ${
                     selectedId === row.id
-                      ? "bg-amber-500 text-white"
-                      : "hover:bg-gray-50 text-foreground"
+                      ? "bg-amber-500 text-white shadow-md"
+                      : "bg-white shadow-sm hover:shadow-md text-foreground"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm leading-snug truncate">{row.name}</span>
-                    <span className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded ${
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-lg leading-snug truncate">{row.name}</span>
+                        {row.isBlocked && (
+                          <span className="shrink-0 text-xs font-medium bg-red-500 text-white px-2 py-0.5 rounded-full">חסום</span>
+                        )}
+                      </div>
+                      {row.phone && row.phone !== "—" && (
+                        <span className={`text-sm ${selectedId === row.id ? "text-white/70" : "text-gray-500"}`}>{row.phone}</span>
+                      )}
+                    </div>
+                    <span className={`shrink-0 font-bold text-base rounded-full px-3 py-1 ${
                       selectedId === row.id ? "bg-white/20 text-white" : "bg-red-100 text-red-700"
                     }`}>
                       {fmtILS(row.totalDebt)}
                     </span>
-                  </div>
-                  <div className="flex gap-2 mt-0.5">
-                    {row.phone && row.phone !== "—" && (
-                      <span className={`text-xs ${selectedId === row.id ? "text-white/70" : "text-muted-foreground"}`}>{row.phone}</span>
-                    )}
-                    {row.isBlocked && (
-                      <span className={`text-xs font-medium ${selectedId === row.id ? "text-white/80" : "text-red-600"}`}>🚫 חסום</span>
-                    )}
                   </div>
                 </button>
               ))}
