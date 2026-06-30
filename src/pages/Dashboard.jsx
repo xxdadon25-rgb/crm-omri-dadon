@@ -87,10 +87,10 @@ export default function Dashboard() {
           <h3 className="font-semibold text-gray-700 text-sm mb-4">מכירות חודשיות</h3>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
+              <BarChart data={monthlyData} margin={{ right: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} width={62} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
                 <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -102,14 +102,20 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-700 text-sm mb-4">מוצרים נמכרים ביותר</h3>
           {topProducts.length > 0 ? (
-            <div className="h-[220px]">
+            <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={70}>
+                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={65}>
                     {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(val) => val} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: "11px", paddingTop: "12px", lineHeight: "20px" }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
