@@ -239,6 +239,7 @@ export default function Orders() {
       const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
       const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
       console.log('[deductInventory] update result error:', updateErr, 'newQty:', newQty);
+      console.log('[deductInventory] clearing pending for productId:', productId, 'raw before:', sessionStorage.getItem("pendingProductUpdates"));
       const raw = sessionStorage.getItem("pendingProductUpdates");
       if (raw) {
         try {
@@ -247,6 +248,7 @@ export default function Orders() {
           else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
         } catch (e) {}
       }
+      console.log('[deductInventory] raw after:', sessionStorage.getItem("pendingProductUpdates"));
     }
     queryClient.removeQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
