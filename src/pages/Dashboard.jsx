@@ -214,7 +214,7 @@ export default function Dashboard() {
                     <span className="text-xs text-muted-foreground">{customerMap[task.customer_id] || "לקוח לא ידוע"}</span>
                   </div>
                   <span className={`shrink-0 text-xs font-medium mr-3 ${isOverdue ? "text-red-600" : "text-amber-700"}`}>
-                    {isOverdue ? "⚠️ " : "📅 "}{task.due_date}
+                    {isOverdue ? "⚠️ " : "📅 "}{task.due_date?.split("-").reverse().join("/")}
                   </span>
                 </button>
               );
