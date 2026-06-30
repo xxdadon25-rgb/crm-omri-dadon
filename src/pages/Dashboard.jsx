@@ -10,6 +10,12 @@ import { useNavigate } from "react-router-dom";
 
 const COLORS = ["hsl(48, 96%, 53%)", "hsl(200, 60%, 50%)", "hsl(150, 50%, 45%)", "hsl(280, 60%, 55%)", "hsl(20, 80%, 55%)"];
 
+const CustomYAxisTick = ({ x, y, payload }) => (
+  <text x={x - 12} y={y} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#666">
+    {payload.value === 0 ? "0" : `${(payload.value / 1000).toFixed(0)}K`}
+  </text>
+);
+
 const PlaceholderCard = ({ title }) => (
   <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
     <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
@@ -90,7 +96,7 @@ export default function Dashboard() {
               <BarChart data={monthlyData} margin={{ right: 8, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11, dx: -10 }} tickLine={false} tickMargin={8} width={80} tickFormatter={(v) => v === 0 ? "0" : `${(v / 1000).toFixed(0)}K`} />
+                <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={60} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
                 <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
