@@ -103,30 +103,52 @@ async function extractFromFile(file, onRetry) {
 
 function detectShortages(orderedItems, receivedItems) {
   const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-  return orderedItems
-    .map(ordered => {
-      // Match by SKU first, then fuzzy name
-      let received = null;
-      if (ordered.sku) {
-        received = receivedItems.find(r => norm(r.sku) === norm(ordered.sku));
-      }
-      if (!received) {
-        received = receivedItems.find(r => norm(r.product_name) === norm(ordered.product_name));
-        if (!received) {
-          received = receivedItems.find(r =>
-            norm(r.product_name).includes(norm(ordered.product_name)) ||
-            norm(ordered.product_name).includes(norm(r.product_name))
-          );
-        }
-      }
-      const orderedQty = Number(ordered.quantity) || 0;
-      const receivedQty = received ? Number(received.quantity) || 0 : 0;
-      if (receivedQty < orderedQty) {
-        return { name: ordered.product_name, ordered: orderedQty, received: receivedQty };
-      }
-      return null;
-    })
-    .filter(Boolean);
+  const matchedReceivedIndexes = new Set();
+  const results = [];
+
+  // Pass 1: match each ordered item to at most one received item
+  for (const ordered of orderedItems) {
+    let matchIdx = -1;
+
+    // SKU match first
+    if (ordered.sku) {
+      matchIdx = receivedItems.findIndex((r, i) =>
+        !matchedReceivedIndexes.has(i) && norm(r.sku) === norm(ordered.sku)
+      );
+    }
+    // Exact name match
+    if (matchIdx === -1) {
+      matchIdx = receivedItems.findIndex((r, i) =>
+        !matchedReceivedIndexes.has(i) && norm(r.product_name) === norm(ordered.product_name)
+      );
+    }
+    // Substring name match (only if ordered name is at least 3 chars to avoid false positives)
+    if (matchIdx === -1 && norm(ordered.product_name).length >= 3) {
+      matchIdx = receivedItems.findIndex((r, i) => {
+        if (matchedReceivedIndexes.has(i)) return false;
+        const rn = norm(r.product_name);
+        const on = norm(ordered.product_name);
+        return rn.includes(on) || on.includes(rn);
+      });
+    }
+
+    if (matchIdx !== -1) matchedReceivedIndexes.add(matchIdx);
+
+    const orderedQty = Number(ordered.quantity) || 0;
+    const receivedQty = matchIdx !== -1 ? Number(receivedItems[matchIdx].quantity) || 0 : 0;
+    if (receivedQty < orderedQty) {
+      results.push({ type: "shortage", name: ordered.product_name, ordered: orderedQty, received: receivedQty });
+    }
+  }
+
+  // Pass 2: received items not matched to any ordered item
+  receivedItems.forEach((r, i) => {
+    if (!matchedReceivedIndexes.has(i)) {
+      results.push({ type: "unordered", name: r.product_name, received: Number(r.quantity) || 0 });
+    }
+  });
+
+  return results;
 }
 
 // ── Supplier mismatch check ───────────────────────────────────────────────────
@@ -560,14 +582,16 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             {/* Shortage summary vs open supplier order */}
             {shortages.length > 0 && (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
-                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1">
-                  ⚠️ חוסרים שזוהו לעומת הזמנת הספק
-                </p>
+                <p className="text-sm font-semibold text-amber-800">⚠️ הבדלים לעומת הזמנת הספק</p>
                 <div className="space-y-1">
                   {shortages.map((s, i) => (
                     <div key={i} className="flex justify-between text-sm text-amber-900">
                       <span className="font-medium">{s.name}</span>
-                      <span className="text-xs">הוזמן: {s.ordered} | התקבל: {s.received}</span>
+                      {s.type === "shortage" ? (
+                        <span className="text-xs">הוזמן: {s.ordered} | התקבל: {s.received}</span>
+                      ) : (
+                        <span className="text-xs text-orange-700">התקבל מוצר שלא הוזמן — כמות: {s.received}</span>
+                      )}
                     </div>
                   ))}
                 </div>
