@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +24,53 @@ const PlaceholderCard = ({ title }) => (
     </div>
   </div>
 );
+
+// Returns array of {month, value} for the last 6 calendar months (oldest→newest)
+function getLast6Months() {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    return { year: d.getFullYear(), month: d.getMonth() }; // month 0-indexed
+  });
+}
+
+function calcMoM(current, previous) {
+  if (previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+function KpiSparkCard({ title, icon: Icon, value, sparkData, pct }) {
+  const isPositive = pct !== null && pct > 0;
+  const isNegative = pct !== null && pct < 0;
+  const lineColor = isNegative ? "#ef4444" : "#22c55e";
+  return (
+    <div className="bg-card rounded-xl border border-border p-5 flex flex-col justify-between transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground font-medium">{title}</p>
+          <p className="text-2xl font-bold mt-1">{value}</p>
+          <p className={`text-xs mt-1 font-medium flex items-center gap-0.5 ${isPositive ? "text-green-600" : isNegative ? "text-red-500" : "text-muted-foreground"}`}>
+            {isPositive && <ArrowUp className="w-3 h-3" />}
+            {isNegative && <ArrowDown className="w-3 h-3" />}
+            {pct === null ? "— אין נתון קודם" : `${Math.abs(pct)}% לעומת חודש קודם`}
+          </p>
+        </div>
+        {Icon && (
+          <div className="p-2.5 rounded-lg bg-primary/10 shrink-0">
+            <Icon className="w-5 h-5 text-primary" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2 h-[36px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={sparkData}>
+            <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -72,6 +119,27 @@ export default function Dashboard() {
   const monthlyData = getMonthlyData(invoices);
   const topProducts = getTopProducts(invoices);
 
+  // Month-over-month sparkline data
+  const last6 = getLast6Months();
+
+  const customerSparkData = last6.map(({ year, month }) => ({
+    value: customers.filter(c => {
+      const d = c.created_date ? new Date(c.created_date) : null;
+      return d && d.getFullYear() === year && d.getMonth() === month;
+    }).length,
+  }));
+  const customerMoM = calcMoM(
+    customerSparkData[5].value,
+    customerSparkData[4].value
+  );
+
+  const salesSparkData = last6.map(({ year, month }) => ({
+    value: invoices
+      .filter(inv => { const d = inv.date ? new Date(inv.date) : null; return d && d.getFullYear() === year && d.getMonth() === month; })
+      .reduce((s, inv) => s + (inv.total || 0), 0),
+  }));
+  const salesMoM = calcMoM(salesSparkData[5].value, salesSparkData[4].value);
+
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <PageHeader title="דשבורד" description="סקירה כללית של העסק" />
@@ -82,8 +150,8 @@ export default function Dashboard() {
         <StatCard title="מלאי נמוך" value={lowStock.length} icon={AlertTriangle} className={lowStock.length > 0 ? "border-destructive/30" : ""} />
         <StatCard title="הצעות מחיר" value={quotes.length} icon={FileText} />
         <StatCard title="חשבוניות" value={invoices.length} icon={Receipt} />
-        <StatCard title="מכירות" value={`₪${Math.round(totalSales).toLocaleString()}`} icon={TrendingUp} />
-        <StatCard title="לקוחות" value={customers.length} icon={Users} />
+        <KpiSparkCard title="מכירות" icon={TrendingUp} value={`₪${Math.round(totalSales).toLocaleString()}`} sparkData={salesSparkData} pct={salesMoM} />
+        <KpiSparkCard title="לקוחות" icon={Users} value={customers.length} sparkData={customerSparkData} pct={customerMoM} />
       </div>
 
       {/* ── Section 2: Charts ────────────────────────────────────────────── */}
