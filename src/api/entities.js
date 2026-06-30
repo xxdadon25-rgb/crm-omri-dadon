@@ -103,7 +103,6 @@ const entities = {
   Supplier:           makeEntityMethods('suppliers'),
   Payment:            makeEntityMethods('payments'),
   CrmTask:            makeEntityMethods('crm_tasks'),
-  RepairTicket:       makeEntityMethods('repair_tickets'),
   Category:           makeEntityMethods('categories'),
   InventoryMovement:  makeEntityMethods('inventory_movements'),
   Notification:       makeEntityMethods('notifications'),

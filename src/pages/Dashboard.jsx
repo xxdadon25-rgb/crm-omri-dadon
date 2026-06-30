@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, Wrench, CheckCircle2, DollarSign, AlertCircle, CalendarClock } from "lucide-react";
+import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
@@ -10,15 +10,14 @@ import { useNavigate } from "react-router-dom";
 
 const COLORS = ["hsl(48, 96%, 53%)", "hsl(200, 60%, 50%)", "hsl(150, 50%, 45%)", "hsl(280, 60%, 55%)", "hsl(20, 80%, 55%)"];
 
-const STATUS_COLORS = {
-  "נכנס": "bg-blue-100 text-blue-800",
-  "בבדיקה": "bg-yellow-100 text-yellow-800",
-  "בתיקון": "bg-orange-100 text-orange-800",
-  "ממתין לחלקים": "bg-purple-100 text-purple-800",
-  "מוכן לאיסוף": "bg-green-100 text-green-800",
-  "נמסר": "bg-gray-100 text-gray-700",
-  "בוטל": "bg-red-100 text-red-700",
-};
+const PlaceholderCard = ({ title }) => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
+    <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
+    <div className="flex-1 flex items-center justify-center py-6">
+      <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">בקרוב</span>
+    </div>
+  </div>
+);
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -45,7 +44,6 @@ export default function Dashboard() {
 
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
-  const { data: tickets = [] } = useQuery({ queryKey: ["repair-tickets"], queryFn: () => base44.entities.RepairTicket.list("-created_date") });
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: dueTasks = [] } = useQuery({
@@ -63,29 +61,17 @@ export default function Dashboard() {
   });
 
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
-
   const lowStock = products.filter(p => !pendingDeletedIds.has(p.id) && p.quantity <= (p.min_quantity || 0));
   const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-
-  const activeTickets = tickets.filter(t => !["נמסר", "בוטל"].includes(t.status));
-  const readyTickets = tickets.filter(t => t.status === "מוכן לאיסוף");
-  const urgentTickets = tickets.filter(t => t.priority === "דחופה" && !["נמסר", "בוטל"].includes(t.status));
-
-  const repairRevenue = tickets.reduce((s, t) => s + (t.final_cost || 0), 0);
-  const repairCosts = tickets.reduce((s, t) => s + (t.parts_cost || 0) + (t.labor_cost || 0), 0);
-  const repairProfit = repairRevenue - repairCosts;
-
   const monthlyData = getMonthlyData(invoices);
   const topProducts = getTopProducts(invoices);
 
-  const recentTickets = activeTickets.slice(0, 5);
-
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50" dir="rtl">
       <PageHeader title="דשבורד" description="סקירה כללית של העסק" />
 
-      {/* Main stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      {/* ── Section 1: KPI cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <StatCard title="מוצרים במלאי" value={activeProductCount} icon={Package} />
         <StatCard title="מלאי נמוך" value={lowStock.length} icon={AlertTriangle} className={lowStock.length > 0 ? "border-destructive/30" : ""} />
         <StatCard title="הצעות מחיר" value={quotes.length} icon={FileText} />
@@ -94,71 +80,32 @@ export default function Dashboard() {
         <StatCard title="לקוחות" value={customers.length} icon={Users} />
       </div>
 
-      {/* Repair tickets summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/repair-tickets")}>
-          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-            <Wrench className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold">{activeTickets.length}</p>
-            <p className="text-xs text-blue-700 font-medium">קריאות פעילות</p>
-          </div>
-        </div>
-        <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/repair-tickets")}>
-          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold">{readyTickets.length}</p>
-            <p className="text-xs text-green-700 font-medium">מוכן לאיסוף</p>
-          </div>
-        </div>
-        <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/repair-tickets")}>
-          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold">{urgentTickets.length}</p>
-            <p className="text-xs text-red-700 font-medium">דחוף</p>
-          </div>
-        </div>
-        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/profit-tracking")}>
-          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-            <DollarSign className="w-5 h-5 text-yellow-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold">₪{Math.round(repairProfit).toLocaleString()}</p>
-            <p className="text-xs text-yellow-700 font-medium">רווח שירות</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        {/* Monthly sales chart */}
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-semibold mb-4">מכירות חודשיות</h3>
-          <div className="h-[260px]">
+      {/* ── Section 2: Charts ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+        {/* Live: monthly sales bar chart — spans 2 cols on xl */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 xl:col-span-2">
+          <h3 className="font-semibold text-gray-700 text-sm mb-4">מכירות חודשיות</h3>
+          <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 90%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} />
-                <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="total" fill="hsl(48, 96%, 53%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Top products pie */}
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-semibold mb-4">מוצרים נמכרים ביותר</h3>
+        {/* Live: top products pie chart */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-700 text-sm mb-4">מוצרים נמכרים ביותר</h3>
           {topProducts.length > 0 ? (
-            <div className="h-[260px] flex items-center justify-center">
+            <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={({ name }) => name}>
+                  <Pie data={topProducts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name }) => name}>
                     {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(val) => val} />
@@ -166,79 +113,73 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[260px] flex items-center justify-center text-muted-foreground text-sm">אין נתונים עדיין</div>
+            <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">אין נתונים עדיין</div>
           )}
         </div>
+
+        {/* Placeholder charts */}
+        <PlaceholderCard title="גביות חודשיות" />
+        <PlaceholderCard title="רווח חודשי" />
       </div>
 
-      {/* Recent repair tickets */}
-      {recentTickets.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Wrench className="w-4 h-4" /> קריאות שירות פעילות
+      {/* ── Section 3: Operational lists (placeholders) ──────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <PlaceholderCard title="לקוחות חדשים החודש" />
+        <PlaceholderCard title="הזמנות פתוחות" />
+        <PlaceholderCard title="חשבוניות לא שולמו" />
+      </div>
+
+      {/* ── Section 4: Alerts ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {dueTasks.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-5">
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-amber-700 text-sm">
+              <CalendarClock className="w-4 h-4" /> משימות לביצוע היום ({dueTasks.length})
             </h3>
-            <button onClick={() => navigate("/repair-tickets")} className="text-sm text-primary hover:underline">צפה בכל הקריאות</button>
+            <div className="space-y-1">
+              {dueTasks.map(task => {
+                const isOverdue = task.due_date < today;
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => navigate(`/customer-ledger?customer=${task.customer_id}&tab=tasks`)}
+                    className="w-full flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-right"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm block truncate">{task.title}</span>
+                      <span className="text-xs text-gray-500">{customerMap[task.customer_id] || "לקוח לא ידוע"}</span>
+                    </div>
+                    <span className={`shrink-0 text-xs font-medium mr-3 ${isOverdue ? "text-red-600" : "text-amber-700"}`}>
+                      {isOverdue ? "⚠️ " : "📅 "}{task.due_date?.split("-").reverse().join("/")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="space-y-2">
-            {recentTickets.map(t => (
-              <div key={t.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 gap-4">
-                <span className="text-xs font-mono text-muted-foreground w-12">#{t.ticket_number}</span>
-                <span className="font-medium flex-1">{t.customer_name}</span>
-                <span className="text-sm text-muted-foreground flex-1">{t.device_brand} {t.device_model}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[t.status] || "bg-gray-100 text-gray-700"}`}>{t.status}</span>
-                {t.final_cost && <span className="text-sm font-semibold text-green-700">₪{Number(t.final_cost).toLocaleString()}</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Due tasks alert */}
-      {dueTasks.length > 0 && (
-        <div className="bg-card rounded-xl border border-amber-300/50 p-5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2 text-amber-700">
-            <CalendarClock className="w-4 h-4" /> משימות לביצוע היום ({dueTasks.length})
-          </h3>
-          <div className="space-y-2">
-            {dueTasks.map(task => {
-              const isOverdue = task.due_date < today;
-              return (
-                <button
-                  key={task.id}
-                  onClick={() => navigate(`/customer-ledger?customer=${task.customer_id}&tab=tasks`)}
-                  className="w-full flex items-center justify-between py-2 border-b border-border last:border-0 hover:bg-muted/40 rounded px-1 transition-colors text-right"
-                >
-                  <div className="min-w-0">
-                    <span className="font-medium text-sm block truncate">{task.title}</span>
-                    <span className="text-xs text-muted-foreground">{customerMap[task.customer_id] || "לקוח לא ידוע"}</span>
-                  </div>
-                  <span className={`shrink-0 text-xs font-medium mr-3 ${isOverdue ? "text-red-600" : "text-amber-700"}`}>
-                    {isOverdue ? "⚠️ " : "📅 "}{task.due_date?.split("-").reverse().join("/")}
-                  </span>
-                </button>
-              );
-            })}
+        {lowStock.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-red-200 p-5">
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-red-600 text-sm">
+              <AlertTriangle className="w-4 h-4" /> התראות מלאי נמוך
+            </h3>
+            <div className="space-y-1">
+              {lowStock.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <span className="font-medium text-sm">{p.name}</span>
+                  <span className="text-sm text-red-600">{p.quantity} / {p.min_quantity}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Low stock alert */}
-      {lowStock.length > 0 && (
-        <div className="bg-card rounded-xl border border-destructive/20 p-5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2 text-destructive">
-            <AlertTriangle className="w-4 h-4" /> התראות מלאי נמוך
-          </h3>
-          <div className="space-y-2">
-            {lowStock.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="font-medium">{p.name}</span>
-                <span className="text-sm text-destructive">{p.quantity} / {p.min_quantity}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── Section 5: Goal vs Actual (placeholder) ──────────────────────── */}
+      <div className="mb-6">
+        <PlaceholderCard title="יעד מול ביצוע" />
+      </div>
     </div>
   );
 }

@@ -39,7 +39,6 @@ import SalesCatalog from "@/pages/SalesCatalog";
 import CustomerProfile from "@/pages/CustomerProfile";
 import CustomerLedger from "@/pages/CustomerLedger";
 import PriceMigration from "@/pages/PriceMigration";
-import ProfitTracking from "@/pages/ProfitTracking";
 import ImageMigration from "@/pages/ImageMigration";
 import DebtSummary from "@/pages/DebtSummary";
 
@@ -94,7 +93,6 @@ const AuthenticatedApp = () => {
           <Route path="/customer-ledger" element={<CustomerLedger />} />
           <Route path="/price-migration" element={<PriceMigration />} />
           <Route path="/image-migration" element={<ImageMigration />} />
-<Route path="/profit-tracking" element={<ProfitTracking />} />
           <Route path="/debt-summary" element={<DebtSummary />} />
         </Route>
       </Route>
