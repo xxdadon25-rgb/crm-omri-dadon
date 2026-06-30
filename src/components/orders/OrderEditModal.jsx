@@ -86,21 +86,38 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
             </Select>
           </div>
 
-          {/* Fulfilled toggle */}
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
-            <input
-              type="checkbox"
-              id="fulfilled"
-              checked={!!form.fulfilled}
-              onChange={e => setForm({ ...form, fulfilled: e.target.checked })}
-              className="h-4 w-4 accent-green-600 cursor-pointer"
-            />
-            <label htmlFor="fulfilled" className="text-sm font-medium cursor-pointer select-none">
-              ✅ סופק ללקוח
-            </label>
-            {order?.inventory_deducted && (
-              <span className="text-xs text-muted-foreground mr-auto">מלאי עודכן</span>
-            )}
+          {/* Fulfilled — prominent selection */}
+          <div className="rounded-lg border-2 border-border bg-muted/20 p-4">
+            <p className="text-sm font-semibold mb-3">
+              האם ההזמנה סופקה ללקוח?
+              {order?.inventory_deducted && (
+                <span className="text-xs text-muted-foreground font-normal mr-2">מלאי עודכן</span>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, fulfilled: true })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  form.fulfilled === true
+                    ? "border-green-500 bg-green-100 text-green-800"
+                    : "border-border bg-background text-foreground hover:border-green-400"
+                }`}
+              >
+                ✅ כן, סופק
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, fulfilled: false })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  form.fulfilled === false
+                    ? "border-orange-500 bg-orange-100 text-orange-800"
+                    : "border-border bg-background text-foreground hover:border-orange-400"
+                }`}
+              >
+                ⏳ לא, טרם סופק
+              </button>
+            </div>
           </div>
 
           {/* Invoice lock notice */}

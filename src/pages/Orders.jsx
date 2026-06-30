@@ -229,22 +229,24 @@ export default function Orders() {
 
   const deductInventory = async (items) => {
     for (const item of items) {
-      if (!item.product_id) continue;
-      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", item.product_id).single();
+      const pid = item.product_id || item.id;
+      if (!pid) continue;
+      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", pid).single();
       if (!product) continue;
       const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
-      await supabase.from("products").update({ quantity: newQty }).eq("id", item.product_id);
+      await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
     }
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
   const restoreInventory = async (items) => {
     for (const item of items) {
-      if (!item.product_id) continue;
-      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", item.product_id).single();
+      const pid = item.product_id || item.id;
+      if (!pid) continue;
+      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", pid).single();
       if (!product) continue;
       const newQty = (product.quantity || 0) + (item.quantity || 0);
-      await supabase.from("products").update({ quantity: newQty }).eq("id", item.product_id);
+      await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
     }
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };

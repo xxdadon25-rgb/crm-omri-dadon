@@ -48,7 +48,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
     items: [],
     notes: "",
     status: "ממתין לאישור",
-    fulfilled: false,
+    fulfilled: null,
     vat_rate: businessSettings?.vat_rate || 17,
   });
 
@@ -93,6 +93,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
   const handleSave = async () => {
     if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
     if (form.items.length === 0) { toast.error("יש להוסיף לפחות פריט אחד"); return; }
+    if (form.fulfilled === null) { toast.error("יש לציין האם ההזמנה סופקה ללקוח"); return; }
 
     setSaving(true);
     try {
@@ -217,18 +218,38 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
             </div>
           </div>
 
-          {/* Fulfilled toggle */}
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
-            <input
-              type="checkbox"
-              id="fulfilled"
-              checked={!!form.fulfilled}
-              onChange={e => setForm({ ...form, fulfilled: e.target.checked })}
-              className="h-4 w-4 accent-green-600 cursor-pointer"
-            />
-            <label htmlFor="fulfilled" className="text-sm font-medium cursor-pointer select-none">
-              ✅ סופק ללקוח
-            </label>
+          {/* Fulfilled — mandatory selection */}
+          <div className={`rounded-lg border-2 p-4 ${form.fulfilled === null ? "border-red-400 bg-red-50" : "border-border bg-muted/20"}`}>
+            <p className="text-sm font-semibold mb-3">
+              האם ההזמנה סופקה ללקוח? <span className="text-red-500">*</span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, fulfilled: true })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  form.fulfilled === true
+                    ? "border-green-500 bg-green-100 text-green-800"
+                    : "border-border bg-background text-foreground hover:border-green-400"
+                }`}
+              >
+                ✅ כן, סופק
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, fulfilled: false })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  form.fulfilled === false
+                    ? "border-orange-500 bg-orange-100 text-orange-800"
+                    : "border-border bg-background text-foreground hover:border-orange-400"
+                }`}
+              >
+                ⏳ לא, טרם סופק
+              </button>
+            </div>
+            {form.fulfilled === null && (
+              <p className="text-xs text-red-500 mt-2">שדה חובה — יש לבחור אחת מהאפשרויות</p>
+            )}
           </div>
 
           {/* Notes */}
