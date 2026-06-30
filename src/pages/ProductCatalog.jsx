@@ -118,7 +118,8 @@ export default function ProductCatalog() {
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
+                        style={{ mixBlendMode: "multiply" }}
                         onError={(e) => { e.currentTarget.style.display = "none"; }}
                       />
                     ) : (
