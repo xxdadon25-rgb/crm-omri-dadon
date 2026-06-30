@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
@@ -47,8 +48,14 @@ function filterByDate(dateStr, selectedMonth, selectedYear, dateFrom, dateTo) {
 }
 
 export default function CustomerLedger() {
+  const [searchParams] = useSearchParams();
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+
+  useEffect(() => {
+    const id = searchParams.get("customer");
+    if (id) setSelectedCustomerId(id);
+  }, []);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);

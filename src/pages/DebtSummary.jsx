@@ -99,7 +99,7 @@ export default function DebtSummary() {
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => navigate("/customer-ledger")}
+                          onClick={() => navigate(`/customer-ledger?customer=${row.id}`)}
                         >
                           <BookUser className="w-3.5 h-3.5 ml-1" />
                           פתח כרטסת
