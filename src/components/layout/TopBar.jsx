@@ -20,11 +20,14 @@ export default function TopBar({ onMenuClick, collapsed }) {
 
   return (
     // On desktop (≥1024px): offset right by sidebar width. On tablet/mobile: full-width (sidebar is drawer)
-    <header className={cn(
-      "fixed top-0 left-0 right-0 h-16 bg-card/80 backdrop-blur-sm border-b border-border z-30 transition-all duration-300",
-      collapsed ? "lg:right-[72px]" : "lg:right-[240px]"
-    )}>
-      <div className="h-full flex items-center justify-between px-4 lg:px-6">
+    <header
+      className={cn(
+        "fixed top-0 left-0 right-0 bg-card/80 backdrop-blur-sm border-b border-border z-30 transition-all duration-300",
+        collapsed ? "lg:right-[72px]" : "lg:right-[240px]"
+      )}
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      <div className="h-16 flex items-center justify-between px-4 lg:px-6">
         <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-muted lg:hidden">
           <Menu className="w-5 h-5" />
         </button>

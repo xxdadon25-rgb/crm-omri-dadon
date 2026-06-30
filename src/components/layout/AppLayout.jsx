@@ -17,11 +17,13 @@ export default function AppLayout() {
         setMobileOpen={setMobileOpen}
       />
       <TopBar onMenuClick={() => setMobileOpen(true)} collapsed={collapsed} />
-      <main className={cn(
-        "pt-16 min-h-screen transition-all duration-300",
-        // On desktop (≥1024px) offset by sidebar width; tablets/mobile get no offset (sidebar is a drawer)
-        collapsed ? "lg:pr-[72px]" : "lg:pr-[240px]"
-      )}>
+      <main
+        className={cn(
+          "min-h-screen transition-all duration-300",
+          collapsed ? "lg:pr-[72px]" : "lg:pr-[240px]"
+        )}
+        style={{ paddingTop: "calc(4rem + env(safe-area-inset-top))" }}
+      >
         <div className="p-3 md:p-4 lg:p-6">
           <Outlet />
         </div>
