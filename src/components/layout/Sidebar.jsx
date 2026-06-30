@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Settings, Truck, ChevronLeft, ChevronRight, X, ScrollText,
   Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser,
-  TrendingUp
+  TrendingUp, Landmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ const navGroups = [
       { path: "/orders", label: "הזמנות", icon: ShoppingCart },
       { path: "/invoices", label: "חשבוניות", icon: Receipt },
       { path: "/customer-ledger", label: "כרטסת לקוח", icon: BookUser },
+      { path: "/debt-summary", label: "יתרות חוב", icon: Landmark },
     ],
   },
   {
