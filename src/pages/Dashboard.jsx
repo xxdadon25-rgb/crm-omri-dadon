@@ -209,9 +209,10 @@ function GoalProgressCard({ goal, salesActual, profitActual, ordersActual, month
           type="button"
           onClick={onOpenDialog}
           title="עריכת יעד"
-          className="w-8 h-8 flex items-center justify-center rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer shrink-0 text-xs font-medium"
         >
           <Pencil className="w-4 h-4" />
+          עריכת יעד
         </button>
       </div>
       <div className="space-y-4">
