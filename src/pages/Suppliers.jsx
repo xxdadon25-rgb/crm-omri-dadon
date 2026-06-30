@@ -166,7 +166,7 @@ export default function Suppliers() {
     setOrderItems([]);
     setOrderProductSearch("");
     setOrderFreeText({ name: "", sku: "", quantity: "" });
-    const { data } = await supabase.from("products").select("id,name,sku,buy_price").eq("is_active", true).order("name");
+    const { data } = await supabase.from("products").select("id,name,sku,buy_price,sell_price,quantity,category,is_active").eq("is_active", true).order("name");
     setCatalogProducts(data || []);
   };
 
@@ -602,16 +602,17 @@ export default function Suppliers() {
               </Button>
             </div>
           </div>
-          <ProductCatalogModal
-            open={orderCatalogOpen}
-            onOpenChange={setOrderCatalogOpen}
-            products={catalogProducts}
-            onAddProducts={(items) => { addProductsFromCatalog(items); setOrderCatalogOpen(false); }}
-            categories={[]}
-            defaultDiscount={0}
-          />
         </DialogContent>
       </Dialog>
+
+      <ProductCatalogModal
+        open={orderCatalogOpen}
+        onOpenChange={setOrderCatalogOpen}
+        products={catalogProducts}
+        onAddProducts={(items) => { addProductsFromCatalog(items); setOrderCatalogOpen(false); }}
+        categories={[]}
+        defaultDiscount={0}
+      />
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
