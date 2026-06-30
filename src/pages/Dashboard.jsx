@@ -1,12 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown } from "lucide-react";
+import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import PageHeader from "@/components/shared/PageHeader";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const COLORS = ["hsl(48, 96%, 53%)", "hsl(200, 60%, 50%)", "hsl(150, 50%, 45%)", "hsl(280, 60%, 55%)", "hsl(20, 80%, 55%)"];
 
@@ -81,6 +87,135 @@ function ListCard({ title, count, items, emptyText, renderItem, onClick }) {
   );
 }
 
+function GoalProgressBar({ label, actual, goal, formatValue }) {
+  const pct = goal > 0 ? Math.round((actual / goal) * 100) : 0;
+  const barPct = Math.min(pct, 100);
+  const color = pct >= 90 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-gray-700">{label}</span>
+        <span className="text-xs text-gray-500">{pct}%</span>
+      </div>
+      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${barPct}%` }} />
+      </div>
+      <p className="text-xs text-gray-500">{formatValue(actual)} מתוך {formatValue(goal)}</p>
+    </div>
+  );
+}
+
+function GoalDialog({ open, onOpenChange, existingGoal, month, year, onSaved }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ sales_goal: "", profit_goal: "", orders_goal: "" });
+  const [saving, setSaving] = useState(false);
+
+  const initFromExisting = () => {
+    setForm({
+      sales_goal: existingGoal?.sales_goal != null ? String(existingGoal.sales_goal) : "",
+      profit_goal: existingGoal?.profit_goal != null ? String(existingGoal.profit_goal) : "",
+      orders_goal: existingGoal?.orders_goal != null ? String(existingGoal.orders_goal) : "",
+    });
+  };
+
+  const handleOpenChange = (o) => {
+    if (o) initFromExisting();
+    onOpenChange(o);
+  };
+
+  const handleSave = async () => {
+    const sales = Number(form.sales_goal);
+    const profit = Number(form.profit_goal);
+    const ordersGoal = Number(form.orders_goal);
+    if ([sales, profit, ordersGoal].some(v => isNaN(v) || v < 0)) {
+      toast.error("יש להזין מספרים תקינים (0 ומעלה)");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("monthly_goals").upsert(
+        {
+          user_id: user?.id,
+          month,
+          year,
+          sales_goal: sales,
+          profit_goal: profit,
+          orders_goal: ordersGoal,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,month,year" }
+      );
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["monthly-goal", year, month] });
+      toast.success("היעד נשמר בהצלחה");
+      onOpenChange(false);
+      onSaved?.();
+    } catch (err) {
+      toast.error("שגיאה בשמירת היעד: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>הגדרת יעד לחודש {month}/{year}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1">
+            <Label>יעד מכירות (₪)</Label>
+            <Input type="number" min="0" value={form.sales_goal} onChange={e => setForm(f => ({ ...f, sales_goal: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="space-y-1">
+            <Label>יעד רווח (₪)</Label>
+            <Input type="number" min="0" value={form.profit_goal} onChange={e => setForm(f => ({ ...f, profit_goal: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="space-y-1">
+            <Label>יעד הזמנות</Label>
+            <Input type="number" min="0" value={form.orders_goal} onChange={e => setForm(f => ({ ...f, orders_goal: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="flex gap-2 pt-2 border-t">
+            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>ביטול</Button>
+            <Button className="flex-1" disabled={saving} onClick={handleSave}>
+              {saving ? "שומר..." : "שמור יעד"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function GoalProgressCard({ goal, salesActual, profitActual, ordersActual, month, year, onOpenDialog }) {
+  if (!goal) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex flex-col items-center justify-center gap-3 py-10">
+        <h3 className="font-semibold text-gray-700 text-sm self-start">יעד מול ביצוע</h3>
+        <Target className="w-8 h-8 text-gray-300" />
+        <span className="text-sm text-gray-400">לא הוגדר יעד לחודש זה</span>
+        <Button size="sm" variant="outline" onClick={onOpenDialog}>הגדר יעד</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-700 text-sm">יעד מול ביצוע</h3>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onOpenDialog}>עריכת יעד</Button>
+      </div>
+      <div className="space-y-4">
+        <GoalProgressBar label="מכירות" actual={salesActual} goal={goal.sales_goal || 0} formatValue={(v) => `${Math.round(v).toLocaleString()} ₪`} />
+        <GoalProgressBar label="רווח" actual={profitActual} goal={goal.profit_goal || 0} formatValue={(v) => `${Math.round(v).toLocaleString()} ₪`} />
+        <GoalProgressBar label="הזמנות" actual={ordersActual} goal={goal.orders_goal || 0} formatValue={(v) => `${v.toLocaleString()}`} />
+      </div>
+    </div>
+  );
+}
+
 // Returns array of {month, value} for the last 6 calendar months (oldest→newest)
 function getLast6Months() {
   const now = new Date();
@@ -130,6 +265,7 @@ function KpiSparkCard({ title, icon: Icon, value, sparkData, pct }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
 
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")) });
   const pendingDeletedIds = (() => { try { return new Set(JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]")); } catch { return new Set(); } })();
@@ -154,6 +290,24 @@ export default function Dashboard() {
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
   const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date") });
+
+  const currentMonthNum = new Date().getMonth() + 1;
+  const currentYearNum = new Date().getFullYear();
+  const { data: monthlyGoal } = useQuery({
+    queryKey: ["monthly-goal", currentYearNum, currentMonthNum],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("monthly_goals")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("month", currentMonthNum)
+        .eq("year", currentYearNum)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: dueTasks = [] } = useQuery({
@@ -193,6 +347,12 @@ export default function Dashboard() {
   const unpaidInvoices = invoices
     .filter(inv => inv.payment_status && inv.payment_status !== "שולם")
     .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Reuse the already-computed monthlyData / monthlyProfit / ordersPerMonth arrays (same logic as the charts above)
+  const currentMonthIdx = now.getMonth();
+  const salesActualThisMonth = monthlyData[currentMonthIdx]?.total || 0;
+  const profitActualThisMonth = monthlyProfit[currentMonthIdx]?.profit || 0;
+  const ordersActualThisMonth = ordersPerMonth[currentMonthIdx]?.count || 0;
 
   // Month-over-month sparkline data
   const last6 = getLast6Months();
@@ -410,10 +570,26 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Section 5: Goal vs Actual (placeholder) ──────────────────────── */}
+      {/* ── Section 5: Goal vs Actual ────────────────────────────────────── */}
       <div className="mb-6">
-        <PlaceholderCard title="יעד מול ביצוע" />
+        <GoalProgressCard
+          goal={monthlyGoal}
+          salesActual={salesActualThisMonth}
+          profitActual={profitActualThisMonth}
+          ordersActual={ordersActualThisMonth}
+          month={currentMonthNum}
+          year={currentYearNum}
+          onOpenDialog={() => setGoalDialogOpen(true)}
+        />
       </div>
+
+      <GoalDialog
+        open={goalDialogOpen}
+        onOpenChange={setGoalDialogOpen}
+        existingGoal={monthlyGoal}
+        month={currentMonthNum}
+        year={currentYearNum}
+      />
     </div>
   );
 }
