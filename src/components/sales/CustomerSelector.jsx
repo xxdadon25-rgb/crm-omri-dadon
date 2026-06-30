@@ -169,9 +169,14 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                          {c.customer_type || "פרטי"}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                            {c.customer_type || "פרטי"}
+                          </span>
+                          {c.is_blocked && (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">חסום</span>
+                          )}
+                        </div>
                         {c.discount_percent > 0 && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
                             הנחה {c.discount_percent}%
