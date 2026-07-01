@@ -506,7 +506,7 @@ export default function Reports() {
       </div>
 
         {/* Sticky top bar: page header + filters + export */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
+        <div className="sticky top-0 z-10 bg-background pb-3 shadow-md border-b border-gray-200">
           <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
           <div className="bg-card border border-border rounded-xl p-4 mt-1">
           {/* Filter row: stacks to 2-col on tablet, 4-col on desktop */}
