@@ -52,12 +52,12 @@ export default function TopBar({ onMenuClick, collapsed }) {
           {/* Global search bar — desktop */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 w-72 px-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:shadow-md transition-all text-sm text-gray-400"
+            className="flex items-center gap-2 w-72 px-4 py-2 rounded-lg border border-gray-900 bg-white shadow-sm hover:border-gray-300 hover:shadow-md transition-all text-sm text-gray-400"
             dir="rtl"
           >
             <Search className="w-4 h-4 shrink-0" />
             <span className="flex-1 text-right">חפש לקוח, מוצר, הזמנה...</span>
-            <kbd className="inline-flex items-center text-xs bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-gray-400">
+            <kbd className="inline-flex items-center text-xs bg-gray-100 px-1.5 py-0.5 rounded border border-gray-900 text-gray-400">
               ⌘K
             </kbd>
           </button>
