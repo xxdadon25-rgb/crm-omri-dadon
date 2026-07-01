@@ -507,8 +507,8 @@ export default function Reports() {
 
         <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
 
-        {/* OLD - can restore: <div className="bg-card border border-border rounded-xl p-4 mb-6"> */}
-        <div className="sticky top-16 z-10 bg-white shadow-md border-b border-gray-200 rounded-xl p-4 mb-6">
+        {/* OLD - can restore: <div className="sticky top-16 z-10 bg-white shadow-md border-b border-gray-200 rounded-xl p-4 mb-6"> */}
+        <div className="fixed top-16 left-[var(--sidebar-width,16rem)] right-0 z-50 bg-white shadow-md border-b border-gray-200 p-4">
           {/* Filter row: stacks to 2-col on tablet, 4-col on desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
@@ -570,6 +570,8 @@ export default function Reports() {
           </div>
           </div>
         </div>{/* end filter card */}
+        {/* Spacer to prevent content hiding behind fixed filter bar */}
+        <div className="h-24" />
 
       {/* Sales Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
