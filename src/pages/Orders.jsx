@@ -30,10 +30,10 @@ import { toast } from "sonner";
 const Checkbox2 = ({ checked, onChange }) => (
   <button
     onClick={onChange}
-    className="w-6 h-6 border border-input rounded flex items-center justify-center hover:bg-muted transition-colors"
-    style={{ backgroundColor: checked ? "hsl(var(--primary))" : "transparent" }}
+    className="w-6 h-6 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
+    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
   >
-    {checked && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+    {checked && <Check className="w-3.5 h-3.5 text-white" />}
   </button>
 );
 
