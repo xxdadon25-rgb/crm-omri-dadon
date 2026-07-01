@@ -36,15 +36,10 @@ export default function CreditNoteButton({ invoice }) {
           user_id: user.id,
           credit_note_number: creditNoteNumber,
           invoice_id: invoice.id,
-          invoice_number: invoice.invoice_number,
           customer_id: invoice.customer_id,
-          date: new Date().toISOString().split("T")[0],
           items: creditedItems,
-          subtotal: -(invoice.subtotal || 0),
-          vat_rate: invoice.vat_rate || 17,
-          vat_amount: -(invoice.vat_amount || 0),
           total: -(invoice.total || 0),
-          notes: `זיכוי עבור חשבונית מספר ${invoice.invoice_number}`,
+          reason: `זיכוי עבור חשבונית מספר ${invoice.invoice_number}`,
         })
         .select()
         .single();

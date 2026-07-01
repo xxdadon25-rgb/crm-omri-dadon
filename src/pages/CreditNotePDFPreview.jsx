@@ -175,9 +175,9 @@ export default function CreditNotePDFPreview() {
           </div>
 
           {/* Footer */}
-          {creditNote.notes && (
+          {creditNote.reason && (
             <div style={{ margin: "8px 16px", padding: "8px 12px", background: "#f9f9f9", borderRadius: 4, fontSize: 10, color: "#555" }}>
-              {creditNote.notes}
+              {creditNote.reason}
             </div>
           )}
           <div style={{ margin: "8px 16px 16px", textAlign: "center", fontSize: 9, color: "#999" }}>
