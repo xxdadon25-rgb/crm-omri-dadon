@@ -102,7 +102,6 @@ async function checkHighDebtNotBlocked() {
 
 async function checkFulfilledNoDeduction() {
   const uid = await getUserId();
-  // Orders that are fulfilled but inventory_deducted is false or null
   const { data, error } = await supabase
     .from("orders")
     .select("id,order_number,date,customer_name,fulfilled,inventory_deducted")
@@ -111,6 +110,104 @@ async function checkFulfilledNoDeduction() {
     .or("inventory_deducted.is.null,inventory_deducted.eq.false");
   if (error) throw error;
   return data ?? [];
+}
+
+async function checkStaleSupplierOrders() {
+  const uid = await getUserId();
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const [{ data: orders, error: oErr }, { data: suppliers, error: sErr }] = await Promise.all([
+    supabase.from("supplier_orders")
+      .select("id,supplier_id,order_date,status,created_at")
+      .eq("user_id", uid)
+      .not("status", "in", '("הושלם","בוטל")')
+      .lt("created_at", cutoff),
+    supabase.from("suppliers").select("id,name").eq("user_id", uid),
+  ]);
+  if (oErr) throw oErr;
+  if (sErr) throw sErr;
+  const nameMap = Object.fromEntries((suppliers ?? []).map(s => [s.id, s.name]));
+  return (orders ?? []).map(o => ({ ...o, supplier_name: nameMap[o.supplier_id] || "—" }));
+}
+
+async function checkConvertedQuotesWrongStatus() {
+  const uid = await getUserId();
+  const [{ data: quotes, error: qErr }, { data: orders, error: oErr }] = await Promise.all([
+    supabase.from("quotes")
+      .select("id,quote_number,customer_name,status")
+      .eq("user_id", uid)
+      .in("status", ["טיוטה", "ממתין לאישור"]),
+    supabase.from("orders").select("quote_id").eq("user_id", uid).not("quote_id", "is", null),
+  ]);
+  if (qErr) throw qErr;
+  if (oErr) throw oErr;
+  const linkedQuoteIds = new Set((orders ?? []).map(o => o.quote_id).filter(Boolean));
+  return (quotes ?? []).filter(q => linkedQuoteIds.has(q.id));
+}
+
+async function checkOrderMissingProducts() {
+  const uid = await getUserId();
+  const [{ data: orders, error: oErr }, { data: products, error: pErr }] = await Promise.all([
+    supabase.from("orders")
+      .select("id,order_number,customer_name,items")
+      .eq("user_id", uid)
+      .not("status", "in", '("הושלם","בוטל")'),
+    supabase.from("products").select("id").eq("user_id", uid),
+  ]);
+  if (oErr) throw oErr;
+  if (pErr) throw pErr;
+  const productIds = new Set((products ?? []).map(p => p.id));
+  const issues = [];
+  for (const order of orders ?? []) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    for (const item of items) {
+      if (item.product_id && !productIds.has(item.product_id)) {
+        issues.push({
+          key: `${order.id}-${item.product_id}`,
+          order_number: order.order_number,
+          customer_name: order.customer_name,
+          missing_name: item.name || item.product_name || "—",
+          missing_id: item.product_id,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+async function checkDuplicateDocNumbers() {
+  const uid = await getUserId();
+  const [{ data: invoices }, { data: quotes }, { data: orders }] = await Promise.all([
+    supabase.from("invoices").select("invoice_number").eq("user_id", uid),
+    supabase.from("quotes").select("quote_number").eq("user_id", uid),
+    supabase.from("orders").select("order_number").eq("user_id", uid),
+  ]);
+  const dupes = [];
+  const findDupes = (rows, field, label) => {
+    const counts = {};
+    for (const r of rows ?? []) {
+      const v = r[field];
+      if (v != null) counts[v] = (counts[v] || 0) + 1;
+    }
+    for (const [num, count] of Object.entries(counts)) {
+      if (count > 1) dupes.push({ key: `${label}-${num}`, type: label, number: num, count });
+    }
+  };
+  findDupes(invoices, "invoice_number", "חשבונית");
+  findDupes(quotes, "quote_number", "הצעת מחיר");
+  findDupes(orders, "order_number", "הזמנה");
+  return dupes;
+}
+
+async function checkBuyPriceHigherThanSell() {
+  const uid = await getUserId();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id,name,sku,buy_price,sell_price")
+    .eq("user_id", uid)
+    .gt("buy_price", 0)
+    .gt("sell_price", 0);
+  if (error) throw error;
+  return (data ?? []).filter(p => (p.buy_price || 0) >= (p.sell_price || 0));
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -167,21 +264,26 @@ function CheckCard({ title, description, isLoading, error, issues, children }) {
 export default function QualityControl() {
   const queryClient = useQueryClient();
 
-  const { data: negStock = [],        isLoading: l1, error: e1 } = useQuery({ queryKey: ["qc_neg_stock"],           queryFn: checkNegativeStock });
-  const { data: blockedOrders = [],   isLoading: l2, error: e2 } = useQuery({ queryKey: ["qc_blocked_orders"],      queryFn: checkBlockedWithOpenOrders });
-  const { data: overpaid = [],        isLoading: l3, error: e3 } = useQuery({ queryKey: ["qc_overpaid"],            queryFn: checkOverpaidInvoicesFallback });
-  const { data: highDebt = [],        isLoading: l4, error: e4 } = useQuery({ queryKey: ["qc_high_debt"],           queryFn: checkHighDebtNotBlocked });
-  const { data: fulfilledNoDeduct=[], isLoading: l5, error: e5 } = useQuery({ queryKey: ["qc_fulfilled_no_deduct"], queryFn: checkFulfilledNoDeduction });
+  const { data: negStock = [],          isLoading: l1, error: e1 } = useQuery({ queryKey: ["qc_neg_stock"],             queryFn: checkNegativeStock });
+  const { data: blockedOrders = [],     isLoading: l2, error: e2 } = useQuery({ queryKey: ["qc_blocked_orders"],        queryFn: checkBlockedWithOpenOrders });
+  const { data: overpaid = [],          isLoading: l3, error: e3 } = useQuery({ queryKey: ["qc_overpaid"],              queryFn: checkOverpaidInvoicesFallback });
+  const { data: highDebt = [],          isLoading: l4, error: e4 } = useQuery({ queryKey: ["qc_high_debt"],             queryFn: checkHighDebtNotBlocked });
+  const { data: fulfilledNoDeduct = [], isLoading: l5, error: e5 } = useQuery({ queryKey: ["qc_fulfilled_no_deduct"],   queryFn: checkFulfilledNoDeduction });
+  const { data: staleSupplierOrders=[], isLoading: l6, error: e6 } = useQuery({ queryKey: ["qc_stale_supplier_orders"], queryFn: checkStaleSupplierOrders });
+  const { data: convertedQuotes = [],   isLoading: l7, error: e7 } = useQuery({ queryKey: ["qc_converted_quotes"],      queryFn: checkConvertedQuotesWrongStatus });
+  const { data: missingProducts = [],   isLoading: l8, error: e8 } = useQuery({ queryKey: ["qc_missing_products"],      queryFn: checkOrderMissingProducts });
+  const { data: dupeDocs = [],          isLoading: l9, error: e9 } = useQuery({ queryKey: ["qc_dupe_docs"],             queryFn: checkDuplicateDocNumbers });
+  const { data: buyGtSell = [],         isLoading: l10,error: e10} = useQuery({ queryKey: ["qc_buy_gt_sell"],           queryFn: checkBuyPriceHigherThanSell });
 
   function refresh() {
-    queryClient.invalidateQueries({ queryKey: ["qc_neg_stock"] });
-    queryClient.invalidateQueries({ queryKey: ["qc_blocked_orders"] });
-    queryClient.invalidateQueries({ queryKey: ["qc_overpaid"] });
-    queryClient.invalidateQueries({ queryKey: ["qc_high_debt"] });
-    queryClient.invalidateQueries({ queryKey: ["qc_fulfilled_no_deduct"] });
+    ["qc_neg_stock","qc_blocked_orders","qc_overpaid","qc_high_debt","qc_fulfilled_no_deduct",
+     "qc_stale_supplier_orders","qc_converted_quotes","qc_missing_products","qc_dupe_docs","qc_buy_gt_sell"
+    ].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
   }
 
-  const totalIssues = negStock.length + blockedOrders.length + overpaid.length + highDebt.length + fulfilledNoDeduct.length;
+  const totalIssues = negStock.length + blockedOrders.length + overpaid.length + highDebt.length +
+    fulfilledNoDeduct.length + staleSupplierOrders.length + convertedQuotes.length +
+    missingProducts.length + dupeDocs.length + buyGtSell.length;
 
   return (
     <div dir="rtl">
@@ -337,6 +439,142 @@ export default function QualityControl() {
                     <TableCell className="font-medium text-right">#{o.order_number}</TableCell>
                     <TableCell className="text-right">{o.customer_name || "—"}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{fmtDate(o.date)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CheckCard>
+
+          {/* CHECK 6 — Stale open supplier orders (>30 days) */}
+          <CheckCard
+            title="הזמנה לספק לא נסגרה (מעל 30 יום)"
+            description="הזמנות ספק שסטטוסן לא 'הושלם' או 'בוטל' ומועד פתיחתן לפני יותר מ-30 יום"
+            isLoading={l6} error={e6} issues={staleSupplierOrders}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">ספק</TableHead>
+                  <TableHead className="text-right">תאריך הזמנה</TableHead>
+                  <TableHead className="text-right">סטטוס</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {staleSupplierOrders.map(o => (
+                  <TableRow key={o.id} className="bg-amber-50/50">
+                    <TableCell className="font-medium text-right">{o.supplier_name}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{fmtDate(o.order_date || o.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge className="bg-amber-100 text-amber-700">{o.status || "—"}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CheckCard>
+
+          {/* CHECK 7 — Converted quotes with wrong status */}
+          <CheckCard
+            title="הצעת מחיר שהומרה אבל סטטוס לא עודכן"
+            description="הצעות מחיר שיש להן הזמנה מקושרת אך סטטוסן עדיין 'טיוטה' או 'ממתין לאישור'"
+            isLoading={l7} error={e7} issues={convertedQuotes}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">מספר הצעה</TableHead>
+                  <TableHead className="text-right">לקוח</TableHead>
+                  <TableHead className="text-right">סטטוס</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {convertedQuotes.map(q => (
+                  <TableRow key={q.id} className="bg-amber-50/50">
+                    <TableCell className="font-medium text-right">#{q.quote_number}</TableCell>
+                    <TableCell className="text-right">{q.customer_name || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge className="bg-gray-100 text-gray-600">{q.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CheckCard>
+
+          {/* CHECK 8 — Open orders with deleted products */}
+          <CheckCard
+            title="הזמנה עם מוצרים שלא קיימים בקטלוג"
+            description="הזמנות פתוחות שמכילות פריטים שמוצר הבסיס שלהם נמחק מהקטלוג"
+            isLoading={l8} error={e8} issues={missingProducts}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">מספר הזמנה</TableHead>
+                  <TableHead className="text-right">לקוח</TableHead>
+                  <TableHead className="text-right">מוצר חסר</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {missingProducts.map(row => (
+                  <TableRow key={row.key} className="bg-red-50/50">
+                    <TableCell className="font-medium text-right">#{row.order_number}</TableCell>
+                    <TableCell className="text-right">{row.customer_name || "—"}</TableCell>
+                    <TableCell className="text-right text-red-600">{row.missing_name}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CheckCard>
+
+          {/* CHECK 9 — Duplicate document numbers */}
+          <CheckCard
+            title="מספרי מסמכים כפולים"
+            description="מספרי חשבוניות, הצעות מחיר או הזמנות שמופיעים יותר מפעם אחת במערכת"
+            isLoading={l9} error={e9} issues={dupeDocs}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">סוג מסמך</TableHead>
+                  <TableHead className="text-right">מספר</TableHead>
+                  <TableHead className="text-right">כמות כפולים</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dupeDocs.map(row => (
+                  <TableRow key={row.key} className="bg-red-50/50">
+                    <TableCell className="font-medium text-right">{row.type}</TableCell>
+                    <TableCell className="text-right">#{row.number}</TableCell>
+                    <TableCell className="text-right font-bold text-red-600">{row.count}×</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CheckCard>
+
+          {/* CHECK 10 — Buy price >= sell price */}
+          <CheckCard
+            title="מחיר קנייה גבוה ממחיר מכירה"
+            description="מוצרים שמחיר הקנייה שלהם שווה או גבוה ממחיר המכירה — פוטנציאל הפסד"
+            isLoading={l10} error={e10} issues={buyGtSell}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">שם מוצר</TableHead>
+                  <TableHead className="text-right">מק״ט</TableHead>
+                  <TableHead className="text-right">מחיר קנייה</TableHead>
+                  <TableHead className="text-right">מחיר מכירה</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {buyGtSell.map(p => (
+                  <TableRow key={p.id} className="bg-red-50/50">
+                    <TableCell className="font-medium text-right">{p.name}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{p.sku || "—"}</TableCell>
+                    <TableCell className="text-right font-bold text-red-600">{formatCurrency(p.buy_price)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(p.sell_price)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
