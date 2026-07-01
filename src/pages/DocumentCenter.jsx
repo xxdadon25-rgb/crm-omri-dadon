@@ -309,11 +309,13 @@ export default function DocumentCenter() {
                       return (
                         <TableRow key={key} className="hover:bg-muted/30">
                           <TableCell className="text-right">
-                            <Checkbox
-                              checked={selected.has(key)}
-                              onCheckedChange={() => toggleSelect(doc)}
-                              aria-label="בחר שורה"
-                            />
+                            <div className="pr-4">
+                              <Checkbox
+                                checked={selected.has(key)}
+                                onCheckedChange={() => toggleSelect(doc)}
+                                aria-label="בחר שורה"
+                              />
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge className={meta.badge}>{meta.label}</Badge>
