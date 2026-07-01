@@ -89,7 +89,7 @@ export default function CustomerSelector({ onConfirm, onBack }) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="bg-card border-b border-border px-6 py-4 flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onBack}>
@@ -101,32 +101,36 @@ export default function CustomerSelector({ onConfirm, onBack }) {
         </div>
       </div>
 
-      <div className="flex-1 max-w-3xl mx-auto w-full p-6">
+      <div className="flex-1 flex flex-col overflow-hidden max-w-3xl mx-auto w-full">
         {mode === "select" ? (
-          <div className="space-y-4">
-            {/* Search + New + Bulk delete */}
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="חיפוש לפי שם, טלפון, ח.פ..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pr-9 h-11"
-                  autoFocus
-                />
-              </div>
-              {selected.size > 0 && (
-                <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
-                  <Trash2 className="w-4 h-4 ml-1" /> מחק {selected.size}
+          <>
+            {/* OLD - can restore: remove sticky wrapper, move back into space-y-4 div */}
+            {/* Sticky search + new customer bar */}
+            <div className="sticky top-0 z-10 bg-background px-6 pt-4 pb-3 border-b border-border shrink-0">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="חיפוש לפי שם, טלפון, ח.פ..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pr-9 h-11"
+                    autoFocus
+                  />
+                </div>
+                {selected.size > 0 && (
+                  <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                    <Trash2 className="w-4 h-4 ml-1" /> מחק {selected.size}
+                  </Button>
+                )}
+                <Button onClick={() => setMode("create")} variant="outline">
+                  <Plus className="w-4 h-4 ml-1" /> לקוח חדש
                 </Button>
-              )}
-              <Button onClick={() => setMode("create")} variant="outline">
-                <Plus className="w-4 h-4 ml-1" /> לקוח חדש
-              </Button>
+              </div>
             </div>
 
-            {/* Customer list */}
+            {/* Scrollable customer list */}
+            <div className="flex-1 overflow-y-auto thin-scrollbar px-6 py-4">
             {isLoading ? (
               <div className="flex justify-center py-12">
                 <div className="w-7 h-7 border-4 border-muted border-t-primary rounded-full animate-spin" />
@@ -197,8 +201,10 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          </>
         ) : (
+          <div className="flex-1 overflow-y-auto thin-scrollbar px-6 py-4">
           <div className="bg-card border border-border rounded-xl p-6 space-y-5">
             <div className="flex items-center gap-3 mb-2">
               <Button variant="ghost" size="sm" onClick={() => setMode("select")}>
@@ -267,6 +273,7 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                 {saving ? "שומר..." : "צור לקוח והמשך"}
               </Button>
             </div>
+          </div>
           </div>
         )}
       </div>
