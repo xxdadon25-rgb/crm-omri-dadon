@@ -1,4 +1,5 @@
-import { Menu, LogOut, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, LogOut, User, Search } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -8,18 +9,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import GlobalSearch from "@/components/search/GlobalSearch";
 
 export default function TopBar({ onMenuClick, collapsed }) {
   const { user, logout } = useAuth();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const handleLogout = () => logout();
+
+  // Ctrl+K / Cmd+K shortcut
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const initials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).join("").slice(0, 2)
     : "U";
 
   return (
-    // On desktop (≥1024px): offset right by sidebar width. On tablet/mobile: full-width (sidebar is drawer)
+    <>
+    {/* On desktop (≥1024px): offset right by sidebar width. On tablet/mobile: full-width (sidebar is drawer) */}
     <header
       className={cn(
         "fixed top-0 left-0 right-0 bg-card/80 backdrop-blur-sm border-b border-border z-30 transition-all duration-300",
@@ -32,6 +48,18 @@ export default function TopBar({ onMenuClick, collapsed }) {
           <Menu className="w-5 h-5" />
         </button>
         <div className="hidden lg:block" />
+
+        {/* Global search button */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm text-muted-foreground"
+        >
+          <Search className="w-4 h-4" />
+          <span className="hidden sm:inline">חיפוש</span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-xs bg-muted px-1.5 py-0.5 rounded border border-border">
+            ⌘K
+          </kbd>
+        </button>
 
         <DropdownMenu dir="rtl">
           <DropdownMenuTrigger className="flex items-center gap-2 hover:bg-muted px-3 py-1.5 rounded-lg transition-colors">
@@ -53,5 +81,8 @@ export default function TopBar({ onMenuClick, collapsed }) {
         </DropdownMenu>
       </div>
     </header>
+
+    <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   );
 }
