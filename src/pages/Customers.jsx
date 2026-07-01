@@ -164,58 +164,66 @@ export default function Customers() {
 
   return (
     <div>
-      <PageHeader title="לקוחות" description={`${customers.length} לקוחות`}>
-        <div className="flex items-center gap-2">
-          <Button variant={view === "dashboard" ? "default" : "outline"} size="sm" onClick={() => setView("dashboard")}>
-            <LayoutDashboard className="w-4 h-4 ml-1" /> CRM
-          </Button>
-          <Button variant={view === "list" ? "default" : "outline"} size="sm" onClick={() => setView("list")}>
-            <List className="w-4 h-4 ml-1" /> רשימה
-          </Button>
-          <Button size="sm" onClick={() => { setEditCustomer(null); setDialogOpen(true); }}>
-            <Plus className="w-4 h-4 ml-1" /> לקוח חדש
-          </Button>
-        </div>
-      </PageHeader>
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper, restore PageHeader + filters as direct children */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
-      {view === "dashboard" && (
-        <div className="mb-6">
-          <CrmDashboard onSelectStatus={(status) => { setStatusFilter(status); setView("list"); }} />
-        </div>
-      )}
-
-      {view === "list" && (
-        <>
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="relative flex-1 min-w-48">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="חיפוש לקוחות..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+        {/* Sticky top bar: title, view toggles, new customer button, search + filters */}
+        <div className="sticky top-0 z-10 bg-background pb-3">
+          <PageHeader title="לקוחות" description={`${customers.length} לקוחות`}>
+            <div className="flex items-center gap-2">
+              <Button variant={view === "dashboard" ? "default" : "outline"} size="sm" onClick={() => setView("dashboard")}>
+                <LayoutDashboard className="w-4 h-4 ml-1" /> CRM
+              </Button>
+              <Button variant={view === "list" ? "default" : "outline"} size="sm" onClick={() => setView("list")}>
+                <List className="w-4 h-4 ml-1" /> רשימה
+              </Button>
+              <Button size="sm" onClick={() => { setEditCustomer(null); setDialogOpen(true); }}>
+                <Plus className="w-4 h-4 ml-1" /> לקוח חדש
+              </Button>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="סטטוס CRM" />
-              </SelectTrigger>
-              <SelectContent>
-                {CRM_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="סוג לקוח" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="הכל">הכל</SelectItem>
-                <SelectItem value="פרטי">👤 פרטי</SelectItem>
-                <SelectItem value="עסקי">🏢 עסקי</SelectItem>
-              </SelectContent>
-            </Select>
-            {(statusFilter !== "הכל" || typeFilter !== "הכל") && (
-              <Button variant="ghost" size="sm" onClick={() => { setStatusFilter("הכל"); setTypeFilter("הכל"); }}>נקה פילטרים</Button>
-            )}
-          </div>
+          </PageHeader>
 
-          {selectedCustomers.size > 0 && (
+          {view === "list" && (
+            <div className="flex flex-wrap gap-3 mt-1">
+              <div className="relative flex-1 min-w-48">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="חיפוש לקוחות..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="סטטוס CRM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CRM_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="סוג לקוח" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="הכל">הכל</SelectItem>
+                  <SelectItem value="פרטי">👤 פרטי</SelectItem>
+                  <SelectItem value="עסקי">🏢 עסקי</SelectItem>
+                </SelectContent>
+              </Select>
+              {(statusFilter !== "הכל" || typeFilter !== "הכל") && (
+                <Button variant="ghost" size="sm" onClick={() => { setStatusFilter("הכל"); setTypeFilter("הכל"); }}>נקה פילטרים</Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {view === "dashboard" && (
+          <div className="mb-6">
+            <CrmDashboard onSelectStatus={(status) => { setStatusFilter(status); setView("list"); }} />
+          </div>
+        )}
+
+        {view === "list" && (
+          <>
+            {selectedCustomers.size > 0 && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
               <span className="text-sm font-medium">נבחרו {selectedCustomers.size} לקוחות</span>
               <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
@@ -394,8 +402,10 @@ export default function Customers() {
               </Button>
             </div>
           )}
-        </>
-      )}
+          </>
+        )}
+
+      </div>{/* end scrollable region */}
 
       <CustomerDialog
         open={dialogOpen}
