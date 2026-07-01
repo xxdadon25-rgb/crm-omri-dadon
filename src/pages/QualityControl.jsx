@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
@@ -6,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
+import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Loader2 } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -210,6 +211,33 @@ async function checkBuyPriceHigherThanSell() {
   return (data ?? []).filter(p => (p.buy_price || 0) >= (p.sell_price || 0));
 }
 
+// ─── Technical health checks ────────────────────────────────────────────────
+
+async function pingDatabase() {
+  const t0 = performance.now();
+  const { error } = await supabase.from("products").select("count", { count: "exact", head: true });
+  const ms = Math.round(performance.now() - t0);
+  if (error) return { status: "error", ms };
+  if (ms > 5000) return { status: "slow_critical", ms };
+  if (ms > 2000) return { status: "slow", ms };
+  return { status: "ok", ms };
+}
+
+async function pingStorage(bucket) {
+  const { error } = await supabase.storage.from(bucket).list("", { limit: 1 });
+  return { status: error ? "error" : "ok", error: error?.message };
+}
+
+async function pingProductsFetch() {
+  const t0 = performance.now();
+  const { error } = await supabase.from("products").select("id");
+  const ms = Math.round(performance.now() - t0);
+  if (error) return { status: "error", ms };
+  if (ms > 3000) return { status: "very_slow", ms };
+  if (ms > 1000) return { status: "slow", ms };
+  return { status: "ok", ms };
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function CheckCard({ title, description, isLoading, error, issues, children }) {
@@ -259,10 +287,56 @@ function CheckCard({ title, description, isLoading, error, issues, children }) {
   );
 }
 
+function TechCheckCard({ title, description, loading, badge, detail }) {
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-base">{title}</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+          {!loading && detail && <p className="text-sm mt-1 font-medium">{detail}</p>}
+        </div>
+        <div className="shrink-0 mt-0.5">
+          {loading ? (
+            <Badge className="bg-gray-100 text-gray-500 flex items-center gap-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> בודק...
+            </Badge>
+          ) : badge}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function QualityControl() {
   const queryClient = useQueryClient();
+
+  const initTech = { loading: true, result: null };
+  const [tech11, setTech11] = useState(initTech);
+  const [tech12, setTech12] = useState(initTech);
+  const [tech13, setTech13] = useState(initTech);
+  const [tech14, setTech14] = useState(initTech);
+
+  const runTechChecks = useCallback(async () => {
+    setTech11({ loading: true, result: null });
+    setTech12({ loading: true, result: null });
+    setTech13({ loading: true, result: null });
+    setTech14({ loading: true, result: null });
+    const [r11, r12, r13, r14] = await Promise.all([
+      pingDatabase(),
+      pingStorage("product-images"),
+      pingStorage("delivery-documents"),
+      pingProductsFetch(),
+    ]);
+    setTech11({ loading: false, result: r11 });
+    setTech12({ loading: false, result: r12 });
+    setTech13({ loading: false, result: r13 });
+    setTech14({ loading: false, result: r14 });
+  }, []);
+
+  useEffect(() => { runTechChecks(); }, [runTechChecks]);
 
   const { data: negStock = [],          isLoading: l1, error: e1 } = useQuery({ queryKey: ["qc_neg_stock"],             queryFn: checkNegativeStock });
   const { data: blockedOrders = [],     isLoading: l2, error: e2 } = useQuery({ queryKey: ["qc_blocked_orders"],        queryFn: checkBlockedWithOpenOrders });
@@ -279,6 +353,7 @@ export default function QualityControl() {
     ["qc_neg_stock","qc_blocked_orders","qc_overpaid","qc_high_debt","qc_fulfilled_no_deduct",
      "qc_stale_supplier_orders","qc_converted_quotes","qc_missing_products","qc_dupe_docs","qc_buy_gt_sell"
     ].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
+    runTechChecks();
   }
 
   const totalIssues = negStock.length + blockedOrders.length + overpaid.length + highDebt.length +
@@ -579,6 +654,79 @@ export default function QualityControl() {
               </TableBody>
             </Table>
           </CheckCard>
+
+          {/* ── Technical health checks section ── */}
+          <div className="pt-2">
+            <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות טכניות</h2>
+
+            {/* CHECK 11 — Supabase connection */}
+            <div className="space-y-4">
+            <TechCheckCard
+              title="חיבור לSupabase"
+              description="בדיקת תקינות החיבור למסד הנתונים"
+              loading={tech11.loading}
+              detail={tech11.result?.ms != null ? `זמן תגובה: ${tech11.result.ms}ms` : undefined}
+              badge={
+                tech11.result?.status === "ok" ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> תקין</Badge>
+                ) : tech11.result?.status === "slow" ? (
+                  <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> איטי</Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> כשל</Badge>
+                )
+              }
+            />
+
+            {/* CHECK 12 — product-images storage */}
+            <TechCheckCard
+              title="Storage — תמונות מוצרים"
+              description={`גישה ל-bucket: product-images`}
+              loading={tech12.loading}
+              detail={tech12.result?.error || undefined}
+              badge={
+                tech12.result?.status === "ok" ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> נגיש</Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> לא נגיש</Badge>
+                )
+              }
+            />
+
+            {/* CHECK 13 — delivery-documents storage */}
+            <TechCheckCard
+              title="Storage — מסמכי משלוח"
+              description={`גישה ל-bucket: delivery-documents`}
+              loading={tech13.loading}
+              detail={tech13.result?.error || undefined}
+              badge={
+                tech13.result?.status === "ok" ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> נגיש</Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> לא נגיש</Badge>
+                )
+              }
+            />
+
+            {/* CHECK 14 — products fetch latency */}
+            <TechCheckCard
+              title="זמן תגובה כללי"
+              description="זמן טעינת רשימת המוצרים המלאה"
+              loading={tech14.loading}
+              detail={tech14.result?.ms != null ? `זמן תגובה: ${tech14.result.ms}ms` : undefined}
+              badge={
+                tech14.result?.status === "ok" ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> מהיר</Badge>
+                ) : tech14.result?.status === "slow" ? (
+                  <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> איטי</Badge>
+                ) : tech14.result?.status === "very_slow" ? (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> איטי מאוד</Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> כשל</Badge>
+                )
+              }
+            />
+            </div>
+          </div>
 
         </div>
     </div>
