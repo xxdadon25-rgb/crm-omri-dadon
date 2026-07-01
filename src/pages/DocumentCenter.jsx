@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import PageHeader from "@/components/shared/PageHeader";
@@ -8,8 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FolderOpen, FileText, ExternalLink } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, FolderOpen, FileText, ExternalLink, X } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { getPaymentStatusColor, getOrderStatusColor } from "@/utils/statusColors";
 
@@ -48,23 +54,34 @@ function fmtDisplayDate(iso) {
   return iso.slice(0, 10).split("-").reverse().join("/");
 }
 
+const HIDDEN_QUERY_KEY = ["document_center_hidden"];
+
 export default function DocumentCenter() {
+  const queryClient = useQueryClient();
+
   const [search, setSearch]         = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFrom, setDateFrom]     = useState("");
   const [dateTo, setDateTo]         = useState("");
 
+  // Selection state for bulk hide
+  const [selected, setSelected] = useState(new Set());
+
+  // Single-hide confirmation dialog
+  const [confirmDoc, setConfirmDoc] = useState(null); // { id, _type } | null
+  const [hiding, setHiding]         = useState(false);
+
+  // ── Data queries ──────────────────────────────────────────────────────────
+
   const { data: quotes = [],   isLoading: lq } = useQuery({ queryKey: ["quotes"],   queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: orders = [],   isLoading: lo } = useQuery({ queryKey: ["orders"],   queryFn: () => base44.entities.Order.list("-created_date") });
   const { data: invoices = [], isLoading: li } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
 
-  // Fetch suppliers separately so we can build supplierMap for display
   const { data: suppliers = [], isLoading: ls } = useQuery({
     queryKey: ["suppliers"],
     queryFn: () => base44.entities.Supplier.list(),
   });
 
-  // Fetch supplier deliveries in one self-contained query — avoids enabled-timing issues
   const { data: supplierDocs = [], isLoading: lsd } = useQuery({
     queryKey: ["supplier_deliveries_docs"],
     queryFn: async () => {
@@ -77,10 +94,29 @@ export default function DocumentCenter() {
         .in("supplier_id", ids)
         .order("delivery_date", { ascending: false });
       if (error) throw error;
-      console.log("[DocumentCenter] supplier_deliveries:", data);
       return data ?? [];
     },
   });
+
+  const { data: hiddenDocs = [], isLoading: lh } = useQuery({
+    queryKey: HIDDEN_QUERY_KEY,
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("document_center_hidden")
+        .select("document_type,document_id")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Set of "type:id" strings for O(1) lookup
+  const hiddenSet = useMemo(() => {
+    const s = new Set();
+    hiddenDocs.forEach(h => s.add(`${h.document_type}:${h.document_id}`));
+    return s;
+  }, [hiddenDocs]);
 
   const supplierMap = useMemo(() => {
     const m = {};
@@ -88,13 +124,12 @@ export default function DocumentCenter() {
     return m;
   }, [suppliers]);
 
-  const loading = lq || lo || li || ls || lsd;
+  const loading = lq || lo || li || ls || lsd || lh;
 
   const unified = useMemo(() => {
     const rows = [
       ...quotes.map(d       => ({ ...d, _type: "quote" })),
       ...orders.map(d       => ({ ...d, _type: "order" })),
-      // Credit notes are NOT separate rows — they appear as a second PDF button on the invoice row
       ...invoices.map(d     => ({ ...d, _type: "invoice" })),
       ...supplierDocs.filter(d => d.file_url).map(d => ({ ...d, _type: "supplier_doc" })),
     ];
@@ -103,8 +138,9 @@ export default function DocumentCenter() {
       const db = docDate(b, b._type);
       return db.localeCompare(da);
     });
-    return rows;
-  }, [quotes, orders, invoices, supplierDocs]);
+    // Filter out hidden documents
+    return rows.filter(d => !hiddenSet.has(`${d._type}:${d.id}`));
+  }, [quotes, orders, invoices, supplierDocs, hiddenSet]);
 
   const filtered = useMemo(() => {
     return unified.filter(doc => {
@@ -123,6 +159,65 @@ export default function DocumentCenter() {
       return true;
     });
   }, [unified, typeFilter, search, dateFrom, dateTo, supplierMap]);
+
+  // ── Hide helpers ──────────────────────────────────────────────────────────
+
+  async function hideDocuments(docs) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const rows = docs.map(d => ({
+      user_id:       user.id,
+      document_type: d._type,
+      document_id:   d.id,
+      hidden_at:     new Date().toISOString(),
+    }));
+    const { error } = await supabase.from("document_center_hidden").insert(rows);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: HIDDEN_QUERY_KEY });
+  }
+
+  async function handleConfirmHide() {
+    if (!confirmDoc) return;
+    setHiding(true);
+    try {
+      await hideDocuments([confirmDoc]);
+    } finally {
+      setHiding(false);
+      setConfirmDoc(null);
+    }
+  }
+
+  async function handleBulkHide() {
+    const docs = unified.filter(d => selected.has(`${d._type}:${d.id}`));
+    if (!docs.length) return;
+    setHiding(true);
+    try {
+      await hideDocuments(docs);
+      setSelected(new Set());
+    } finally {
+      setHiding(false);
+    }
+  }
+
+  // ── Selection helpers ─────────────────────────────────────────────────────
+
+  function toggleSelect(doc) {
+    const key = `${doc._type}:${doc.id}`;
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map(d => `${d._type}:${d.id}`)));
+    }
+  }
+
+  const allSelected = filtered.length > 0 && selected.size === filtered.length;
 
   return (
     <div dir="rtl">
@@ -159,8 +254,19 @@ export default function DocumentCenter() {
                 <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="מתאריך" />
               </div>
 
-              <div>
-                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="עד תאריך" />
+              <div className="flex items-center gap-2">
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="עד תאריך" className="flex-1" />
+                {selected.size > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-amber-400 text-amber-700 hover:bg-amber-50"
+                    onClick={handleBulkHide}
+                    disabled={hiding}
+                  >
+                    הסר מסומנים ({selected.size})
+                  </Button>
+                )}
               </div>
 
             </div>
@@ -181,6 +287,13 @@ export default function DocumentCenter() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
+                      <TableHead className="w-8 text-right">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="בחר הכל"
+                        />
+                      </TableHead>
                       <TableHead className="text-right">סוג</TableHead>
                       <TableHead className="text-right">מספר</TableHead>
                       <TableHead className="text-right">לקוח / ספק</TableHead>
@@ -188,17 +301,26 @@ export default function DocumentCenter() {
                       <TableHead className="text-right">סכום</TableHead>
                       <TableHead className="text-right">סטטוס</TableHead>
                       <TableHead className="text-right w-28">מסמכים</TableHead>
+                      <TableHead className="w-8" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map(doc => {
+                      const key       = `${doc._type}:${doc.id}`;
                       const meta      = TYPE_META[doc._type];
                       const status    = docStatus(doc, doc._type);
                       const partyName = doc._type === "supplier_doc"
                         ? (supplierMap[doc.supplier_id] || "—")
                         : (doc.customer_name || "—");
                       return (
-                        <TableRow key={`${doc._type}-${doc.id}`} className="hover:bg-muted/30">
+                        <TableRow key={key} className="hover:bg-muted/30">
+                          <TableCell>
+                            <Checkbox
+                              checked={selected.has(key)}
+                              onCheckedChange={() => toggleSelect(doc)}
+                              aria-label="בחר שורה"
+                            />
+                          </TableCell>
                           <TableCell>
                             <Badge className={meta.badge}>{meta.label}</Badge>
                           </TableCell>
@@ -257,6 +379,17 @@ export default function DocumentCenter() {
                               )}
                             </div>
                           </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                              onClick={() => setConfirmDoc(doc)}
+                              title="הסר מרשימה"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -271,6 +404,29 @@ export default function DocumentCenter() {
         </div>
 
       </div>
+
+      {/* Single-hide confirmation dialog */}
+      <AlertDialog open={!!confirmDoc} onOpenChange={open => { if (!open) setConfirmDoc(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>הסרת מסמך</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם להסיר מסמך זה ממרכז המסמכים?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={hiding}>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmHide}
+              disabled={hiding}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              הסר
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
