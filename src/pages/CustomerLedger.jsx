@@ -322,7 +322,8 @@ export default function CustomerLedger() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Customer Selector */}
-        <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit">
+        {/* OLD - can restore: <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit"> */}
+        <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit sticky top-4">
           <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
             <Users className="w-4 h-4" /> בחר לקוח
           </h2>
@@ -340,7 +341,7 @@ export default function CustomerLedger() {
               <div className="w-6 h-6 border-4 border-muted border-t-primary rounded-full animate-spin" />
             </div>
           ) : (
-            <div className="max-h-[60vh] overflow-y-auto thin-scrollbar divide-y divide-gray-100">
+            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto thin-scrollbar divide-y divide-gray-100">
               {filteredCustomers.map(c => (
                 <button
                   key={c.id}
