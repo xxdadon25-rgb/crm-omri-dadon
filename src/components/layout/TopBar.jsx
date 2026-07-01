@@ -47,7 +47,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
         <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-muted lg:hidden">
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex-1 hidden lg:flex justify-center">
+        <div className="flex-1 hidden md:flex justify-center">
 
           {/* Global search bar — desktop */}
           <button
@@ -65,7 +65,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
         {/* Mobile: icon only */}
         <button
           onClick={() => setSearchOpen(true)}
-          className="sm:hidden p-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-muted-foreground"
+          className="md:hidden p-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-muted-foreground"
         >
           <Search className="w-4 h-4" />
         </button>
