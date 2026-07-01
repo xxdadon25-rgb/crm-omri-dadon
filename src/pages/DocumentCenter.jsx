@@ -9,36 +9,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FolderOpen, FileText } from "lucide-react";
+import { Search, FolderOpen, FileText, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { getPaymentStatusColor, getOrderStatusColor } from "@/utils/statusColors";
 
 const TYPE_META = {
-  quote:       { label: "הצעת מחיר", badge: "bg-blue-100 text-blue-700",   pdfBase: "/quote-pdf/" },
-  order:       { label: "הזמנה",     badge: "bg-amber-100 text-amber-700",  pdfBase: "/order-pdf/" },
-  invoice:     { label: "חשבונית",   badge: "bg-green-100 text-green-700",  pdfBase: "/invoice-pdf/" },
-  credit_note: { label: "זיכוי",     badge: "bg-purple-100 text-purple-700", pdfBase: "/credit-note-pdf/" },
+  quote:        { label: "הצעת מחיר", badge: "bg-blue-100 text-blue-700",    pdfBase: "/quote-pdf/" },
+  order:        { label: "הזמנה",     badge: "bg-amber-100 text-amber-700",   pdfBase: "/order-pdf/" },
+  invoice:      { label: "חשבונית",   badge: "bg-green-100 text-green-700",   pdfBase: "/invoice-pdf/" },
+  credit_note:  { label: "זיכוי",     badge: "bg-purple-100 text-purple-700", pdfBase: "/credit-note-pdf/" },
+  supplier_doc: { label: "מסמך ספק",  badge: "bg-gray-100 text-gray-600",     pdfBase: "" },
 };
 
 function docNumber(doc, type) {
-  if (type === "quote")       return doc.quote_number   ? `#${doc.quote_number}`   : "—";
-  if (type === "order")       return doc.order_number   ? `#${doc.order_number}`   : "—";
-  if (type === "invoice")     return doc.invoice_number ? `#${doc.invoice_number}` : "—";
-  if (type === "credit_note") return doc.credit_note_number || "—";
+  if (type === "quote")        return doc.quote_number   ? `#${doc.quote_number}`   : "—";
+  if (type === "order")        return doc.order_number   ? `#${doc.order_number}`   : "—";
+  if (type === "invoice")      return doc.invoice_number ? `#${doc.invoice_number}` : "—";
+  if (type === "credit_note")  return doc.credit_note_number || "—";
+  if (type === "supplier_doc") return doc.id ? `מסמך-${doc.id.slice(0, 6)}` : "—";
   return "—";
 }
 
 function docDate(doc, type) {
-  const raw = type === "credit_note" ? doc.created_at : doc.date;
+  if (type === "credit_note")  return doc.created_at ? doc.created_at.slice(0, 10) : "";
+  if (type === "supplier_doc") return doc.delivery_date ? doc.delivery_date.slice(0, 10) : (doc.created_at ? doc.created_at.slice(0, 10) : "");
+  const raw = doc.date;
   if (!raw) return "";
   return raw.slice(0, 10);
 }
 
 function docStatus(doc, type) {
-  if (type === "quote")       return { label: doc.status || "—",         className: "bg-gray-100 text-gray-700" };
-  if (type === "order")       return { label: doc.status || "—",         className: getOrderStatusColor(doc.status) };
-  if (type === "invoice")     return { label: doc.payment_status || "—", className: getPaymentStatusColor(doc.payment_status) };
-  if (type === "credit_note") return { label: "זוכה",                    className: "bg-purple-100 text-purple-700" };
+  if (type === "quote")        return { label: doc.status || "—",         className: "bg-gray-100 text-gray-700" };
+  if (type === "order")        return { label: doc.status || "—",         className: getOrderStatusColor(doc.status) };
+  if (type === "invoice")      return { label: doc.payment_status || "—", className: getPaymentStatusColor(doc.payment_status) };
+  if (type === "credit_note")  return { label: "זוכה",                    className: "bg-purple-100 text-purple-700" };
+  if (type === "supplier_doc") return { label: doc.status || "—",         className: "bg-gray-100 text-gray-600" };
   return { label: "—", className: "" };
 }
 
@@ -65,15 +70,37 @@ export default function DocumentCenter() {
       return data ?? [];
     },
   });
+  const { data: suppliers = [],   isLoading: ls } = useQuery({ queryKey: ["suppliers"],   queryFn: () => base44.entities.Supplier.list() });
+  const { data: supplierDocs = [], isLoading: lsd } = useQuery({
+    queryKey: ["supplier_deliveries"],
+    enabled: suppliers.length > 0,
+    queryFn: async () => {
+      const ids = suppliers.map(s => s.id);
+      const { data, error } = await supabase
+        .from("supplier_deliveries")
+        .select("id,supplier_id,delivery_date,file_url,status,created_at")
+        .in("supplier_id", ids)
+        .order("delivery_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
-  const loading = lq || lo || li || lc;
+  const supplierMap = useMemo(() => {
+    const m = {};
+    suppliers.forEach(s => { m[s.id] = s.name; });
+    return m;
+  }, [suppliers]);
+
+  const loading = lq || lo || li || lc || ls || lsd;
 
   const unified = useMemo(() => {
     const rows = [
-      ...quotes.map(d      => ({ ...d, _type: "quote" })),
-      ...orders.map(d      => ({ ...d, _type: "order" })),
-      ...invoices.map(d    => ({ ...d, _type: "invoice" })),
-      ...creditNotes.map(d => ({ ...d, _type: "credit_note" })),
+      ...quotes.map(d       => ({ ...d, _type: "quote" })),
+      ...orders.map(d       => ({ ...d, _type: "order" })),
+      ...invoices.map(d     => ({ ...d, _type: "invoice" })),
+      ...creditNotes.map(d  => ({ ...d, _type: "credit_note" })),
+      ...supplierDocs.filter(d => d.file_url).map(d => ({ ...d, _type: "supplier_doc" })),
     ];
     rows.sort((a, b) => {
       const da = docDate(a, a._type);
@@ -81,14 +108,16 @@ export default function DocumentCenter() {
       return db.localeCompare(da);
     });
     return rows;
-  }, [quotes, orders, invoices, creditNotes]);
+  }, [quotes, orders, invoices, creditNotes, supplierDocs]);
 
   const filtered = useMemo(() => {
     return unified.filter(doc => {
       if (typeFilter !== "all" && doc._type !== typeFilter) return false;
       const q = search.toLowerCase();
       if (q) {
-        const name = (doc.customer_name || "").toLowerCase();
+        const name = doc._type === "supplier_doc"
+          ? (supplierMap[doc.supplier_id] || "").toLowerCase()
+          : (doc.customer_name || "").toLowerCase();
         const num  = docNumber(doc, doc._type).toLowerCase();
         if (!name.includes(q) && !num.includes(q)) return false;
       }
@@ -97,7 +126,7 @@ export default function DocumentCenter() {
       if (dateTo   && d && d > dateTo)   return false;
       return true;
     });
-  }, [unified, typeFilter, search, dateFrom, dateTo]);
+  }, [unified, typeFilter, search, dateFrom, dateTo, supplierMap]);
 
   return (
     <div dir="rtl">
@@ -127,6 +156,7 @@ export default function DocumentCenter() {
                   <SelectItem value="order">הזמנות</SelectItem>
                   <SelectItem value="invoice">חשבוניות</SelectItem>
                   <SelectItem value="credit_note">זיכויים</SelectItem>
+                  <SelectItem value="supplier_doc">מסמכי ספק</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -158,17 +188,20 @@ export default function DocumentCenter() {
                     <TableRow className="bg-muted/50">
                       <TableHead className="text-right">סוג</TableHead>
                       <TableHead className="text-right">מספר</TableHead>
-                      <TableHead className="text-right">לקוח</TableHead>
+                      <TableHead className="text-right">לקוח / ספק</TableHead>
                       <TableHead className="text-right">תאריך</TableHead>
                       <TableHead className="text-right">סכום</TableHead>
                       <TableHead className="text-right">סטטוס</TableHead>
-                      <TableHead className="text-right w-16">PDF</TableHead>
+                      <TableHead className="text-right w-24">מסמכים</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map(doc => {
                       const meta   = TYPE_META[doc._type];
                       const status = docStatus(doc, doc._type);
+                      const partyName = doc._type === "supplier_doc"
+                        ? (supplierMap[doc.supplier_id] || "—")
+                        : (doc.customer_name || "—");
                       return (
                         <TableRow key={`${doc._type}-${doc.id}`} className="hover:bg-muted/30">
                           <TableCell>
@@ -178,7 +211,7 @@ export default function DocumentCenter() {
                             {docNumber(doc, doc._type)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {doc.customer_name || "—"}
+                            {partyName}
                           </TableCell>
                           <TableCell className="text-right text-muted-foreground">
                             {fmtDisplayDate(docDate(doc, doc._type))}
@@ -186,21 +219,50 @@ export default function DocumentCenter() {
                           <TableCell className="text-right font-medium">
                             {doc._type === "credit_note"
                               ? <span className="text-red-600">({formatCurrency(Math.abs(doc.total || 0))})</span>
+                              : doc._type === "supplier_doc"
+                              ? "—"
                               : formatCurrency(doc.total)}
                           </TableCell>
                           <TableCell className="text-right">
                             <Badge className={status.className}>{status.label}</Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => window.open(`${meta.pdfBase}${doc.id}`, "_blank")}
-                              title="פתח PDF"
-                            >
-                              <FileText className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1 justify-end">
+                              {doc._type === "supplier_doc" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => window.open(doc.file_url, "_blank")}
+                                  title="פתח מסמך"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => window.open(`${meta.pdfBase}${doc.id}`, "_blank")}
+                                    title="פתח PDF"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                  </Button>
+                                  {doc._type === "invoice" && doc.credit_note_id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-purple-600 hover:text-purple-700"
+                                      onClick={() => window.open(`/credit-note-pdf/${doc.credit_note_id}`, "_blank")}
+                                      title="פתח PDF זיכוי"
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
