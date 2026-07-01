@@ -476,6 +476,7 @@ export default function Orders() {
                 <TableHead className="text-right">תאריך</TableHead>
                 <TableHead className="text-right">סכום</TableHead>
                 <TableHead className="text-right">סוכן</TableHead>
+                <TableHead className="text-right">סופק</TableHead>
                 <TableHead className="text-right">סטטוס</TableHead>
                 <TableHead className="text-right w-28">פעולות</TableHead>
               </TableRow>
@@ -494,6 +495,11 @@ export default function Orders() {
                   <TableCell className="text-right">{formatDate(order.date)}</TableCell>
                   <TableCell className="text-right">₪{order.total?.toLocaleString()}</TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">{order.agent || "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {order.fulfilled
+                      ? <Badge className="bg-green-100 text-green-700">סופק</Badge>
+                      : <Badge className="bg-gray-100 text-gray-500">לא סופק</Badge>}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Badge className={getOrderStatusColor(order.status)}>
                       {order.status}
