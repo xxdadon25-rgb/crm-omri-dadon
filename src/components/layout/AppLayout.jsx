@@ -17,9 +17,10 @@ export default function AppLayout() {
         setMobileOpen={setMobileOpen}
       />
       <TopBar onMenuClick={() => setMobileOpen(true)} collapsed={collapsed} />
+      {/* OLD - can restore: "min-h-screen transition-all duration-300" (no overflow-y-auto/h-screen) */}
       <main
         className={cn(
-          "min-h-screen transition-all duration-300",
+          "h-screen overflow-y-auto transition-all duration-300",
           collapsed ? "lg:pr-[72px]" : "lg:pr-[240px]"
         )}
         style={{ paddingTop: "calc(4rem + env(safe-area-inset-top))" }}
