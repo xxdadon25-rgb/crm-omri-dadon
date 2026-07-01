@@ -574,7 +574,7 @@ async function e2eStorageUpload() {
   const t0 = performance.now();
   const uid = await getUserId();
   const baseName = `e2e-test-${Date.now()}.png`;
-  const filePath = `${uid}/${baseName}`;
+  const filePath = `products/${baseName}`;
   // minimal 1×1 transparent PNG (67 bytes)
   const b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
   const binary = atob(b64);
@@ -583,7 +583,7 @@ async function e2eStorageUpload() {
   const blob = new Blob([bytes], { type: "image/png" });
   const { error: upErr } = await supabase.storage.from("product-images").upload(filePath, blob, { upsert: true });
   if (upErr) return { ok: false, ms: Math.round(performance.now() - t0), error: upErr.message };
-  const { data: listed } = await supabase.storage.from("product-images").list(uid, { search: baseName });
+  const { data: listed } = await supabase.storage.from("product-images").list("products", { search: baseName });
   await supabase.storage.from("product-images").remove([filePath]);
   const found = (listed ?? []).some(f => f.name === baseName);
   return { ok: found, ms: Math.round(performance.now() - t0) };
