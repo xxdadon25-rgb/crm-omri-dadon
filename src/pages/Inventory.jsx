@@ -209,10 +209,26 @@ export default function Inventory() {
       <EmptyState icon={search ? Search : null} title={search ? "לא נמצאו תוצאות" : "אין מוצרים"} description={search ? "נסה חיפוש אחר" : "הוסף מוצר ראשון למלאי"} /> :
 
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
             <Table>
-              <TableHeader>
+              {/* OLD - can restore: <TableHeader> (without className below) */}
+              {/* <TableHeader>
                 <TableRow className="bg-muted/50">
+                  <TableHead className="text-right w-12">
+                    <Checkbox checked={isAllSelected} onChange={handleSelectAll} />
+                  </TableHead>
+                  <TableHead className="text-right">מוצר</TableHead>
+                  <TableHead className="text-right">מק״ט</TableHead>
+                  <TableHead className="text-right">קטגוריה</TableHead>
+                  <TableHead className="text-right">מחיר קנייה</TableHead>
+                  <TableHead className="text-right">מחיר מכירה</TableHead>
+                  <TableHead className="text-right">כמות</TableHead>
+                  {showProfit && <TableHead className="text-right">רווח</TableHead>}
+                  <TableHead className="text-right min-w-[90px]">פעולות</TableHead>
+                </TableRow>
+              </TableHeader> */}
+              <TableHeader className="sticky top-0 z-10 bg-white shadow-sm">
+                <TableRow className="bg-muted/50 border-b-2 border-gray-200">
                   <TableHead className="text-right w-12">
                     <Checkbox checked={isAllSelected} onChange={handleSelectAll} />
                   </TableHead>
