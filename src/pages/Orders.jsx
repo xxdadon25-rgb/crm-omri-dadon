@@ -427,29 +427,33 @@ export default function Orders() {
 
   return (
     <div>
-      <PageHeader title="הזמנות" description="ניהול הזמנות לקוחות">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4 ml-1" /> הזמנה חדשה
-        </Button>
-      </PageHeader>
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before modals */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
-      {selected.size > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
-        </div>
-      )}
-
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <div className="relative max-w-sm">
+        {/* Sticky top bar: page header + search */}
+        <div className="sticky top-0 z-10 bg-background pb-3">
+          <PageHeader title="הזמנות" description="ניהול הזמנות לקוחות">
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 ml-1" /> הזמנה חדשה
+            </Button>
+          </PageHeader>
+          <div className="relative max-w-sm mt-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="חיפוש הזמנה..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
           </div>
         </div>
 
+        {selected.size > 0 && (
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
+              <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
+            </Button>
+          </div>
+        )}
+
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
@@ -511,6 +515,18 @@ export default function Orders() {
           </Table>
         )}
 
+         {selected.size > 0 && (
+           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+             <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
+             <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
+               <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
+             </Button>
+           </div>
+         )}
+        </div>{/* end bg-card */}
+
+      </div>{/* end scrollable region */}
+
         <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
            <AlertDialogContent dir="rtl">
              <AlertDialogHeader>
@@ -538,21 +554,6 @@ export default function Orders() {
              </AlertDialogFooter>
            </AlertDialogContent>
          </AlertDialog>
-
-         {selected.size > 0 && (
-           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-             <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setBulkDeleteOpen(true)}
-                  disabled={deleting}
-                >
-                  <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-                </Button>
-           </div>
-         )}
-        </div>
 
         <OrderViewModal
          open={!!viewOrder}
@@ -613,6 +614,6 @@ export default function Orders() {
           </AlertDialogContent>
         </AlertDialog>
 
-        </div>
-        );
-        }
+    </div>
+    );
+}
