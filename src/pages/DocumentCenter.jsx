@@ -287,13 +287,7 @@ export default function DocumentCenter() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="w-8 text-right">
-                        <Checkbox
-                          checked={allSelected}
-                          onCheckedChange={toggleSelectAll}
-                          aria-label="בחר הכל"
-                        />
-                      </TableHead>
+                      <TableHead className="w-8" />
                       <TableHead className="text-right">סוג</TableHead>
                       <TableHead className="text-right">מספר</TableHead>
                       <TableHead className="text-right">לקוח / ספק</TableHead>
@@ -314,7 +308,7 @@ export default function DocumentCenter() {
                         : (doc.customer_name || "—");
                       return (
                         <TableRow key={key} className="hover:bg-muted/30">
-                          <TableCell>
+                          <TableCell className="px-3">
                             <Checkbox
                               checked={selected.has(key)}
                               onCheckedChange={() => toggleSelect(doc)}
