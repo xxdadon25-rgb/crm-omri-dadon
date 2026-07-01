@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookUser, Search, Users, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { BookUser, Search, Users, Plus, Trash2, CheckCircle2, Circle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 const currentYear = new Date().getFullYear();
@@ -321,9 +321,9 @@ export default function CustomerLedger() {
       <PageHeader title="כרטסת לקוח" description="היסטוריית מסמכים וסיכום חשבון לפי לקוח" />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Customer Selector */}
+        {/* Customer Selector — hidden on mobile when a customer is selected */}
         {/* OLD - can restore: <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit"> */}
-        <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-[4.5rem] self-start">
+        <div className={`lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-[4.5rem] self-start ${selectedCustomerId ? "hidden lg:block" : "block"}`}>
           <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
             <Users className="w-4 h-4" /> בחר לקוח
           </h2>
@@ -371,7 +371,7 @@ export default function CustomerLedger() {
         </div>
 
         {/* Main Ledger Area */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className={`lg:col-span-3 space-y-4 ${selectedCustomerId ? "block" : "hidden lg:block"}`}>
           {!selectedCustomer ? (
             <div className="bg-card rounded-xl border border-border">
               <EmptyState
@@ -386,8 +386,17 @@ export default function CustomerLedger() {
               <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* Back button — mobile/tablet only */}
+                      <button
+                        onClick={() => setSelectedCustomerId(null)}
+                        className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" /> חזרה
+                      </button>
+                      <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                       {selectedCustomer.phone && <span>📞 {selectedCustomer.phone}</span>}
                       {selectedCustomer.email && <span>✉️ {selectedCustomer.email}</span>}
                       {selectedCustomer.address && <span>📍 {selectedCustomer.address}</span>}
