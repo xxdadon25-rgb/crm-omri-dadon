@@ -581,10 +581,10 @@ async function e2eStorageUpload() {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   const blob = new Blob([bytes], { type: "image/png" });
-  const { error: upErr } = await supabase.storage.from("delivery-documents").upload(filePath, blob, { upsert: true });
+  const { error: upErr } = await supabase.storage.from("product-images").upload(filePath, blob, { upsert: true });
   if (upErr) return { ok: false, ms: Math.round(performance.now() - t0), error: upErr.message };
-  const { data: listed } = await supabase.storage.from("delivery-documents").list(uid, { search: baseName });
-  await supabase.storage.from("delivery-documents").remove([filePath]);
+  const { data: listed } = await supabase.storage.from("product-images").list(uid, { search: baseName });
+  await supabase.storage.from("product-images").remove([filePath]);
   const found = (listed ?? []).some(f => f.name === baseName);
   return { ok: found, ms: Math.round(performance.now() - t0) };
 }
