@@ -143,7 +143,16 @@ export default function CustomerLedger() {
 
   const { data: creditNotes = [], isLoading: loadingCreditNotes } = useQuery({
     queryKey: ["credit_notes"],
-    queryFn: () => base44.entities.CreditNote.list("-created_date"),
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("credit_notes")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const { data: settings = [] } = useQuery({

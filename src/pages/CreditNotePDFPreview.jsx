@@ -65,10 +65,14 @@ export default function CreditNotePDFPreview() {
   if (!creditNote) return null;
 
   const items = creditNote.items || [];
-  const total = Math.abs(creditNote.total || 0);
-  const subtotal = Math.abs(creditNote.subtotal || 0);
-  const vatAmount = Math.abs(creditNote.vat_amount || 0);
-  const vatRate = creditNote.vat_rate || 17;
+  // Calculate from items since subtotal/vat_amount columns don't exist in schema
+  const subtotal = items.reduce((s, i) => s + Math.abs((i.unit_price || 0) * (i.quantity || 0)), 0);
+  const vatRate = 17;
+  const vatAmount = subtotal * (vatRate / 100);
+  const total = subtotal + vatAmount;
+  // Extract original invoice number from reason field (format: "זיכוי עבור חשבונית מספר X")
+  const invoiceNumberMatch = creditNote.reason?.match(/(\d+)$/);
+  const originalInvoiceNumber = invoiceNumberMatch ? invoiceNumberMatch[1] : null;
 
   return (
     <div className="min-h-screen bg-gray-100" style={{ direction: "rtl" }}>
@@ -105,23 +109,24 @@ export default function CreditNotePDFPreview() {
           </div>
 
           {/* Title bar */}
-          <div style={{ margin: "0 16px", borderBottom: "2px solid #111", background: GOLD, display: "flex", alignItems: "center", padding: "0 12px", height: 28 }}>
-            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, textAlign: "right" }}>הודעת זיכוי</div>
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 800, textAlign: "center" }}>מספר: {creditNote.credit_note_number}</div>
+          <div style={{ margin: "0 16px", borderBottom: "2px solid #111", background: GOLD, display: "flex", alignItems: "center", padding: "0 12px", height: 36 }}>
+            <div style={{ flex: 1, fontSize: 18, fontWeight: 800, textAlign: "right" }}>הודעת זיכוי</div>
+            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, textAlign: "center" }}>{creditNote.credit_note_number}</div>
             <div style={{ flex: 1, fontSize: 11, fontWeight: 700, textAlign: "left" }}>
-              {creditNote.invoice_number ? `מקור: חשבונית #${creditNote.invoice_number}` : ""}
+              {originalInvoiceNumber ? `מקור: חשבונית #${originalInvoiceNumber}` : ""}
             </div>
           </div>
 
           {/* Customer + meta */}
           <div style={{ margin: "0 16px", borderBottom: "2px solid #111", display: "flex", minHeight: 60 }}>
             <div style={{ flex: 6, padding: "6px 10px", fontSize: 10, textAlign: "right", borderLeft: "1px solid #ddd", lineHeight: 1.6 }}>
-              <div style={{ fontSize: "9.5px", color: "#777", marginBottom: 2 }}>לכבוד:</div>
-              <div style={{ fontSize: 12, fontWeight: 700 }}>{creditNote.customer_name || "—"}</div>
+              {creditNote.reason && (
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#b91c1c" }}>{creditNote.reason}</div>
+              )}
             </div>
             <div style={{ flex: 4, padding: "6px 10px", fontSize: 10, textAlign: "right", lineHeight: 1.6 }}>
-              <div><span style={{ fontWeight: 700 }}>תאריך:</span> {fmtDate(creditNote.date)}</div>
-              {creditNote.invoice_number && <div><span style={{ fontWeight: 700 }}>חשבונית מקורית:</span> #{creditNote.invoice_number}</div>}
+              <div><span style={{ fontWeight: 700 }}>תאריך:</span> {fmtDate(creditNote.created_at)}</div>
+              {originalInvoiceNumber && <div><span style={{ fontWeight: 700 }}>חשבונית מקורית:</span> #{originalInvoiceNumber}</div>}
               <div>דף 1 מתוך 1</div>
             </div>
           </div>
@@ -174,12 +179,6 @@ export default function CreditNotePDFPreview() {
             </div>
           </div>
 
-          {/* Footer */}
-          {creditNote.reason && (
-            <div style={{ margin: "8px 16px", padding: "8px 12px", background: "#f9f9f9", borderRadius: 4, fontSize: 10, color: "#555" }}>
-              {creditNote.reason}
-            </div>
-          )}
           <div style={{ margin: "8px 16px 16px", textAlign: "center", fontSize: 9, color: "#999" }}>
             מסמך זה הופק אוטומטית — {biz.business_name || ""}
           </div>
