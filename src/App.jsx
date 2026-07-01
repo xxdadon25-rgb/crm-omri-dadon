@@ -42,6 +42,7 @@ import PriceMigration from "@/pages/PriceMigration";
 import ImageMigration from "@/pages/ImageMigration";
 import DebtSummary from "@/pages/DebtSummary";
 import CreditNotePDFPreview from "@/pages/CreditNotePDFPreview";
+import DocumentCenter from "@/pages/DocumentCenter";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -95,6 +96,7 @@ const AuthenticatedApp = () => {
           <Route path="/price-migration" element={<PriceMigration />} />
           <Route path="/image-migration" element={<ImageMigration />} />
           <Route path="/debt-summary" element={<DebtSummary />} />
+          <Route path="/documents" element={<DocumentCenter />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />
