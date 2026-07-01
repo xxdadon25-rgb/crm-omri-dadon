@@ -505,10 +505,10 @@ export default function Reports() {
         </div>
       </div>
 
-        {/* Sticky top bar: page header + filters + export */}
-        <div className="sticky top-0 z-10 bg-background pb-3 shadow-md border-b border-gray-200">
-          <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
-          <div className="bg-card border border-border rounded-xl p-4 mt-1">
+        <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
+
+        {/* OLD - can restore: <div className="bg-card border border-border rounded-xl p-4 mb-6"> */}
+        <div className="sticky top-16 z-10 bg-white shadow-md border-b border-gray-200 rounded-xl p-4 mb-6">
           {/* Filter row: stacks to 2-col on tablet, 4-col on desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
@@ -568,8 +568,8 @@ export default function Reports() {
               </Button>
             </div>
           </div>
-          </div>{/* end filter card */}
-        </div>{/* end sticky top bar */}
+          </div>
+        </div>{/* end filter card */}
 
       {/* Sales Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
