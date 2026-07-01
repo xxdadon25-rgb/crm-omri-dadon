@@ -15,6 +15,12 @@ import html2canvas from "html2canvas";
 const COLORS = ["hsl(48,96%,53%)", "hsl(200,60%,50%)", "hsl(150,50%,45%)", "hsl(280,60%,55%)"];
 const STATUS_FILTER_OPTIONS = ["ממתין לאישור", "אושר", "בהכנה", "הושלם", "בוטל"];
 
+const CustomYAxisTick = ({ x, y, payload }) => (
+  <text x={x - 40} y={y} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#666">
+    {`${Number(payload.value).toLocaleString()} ₪`}
+  </text>
+);
+
 export default function Reports() {
   const [dateRange, setDateRange] = useState("month");
   const [customStart, setCustomStart] = useState("");
@@ -615,7 +621,7 @@ export default function Reports() {
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
               <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
               <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" name="מכירות" />
               <Line type="monotone" dataKey="profit" stroke="hsl(200,60%,50%)" name="רווח" />
@@ -632,7 +638,7 @@ export default function Reports() {
               <BarChart data={topProductsChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
                 <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
                 <Bar dataKey="sales" fill="hsl(var(--primary))" name="מכירות" />
                 <Bar dataKey="profit" fill="hsl(200,60%,50%)" name="רווח" />
