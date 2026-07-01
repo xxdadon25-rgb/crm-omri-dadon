@@ -1,5 +1,6 @@
 // Reports page
 import { useState, useMemo, useRef } from "react";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/shared/PageHeader";
@@ -339,11 +340,17 @@ export default function Reports() {
     }
   };
 
+  // const stats = [
+  //   { label: "מכירות היום", value: `₪${salesToday.toLocaleString()}`, icon: DollarSign },
+  //   { label: "מכירות החודש", value: `₪${salesMonth.toLocaleString()}`, icon: TrendingUp },
+  //   { label: "מכירות השנה", value: `₪${salesYear.toLocaleString()}`, icon: Package },
+  //   { label: "ממוצע להזמנה", value: `₪${avgPerOrder.toLocaleString()}`, icon: Users },
+  // ];
   const stats = [
-    { label: "מכירות היום", value: `₪${salesToday.toLocaleString()}`, icon: DollarSign },
-    { label: "מכירות החודש", value: `₪${salesMonth.toLocaleString()}`, icon: TrendingUp },
-    { label: "מכירות השנה", value: `₪${salesYear.toLocaleString()}`, icon: Package },
-    { label: "ממוצע להזמנה", value: `₪${avgPerOrder.toLocaleString()}`, icon: Users },
+    { label: "מכירות היום", value: formatCurrency(salesToday), icon: DollarSign },
+    { label: "מכירות החודש", value: formatCurrency(salesMonth), icon: TrendingUp },
+    { label: "מכירות השנה", value: formatCurrency(salesYear), icon: Package },
+    { label: "ממוצע להזמנה", value: formatCurrency(avgPerOrder), icon: Users },
   ];
 
   return (
@@ -597,15 +604,18 @@ export default function Reports() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-2">מכירה כוללת</p>
-          <p className="text-2xl font-bold">₪{profitability.totalSales.toLocaleString()}</p>
+          {/* <p className="text-2xl font-bold">₪{profitability.totalSales.toLocaleString()}</p> */}
+          <p className="text-2xl font-bold">{formatCurrency(profitability.totalSales)}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-2">עלות כוללת</p>
-          <p className="text-2xl font-bold">₪{profitability.totalCost.toLocaleString()}</p>
+          {/* <p className="text-2xl font-bold">₪{profitability.totalCost.toLocaleString()}</p> */}
+          <p className="text-2xl font-bold">{formatCurrency(profitability.totalCost)}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-2">רווח גולמי</p>
-          <p className="text-2xl font-bold text-green-600">₪{profitability.profit.toLocaleString()}</p>
+          {/* <p className="text-2xl font-bold text-green-600">₪{profitability.profit.toLocaleString()}</p> */}
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(profitability.profit)}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-2">רווחיות %</p>

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowRight, Phone, Mail, MapPin, FileText, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { formatDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/utils/formatCurrency";
 import CustomerStatusBadge from "@/components/crm/CustomerStatusBadge";
 import CrmTasksPanel from "@/components/crm/CrmTasksPanel";
 import CustomerTimeline from "@/components/crm/CustomerTimeline";
@@ -126,11 +127,13 @@ export default function CustomerProfile() {
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-        <SummaryCard label="סה״כ רכישות" value={`₪${totalPurchases.toLocaleString()}`} />
+        {/* <SummaryCard label="סה״כ רכישות" value={`₪${totalPurchases.toLocaleString()}`} /> */}
+        <SummaryCard label="סה״כ רכישות" value={formatCurrency(totalPurchases)} />
         <SummaryCard label="הזמנות" value={customerOrders.length} />
         <SummaryCard label="הצעות מחיר" value={customerQuotes.length} />
         <SummaryCard label="חשבוניות" value={customerInvoices.length} />
-        <SummaryCard label="ממוצע להזמנה" value={`₪${Math.round(avgOrderValue).toLocaleString()}`} />
+        {/* <SummaryCard label="ממוצע להזמנה" value={`₪${Math.round(avgOrderValue).toLocaleString()}`} /> */}
+        <SummaryCard label="ממוצע להזמנה" value={formatCurrency(Math.round(avgOrderValue))} />
         <SummaryCard label="הזמנה אחרונה" value={formatDate(lastOrder?.date)} />
       </div>
 

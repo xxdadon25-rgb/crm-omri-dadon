@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
@@ -85,7 +86,8 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                         onChange={(e) => updateItem(i, "discount", parseFloat(e.target.value) || 0)}
                         className="h-8 w-20" />
                     </td>
-                    <td className="px-3 py-2 font-medium">₪{(item.total || 0).toFixed(2)}</td>
+                    {/* <td className="px-3 py-2 font-medium">₪{(item.total || 0).toFixed(2)}</td> */}
+                    <td className="px-3 py-2 font-medium">{formatCurrency(item.total)}</td>
                     <td className="px-2 py-2">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(i)}>
                         <Trash2 className="w-3.5 h-3.5" />
@@ -125,7 +127,8 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">סה״כ לפני מע״מ</label>
-                    <div className="h-10 flex items-center px-3 bg-muted/30 rounded-md text-sm font-semibold">₪{(item.total || 0).toFixed(2)}</div>
+                    {/* <div className="h-10 flex items-center px-3 bg-muted/30 rounded-md text-sm font-semibold">₪{(item.total || 0).toFixed(2)}</div> */}
+                    <div className="h-10 flex items-center px-3 bg-muted/30 rounded-md text-sm font-semibold">{formatCurrency(item.total)}</div>
                   </div>
                 </div>
               </div>

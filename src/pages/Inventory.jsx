@@ -25,6 +25,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import ProductDialog from "@/components/inventory/ProductDialog";
 import { toast } from "sonner";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 const Checkbox = ({ checked, onChange }) => (
   <button
@@ -261,8 +262,10 @@ export default function Inventory() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{p.sku || "-"}</TableCell>
                       <TableCell>{p.category && <Badge variant="secondary">{p.category}</Badge>}</TableCell>
-                      <TableCell>₪{(p.buy_price || 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">₪{(p.sell_price || 0).toFixed(2)}</TableCell>
+                      {/* <TableCell>₪{(p.buy_price || 0).toFixed(2)}</TableCell> */}
+                      <TableCell>{formatCurrency(p.buy_price)}</TableCell>
+                      {/* <TableCell className="font-medium">₪{(p.sell_price || 0).toFixed(2)}</TableCell> */}
+                      <TableCell className="font-medium">{formatCurrency(p.sell_price)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {isOutOfStock && <span className="text-xs font-bold text-red-600">אזל</span>}
@@ -272,7 +275,8 @@ export default function Inventory() {
                       </TableCell>
                       {showProfit && (
                         <TableCell className={Number(profit) >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                          {Math.abs(Number(profit)).toFixed(2)}₪{Number(profit) < 0 ? "-" : ""}
+                          {/* {Math.abs(Number(profit)).toFixed(2)}₪{Number(profit) < 0 ? "-" : ""} */}
+                          {formatCurrency(Math.abs(Number(profit)))}{Number(profit) < 0 ? "-" : ""}
                         </TableCell>
                       )}
                       <TableCell className="min-w-[90px]">

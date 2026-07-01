@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, BookUser, Search, Users } from "lucide-react";
 import { getPaymentStatusColor } from "@/utils/statusColors";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 const DEBT_BLOCK_THRESHOLD = 5000;
 
@@ -96,7 +97,8 @@ export default function DebtSummary() {
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   }, [invoices, selectedId]);
 
-  const fmtILS = v => `₪${(v || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 })}`;
+  // const fmtILS = v => `₪${(v || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 })}`;
+  const fmtILS = v => formatCurrency(v);
 
   return (
     <div dir="rtl">

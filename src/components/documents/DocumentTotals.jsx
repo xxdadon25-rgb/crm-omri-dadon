@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/utils/formatCurrency";
+
 export default function DocumentTotals({ grossTotal, netSubtotal, discountTotal = 0, effectiveDiscountPercent = 0, vatRate, total, discountAmount = 0 }) {
   const vat = vatRate || 18;
 
@@ -14,27 +16,32 @@ export default function DocumentTotals({ grossTotal, netSubtotal, discountTotal 
     <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm max-w-xs ml-auto">
       <div className="flex justify-between">
         <span className="text-muted-foreground">סה״כ ללא מע״מ</span>
-        <span className="font-medium">₪{gross.toFixed(2)}</span>
+        {/* <span className="font-medium">₪{gross.toFixed(2)}</span> */}
+        <span className="font-medium">{formatCurrency(gross)}</span>
       </div>
       {discountAmt > 0.001 && (
         <div className="flex justify-between text-red-600">
           <span>הנחה ({discountPct.toFixed(1)}%)</span>
-          <span className="font-medium">-₪{discountAmt.toFixed(2)}</span>
+          {/* <span className="font-medium">-₪{discountAmt.toFixed(2)}</span> */}
+          <span className="font-medium">-{formatCurrency(discountAmt)}</span>
         </div>
       )}
       {discountAmt > 0.001 && (
         <div className="flex justify-between">
           <span className="text-muted-foreground">סה״כ לאחר הנחה</span>
-          <span className="font-medium">₪{net.toFixed(2)}</span>
+          {/* <span className="font-medium">₪{net.toFixed(2)}</span> */}
+          <span className="font-medium">{formatCurrency(net)}</span>
         </div>
       )}
       <div className="flex justify-between">
         <span className="text-muted-foreground">מע״מ ({vat}%)</span>
-        <span className="font-medium">₪{vatAmount.toFixed(2)}</span>
+        {/* <span className="font-medium">₪{vatAmount.toFixed(2)}</span> */}
+        <span className="font-medium">{formatCurrency(vatAmount)}</span>
       </div>
       <div className="flex justify-between border-t border-border pt-2 text-base">
         <span className="font-bold">סה״כ לתשלום</span>
-        <span className="font-bold">₪{grandTotal.toFixed(2)}</span>
+        {/* <span className="font-bold">₪{grandTotal.toFixed(2)}</span> */}
+        <span className="font-bold">{formatCurrency(grandTotal)}</span>
       </div>
     </div>
   );

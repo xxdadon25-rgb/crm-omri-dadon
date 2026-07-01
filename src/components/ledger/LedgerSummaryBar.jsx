@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { FileText, ShoppingCart, Receipt, TrendingUp, Wallet, AlertCircle, FolderOpen, Calendar } from "lucide-react";
 
 export default function LedgerSummaryBar({ summary }) {
@@ -13,7 +14,8 @@ export default function LedgerSummaryBar({ summary }) {
     lastActivity = null,
   } = summary;
 
-  const fmt = v => `₪${(v || 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  // const fmt = v => `₪${(v || 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmt = v => formatCurrency(v);
 
   const cards = [
     { label: "הצעות מחיר", value: totalQuotes, format: "count", color: "bg-sky-50 border-sky-100", Icon: FileText },

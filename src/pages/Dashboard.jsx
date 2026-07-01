@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
@@ -393,7 +394,8 @@ export default function Dashboard() {
         <StatCard title="מלאי נמוך" value={lowStock.length} icon={AlertTriangle} className={lowStock.length > 0 ? "border-destructive/30" : ""} />
         <StatCard title="הצעות מחיר" value={quotes.length} icon={FileText} />
         <StatCard title="חשבוניות" value={invoices.length} icon={Receipt} />
-        <KpiSparkCard title="מכירות" icon={TrendingUp} value={`₪${Math.round(totalSales).toLocaleString()}`} sparkData={salesSparkData} pct={salesMoM} />
+        {/* <KpiSparkCard title="מכירות" icon={TrendingUp} value={`₪${Math.round(totalSales).toLocaleString()}`} sparkData={salesSparkData} pct={salesMoM} /> */}
+        <KpiSparkCard title="מכירות" icon={TrendingUp} value={formatCurrency(Math.round(totalSales))} sparkData={salesSparkData} pct={salesMoM} />
         <KpiSparkCard title="לקוחות" icon={Users} value={customers.length} sparkData={customerSparkData} pct={customerMoM} />
       </div>
 

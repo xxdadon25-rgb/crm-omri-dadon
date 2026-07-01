@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { FileText, ShoppingCart, Receipt, UserPlus, ArrowRight } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 function TimelineItem({ icon: Icon, color, title, subtitle, date }) {
   return (
@@ -27,10 +28,10 @@ export default function CustomerTimeline({ customer, quotes, orders, invoices })
 
     (quotes || []).forEach(q => {
       if (q.created_date) {
-        list.push({ date: q.created_date, type: "quote", title: `הצעת מחיר #${q.quote_number} נוצרה`, subtitle: `₪${(q.total || 0).toLocaleString()} — ${q.status}`, icon: FileText, color: "bg-purple-100 text-purple-700" });
+        list.push({ date: q.created_date, type: "quote", title: `הצעת מחיר #${q.quote_number} נוצרה`, subtitle: `${formatCurrency(q.total)} — ${q.status}`, icon: FileText, color: "bg-purple-100 text-purple-700" });
       }
       if (q.status === "נשלח" && q.updated_date) {
-        list.push({ date: q.updated_date, type: "quote_sent", title: `הצעת מחיר #${q.quote_number} נשלחה`, subtitle: `₪${(q.total || 0).toLocaleString()}`, icon: ArrowRight, color: "bg-blue-100 text-blue-700" });
+        list.push({ date: q.updated_date, type: "quote_sent", title: `הצעת מחיר #${q.quote_number} נשלחה`, subtitle: `${formatCurrency(q.total)}`, icon: ArrowRight, color: "bg-blue-100 text-blue-700" });
       }
       if ((q.status === "הומרה להזמנה" || q.status === "הומרה לחשבונית") && q.updated_date) {
         list.push({ date: q.updated_date, type: "converted", title: `הצעת מחיר #${q.quote_number} הומרה`, subtitle: q.status, icon: ArrowRight, color: "bg-green-100 text-green-700" });
@@ -39,14 +40,14 @@ export default function CustomerTimeline({ customer, quotes, orders, invoices })
 
     (orders || []).forEach(o => {
       if (o.created_date) {
-        list.push({ date: o.created_date, type: "order", title: `הזמנה #${o.order_number} נוצרה`, subtitle: `₪${(o.total || 0).toLocaleString()} — ${o.status}`, icon: ShoppingCart, color: "bg-yellow-100 text-yellow-700" });
+        list.push({ date: o.created_date, type: "order", title: `הזמנה #${o.order_number} נוצרה`, subtitle: `${formatCurrency(o.total)} — ${o.status}`, icon: ShoppingCart, color: "bg-yellow-100 text-yellow-700" });
       }
     });
 
     (invoices || []).forEach(inv => {
       if (inv.created_date) {
         const fromOrder = inv.order_id ? ` (מהזמנה)` : "";
-        list.push({ date: inv.created_date, type: "invoice", title: `חשבונית #${inv.invoice_number} הופקה${fromOrder}`, subtitle: `₪${(inv.total || 0).toLocaleString()} — ${inv.payment_status}`, icon: Receipt, color: "bg-orange-100 text-orange-700" });
+        list.push({ date: inv.created_date, type: "invoice", title: `חשבונית #${inv.invoice_number} הופקה${fromOrder}`, subtitle: `${formatCurrency(inv.total)} — ${inv.payment_status}`, icon: Receipt, color: "bg-orange-100 text-orange-700" });
       }
     });
 

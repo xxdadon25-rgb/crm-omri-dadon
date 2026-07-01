@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Minus, Loader2 } from "lucide-react";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 const PAGE_SIZE = 30;
 
@@ -30,7 +31,8 @@ const ProductCard = memo(({ product, qty, onUpdate }) => (
       <h4 className="font-medium text-xs leading-tight">{product.name}</h4>
       {product.sku && <p className="text-[10px] text-muted-foreground">SKU: {product.sku}</p>}
       <div className="text-xs border-t border-border pt-1">
-        <p className="font-bold">₪{(product.sell_price || 0).toFixed(2)}</p>
+        {/* <p className="font-bold">₪{(product.sell_price || 0).toFixed(2)}</p> */}
+        <p className="font-bold">{formatCurrency(product.sell_price)}</p>
         <p className="text-muted-foreground">לפני מע״מ</p>
       </div>
       <div className="flex items-center gap-1 justify-between mt-auto">

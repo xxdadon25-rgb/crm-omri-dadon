@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle } from "lucide-react";
+import { formatCurrency } from "@/utils/formatCurrency";
 import ItemsEditor from "@/components/documents/ItemsEditor";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 
@@ -166,8 +167,10 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                         <TableRow key={idx}>
                           <TableCell className="text-right text-sm">{item.name}</TableCell>
                           <TableCell className="text-center text-sm">{item.quantity}</TableCell>
-                          <TableCell className="text-center text-sm">₪{(item.unit_price || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-center text-sm font-medium">₪{(item.total || 0).toFixed(2)}</TableCell>
+                          {/* <TableCell className="text-center text-sm">₪{(item.unit_price || 0).toFixed(2)}</TableCell> */}
+                          <TableCell className="text-center text-sm">{formatCurrency(item.unit_price)}</TableCell>
+                          {/* <TableCell className="text-center text-sm font-medium">₪{(item.total || 0).toFixed(2)}</TableCell> */}
+                          <TableCell className="text-center text-sm font-medium">{formatCurrency(item.total)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
