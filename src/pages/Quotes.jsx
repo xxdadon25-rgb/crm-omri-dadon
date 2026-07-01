@@ -243,10 +243,12 @@ export default function Quotes() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox
-                      checked={isAllSelected}
-                      onCheckedChange={handleSelectAll}
-                    />
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </div>
                   </TableHead>
                   <TableHead className="text-right">מספר</TableHead>
                   <TableHead className="text-right">לקוח</TableHead>
@@ -263,10 +265,12 @@ export default function Quotes() {
                   return (
                   <TableRow key={q.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell className="text-right">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => handleSelectQuote(q.id)}
-                      />
+                      <div className="flex items-center justify-center">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => handleSelectQuote(q.id)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">#{q.quote_number}</TableCell>
                     <TableCell>{q.customer_name}</TableCell>

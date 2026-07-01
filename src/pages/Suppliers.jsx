@@ -12,6 +12,7 @@ const setPendingDeletedSuppliers = (set) => {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Plus, Search, Pencil, Trash2, Truck, Check, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart, History } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
@@ -26,15 +27,6 @@ import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 
-const Checkbox = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-4 h-4 border border-input rounded flex items-center justify-center hover:bg-muted transition-colors"
-    style={{ backgroundColor: checked ? "hsl(var(--primary))" : "transparent" }}
-  >
-    {checked && <Check className="w-3 h-3 text-primary-foreground" />}
-  </button>
-);
 
 const empty = { name: "", phone: "", email: "", address: "", tax_id: "", notes: "" };
 
@@ -387,10 +379,12 @@ export default function Suppliers() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox
-                      checked={isAllSelected}
-                      onChange={handleSelectAll}
-                    />
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </div>
                   </TableHead>
                   <TableHead className="text-right">שם</TableHead>
                   <TableHead className="text-right">טלפון</TableHead>
@@ -405,10 +399,12 @@ export default function Suppliers() {
                   return (
                   <TableRow key={s.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell className="text-right">
-                      <Checkbox
-                        checked={isSelected}
-                        onChange={() => handleSelectSupplier(s.id)}
-                      />
+                      <div className="flex items-center justify-center">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => handleSelectSupplier(s.id)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.phone || "-"}</TableCell>

@@ -253,7 +253,9 @@ export default function Invoices() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                    <div className="flex items-center justify-center">
+                      <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                    </div>
                   </TableHead>
                   <TableHead className="text-right">מספר</TableHead>
                   <TableHead className="text-right">לקוח</TableHead>
@@ -269,7 +271,9 @@ export default function Invoices() {
                   return (
                   <TableRow key={inv.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell>
-                      <Checkbox checked={isSelected} onCheckedChange={() => handleSelectInvoice(inv.id)} />
+                      <div className="flex items-center justify-center">
+                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectInvoice(inv.id)} />
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">#{inv.invoice_number}</TableCell>
                     <TableCell>{inv.customer_name}</TableCell>

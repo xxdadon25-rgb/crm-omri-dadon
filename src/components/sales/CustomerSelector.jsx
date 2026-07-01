@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Plus, User, Phone, Mail, Building2, ArrowRight, ChevronLeft, Trash2, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 export default function CustomerSelector({ onConfirm, onBack }) {
@@ -148,13 +149,10 @@ export default function CustomerSelector({ onConfirm, onBack }) {
                 {filtered.map((c) => (
                   <div key={c.id} className="relative flex items-center gap-2">
                     {/* Checkbox */}
-                    <button
-                      onClick={(e) => toggleSelect(c.id, e)}
-                      className="w-5 h-5 border border-input rounded flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
-                      style={{ backgroundColor: selected.has(c.id) ? "hsl(var(--primary))" : "transparent" }}
-                    >
-                      {selected.has(c.id) && <Check className="w-3 h-3 text-primary-foreground" />}
-                    </button>
+                    <Checkbox
+                      checked={selected.has(c.id)}
+                      onCheckedChange={(e) => toggleSelect(c.id, e)}
+                    />
 
                     {/* Customer row */}
                     <button

@@ -208,7 +208,7 @@ export default function Inventory() {
               {/* <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                    <div className="flex items-center justify-center"><Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} /></div>
                   </TableHead>
                   <TableHead className="text-right">מוצר</TableHead>
                   <TableHead className="text-right">מק״ט</TableHead>
@@ -223,7 +223,7 @@ export default function Inventory() {
               <TableHeader className="sticky top-0 z-10 bg-white shadow-sm">
                 <TableRow className="bg-muted/50 border-b-2 border-gray-200">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                    <div className="flex items-center justify-center"><Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} /></div>
                   </TableHead>
                   <TableHead className="text-right">מוצר</TableHead>
                   <TableHead className="text-right">מק״ט</TableHead>
@@ -244,7 +244,9 @@ export default function Inventory() {
                 return (
                   <TableRow key={p.id} className={`hover:bg-muted/30 ${isOutOfStock ? "bg-red-50" : isLow ? "bg-orange-50" : ""} ${isSelected ? "bg-primary/5" : ""}`}>
                       <TableCell className="text-right">
-                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectProduct(p.id)} />
+                        <div className="flex items-center justify-center">
+                          <Checkbox checked={isSelected} onCheckedChange={() => handleSelectProduct(p.id)} />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

@@ -457,10 +457,12 @@ export default function Orders() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12 text-right">
-                  <Checkbox
-                    checked={selected.size === filtered.length && filtered.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
+                  <div className="flex items-center justify-center">
+                    <Checkbox
+                      checked={selected.size === filtered.length && filtered.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </div>
                 </TableHead>
                 <TableHead className="text-right">מס׳ הזמנה</TableHead>
                 <TableHead className="text-right">לקוח</TableHead>
@@ -476,10 +478,12 @@ export default function Orders() {
               {filtered.map((order) => (
                 <TableRow key={order.id} className={`hover:bg-muted/30 ${selected.has(order.id) ? "bg-primary/5" : ""}`}>
                   <TableCell className="text-right">
-                    <Checkbox
-                      checked={selected.has(order.id)}
-                      onCheckedChange={() => toggleSelect(order.id)}
-                    />
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={selected.has(order.id)}
+                        onCheckedChange={() => toggleSelect(order.id)}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium text-right">#{order.order_number || "---"}</TableCell>
                   <TableCell className="text-right">{order.customer_name}</TableCell>

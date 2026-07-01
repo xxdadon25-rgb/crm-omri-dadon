@@ -236,7 +236,9 @@ export default function Customers() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-10 text-right">
-                          <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
+                          <div className="flex items-center justify-center">
+                            <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
+                          </div>
                         </TableHead>
                         <TableHead className="text-right">שם</TableHead>
                         <TableHead className="text-right">סטטוס CRM</TableHead>
@@ -254,7 +256,7 @@ export default function Customers() {
                         const stats = getStats(c.id);
                         return (
                           <TableRow key={c.id} className={`hover:bg-muted/30 ${selectedCustomers.has(c.id) ? "bg-primary/5" : ""}`}>
-                            <TableCell><Checkbox checked={selectedCustomers.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} /></TableCell>
+                            <TableCell><div className="flex items-center justify-center"><Checkbox checked={selectedCustomers.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} /></div></TableCell>
                             <TableCell>
                               <button onClick={() => navigate(`/customers/${c.id}`)} className="font-medium hover:text-primary transition-colors text-right">
                                 {c.name}
