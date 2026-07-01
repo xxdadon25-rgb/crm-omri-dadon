@@ -195,8 +195,9 @@ export default function Inventory() {
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
           <span className="text-sm font-medium">נבחרו {selectedCount} מוצרים</span>
           <Button
-            variant="destructive"
+            variant="outline"
             size="sm"
+            className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm"
             onClick={() => setBulkDeleteOpen(true)}
           >
             <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
@@ -301,7 +302,7 @@ export default function Inventory() {
       {selectedCount > 0 && (
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
           <span className="text-sm font-medium">נבחרו {selectedCount} מוצרים</span>
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+          <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
             <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
           </Button>
         </div>
