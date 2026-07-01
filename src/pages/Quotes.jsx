@@ -27,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { toast } from "sonner";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 const Checkbox = ({ checked, onChange }) => (
   <button
@@ -277,7 +278,8 @@ export default function Quotes() {
                     <TableCell className="font-medium">#{q.quote_number}</TableCell>
                     <TableCell>{q.customer_name}</TableCell>
                     <TableCell>{formatDate(q.date)}</TableCell>
-                    <TableCell className="font-medium">₪{(q.total || 0).toLocaleString()}</TableCell>
+                    {/* <TableCell className="font-medium">₪{(q.total || 0).toLocaleString()}</TableCell> */}
+                    <TableCell className="font-medium">{formatCurrency(q.total)}</TableCell>
                     <TableCell><Badge className={statusColors[q.status] || ""}>{q.status}</Badge></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
