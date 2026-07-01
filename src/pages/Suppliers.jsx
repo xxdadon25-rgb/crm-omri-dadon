@@ -348,14 +348,20 @@ export default function Suppliers() {
 
   return (
     <div>
-      <PageHeader title="ספקים" description={`${suppliers.length} ספקים`}>
-        <Button size="sm" onClick={() => openDialog(null)}><Plus className="w-4 h-4 ml-1" /> ספק חדש</Button>
-      </PageHeader>
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
-      <div className="relative mb-4">
-         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-         <Input placeholder="חיפוש ספקים..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
-       </div>
+        {/* Sticky top bar: page header + search */}
+        <div className="sticky top-0 z-10 bg-background pb-3">
+          <PageHeader title="ספקים" description={`${suppliers.length} ספקים`}>
+            <Button size="sm" onClick={() => openDialog(null)}><Plus className="w-4 h-4 ml-1" /> ספק חדש</Button>
+          </PageHeader>
+          <div className="relative mt-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="חיפוש ספקים..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
+          </div>
+        </div>
 
        {selectedCount > 0 && (
          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
@@ -435,6 +441,8 @@ export default function Suppliers() {
           </Button>
         </div>
       )}
+
+      </div>{/* end scrollable region */}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
