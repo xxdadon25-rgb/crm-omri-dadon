@@ -577,7 +577,7 @@ export default function Reports() {
         </div>
 
       {/* Sales Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 pt-4">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-3">
