@@ -505,10 +505,6 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper and its closing tag at end */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
-
         {/* Sticky top bar: page header + filters + export */}
         <div className="sticky top-0 z-10 bg-background pb-3">
           <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
@@ -706,7 +702,6 @@ export default function Reports() {
       </div>
     </div>
 
-      </div>{/* end scrollable region */}
     </>
   );
 }
