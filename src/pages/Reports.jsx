@@ -342,7 +342,13 @@ export default function Reports() {
 
   return (
     <>
-      <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper and its closing tag at end */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+
+      {/* Sticky top bar: page header + filters + export */}
+      <div className="sticky top-0 z-10 bg-background pb-3">
+        <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
 
       {/* Hidden PDF render element */}
       <div
@@ -507,8 +513,7 @@ export default function Reports() {
         </div>
       </div>
 
-      <div>
-        <div className="bg-card border border-border rounded-xl p-4 mb-6">
+        <div className="bg-card border border-border rounded-xl p-4 mt-1">
           {/* Filter row: stacks to 2-col on tablet, 4-col on desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
@@ -569,6 +574,7 @@ export default function Reports() {
             </div>
           </div>
         </div>
+      </div>{/* end sticky top bar */}
 
       {/* Sales Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -700,6 +706,8 @@ export default function Reports() {
         </div>
       </div>
     </div>
+
+      </div>{/* end scrollable region */}
     </>
   );
 }
