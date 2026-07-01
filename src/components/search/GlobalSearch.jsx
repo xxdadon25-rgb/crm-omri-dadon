@@ -137,9 +137,9 @@ export default function GlobalSearch({ open, onClose }) {
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
-            Esc
-          </kbd>
+          <button onClick={onClose} className="border border-gray-800 rounded-md p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Results */}
