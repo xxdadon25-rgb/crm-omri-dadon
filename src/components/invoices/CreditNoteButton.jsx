@@ -38,7 +38,6 @@ export default function CreditNoteButton({ invoice }) {
           invoice_id: invoice.id,
           invoice_number: invoice.invoice_number,
           customer_id: invoice.customer_id,
-          customer_name: invoice.customer_name,
           date: new Date().toISOString().split("T")[0],
           items: creditedItems,
           subtotal: -(invoice.subtotal || 0),
