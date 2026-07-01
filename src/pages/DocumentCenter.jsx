@@ -308,7 +308,7 @@ export default function DocumentCenter() {
                         : (doc.customer_name || "—");
                       return (
                         <TableRow key={key} className="hover:bg-muted/30">
-                          <TableCell className="px-3">
+                          <TableCell className="px-4 py-3">
                             <Checkbox
                               checked={selected.has(key)}
                               onCheckedChange={() => toggleSelect(doc)}
