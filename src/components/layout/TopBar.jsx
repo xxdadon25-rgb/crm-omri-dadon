@@ -47,18 +47,27 @@ export default function TopBar({ onMenuClick, collapsed }) {
         <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-muted lg:hidden">
           <Menu className="w-5 h-5" />
         </button>
-        <div className="hidden lg:block" />
+        <div className="flex-1 hidden lg:flex justify-center">
 
-        {/* Global search button */}
+          {/* Global search bar — desktop */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 w-72 px-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:shadow-md transition-all text-sm text-gray-400"
+            dir="rtl"
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            <span className="flex-1 text-right">חפש לקוח, מוצר, הזמנה...</span>
+            <kbd className="inline-flex items-center text-xs bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-gray-400">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+        {/* Mobile: icon only */}
         <button
           onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm text-muted-foreground"
+          className="sm:hidden p-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-muted-foreground"
         >
           <Search className="w-4 h-4" />
-          <span className="hidden sm:inline">חיפוש</span>
-          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-xs bg-muted px-1.5 py-0.5 rounded border border-border">
-            ⌘K
-          </kbd>
         </button>
 
         <DropdownMenu dir="rtl">
