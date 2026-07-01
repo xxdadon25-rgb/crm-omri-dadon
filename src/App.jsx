@@ -43,6 +43,7 @@ import ImageMigration from "@/pages/ImageMigration";
 import DebtSummary from "@/pages/DebtSummary";
 import CreditNotePDFPreview from "@/pages/CreditNotePDFPreview";
 import DocumentCenter from "@/pages/DocumentCenter";
+import QualityControl from "@/pages/QualityControl";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -97,6 +98,7 @@ const AuthenticatedApp = () => {
           <Route path="/image-migration" element={<ImageMigration />} />
           <Route path="/debt-summary" element={<DebtSummary />} />
           <Route path="/documents" element={<DocumentCenter />} />
+          <Route path="/quality-control" element={<QualityControl />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

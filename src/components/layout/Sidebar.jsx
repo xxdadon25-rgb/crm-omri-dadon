@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Settings, Truck, ChevronLeft, ChevronRight, X, ScrollText,
   Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser,
-  Landmark, FolderOpen
+  Landmark, FolderOpen, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +39,7 @@ const navGroups = [
   {
     label: "ניהול",
     items: [
+      { path: "/quality-control", label: "מרכז בקרה", icon: Shield },
       { path: "/reports", label: "דוחות", icon: BarChart2 },
       { path: "/alerts", label: "התראות", icon: Bell },
       { path: "/invoice-logs", label: "לוגי API", icon: ScrollText },
