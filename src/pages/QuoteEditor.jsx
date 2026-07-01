@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,15 +156,11 @@ export default function QuoteEditor() {
         queryClient.setQueryData(["quotes"], (old = []) => old.map(q => q.id === quoteId ? updated : q));
         toast.success("הצעת מחיר עודכנה");
       } else {
-        const counter = (businessSettings?.quote_counter || 1000) + 1;
-        data.quote_number = counter;
-        console.log("[SAVE] creating new quote, counter:", counter);
+        const { data: quoteNum } = await supabase.rpc('get_next_quote_number');
+        data.quote_number = quoteNum;
+        console.log("[SAVE] creating new quote, number:", quoteNum);
         const created = await base44.entities.Quote.create(data);
         console.log("[SAVE] create result:", created);
-        if (businessSettings?.id) {
-          await base44.entities.BusinessSettings.update(businessSettings.id, { quote_counter: counter });
-          queryClient.invalidateQueries({ queryKey: ["settings"] });
-        }
         queryClient.setQueryData(["quotes"], (old = []) => [created, ...(Array.isArray(old) ? old : [])]);
         toast.success("הצעת מחיר נוצרה");
       }

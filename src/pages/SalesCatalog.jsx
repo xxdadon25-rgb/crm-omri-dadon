@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import CustomerSelector from "@/components/sales/CustomerSelector";
 import ProductGrid from "@/components/sales/ProductGrid";
@@ -205,19 +206,17 @@ export default function SalesCatalog() {
     try {
       const freshSettings = await base44.entities.BusinessSettings.list();
       const fresh = freshSettings[0] || businessSettings;
-      const counter = (fresh?.quote_counter || 1000) + 1;
       const vat = fresh?.vat_rate || businessSettings?.vat_rate || 17;
+      const { data: quoteNum } = await supabase.rpc('get_next_quote_number');
       const { data } = buildQuotePayload(status, cartData, vat);
-      data.quote_number = counter;
+      data.quote_number = quoteNum;
       let quote = await base44.entities.Quote.create(data);
       if (!quote?.id) {
-        const found = await base44.entities.Quote.filter({ quote_number: counter });
+        const found = await base44.entities.Quote.filter({ quote_number: quoteNum });
         quote = found[0];
       }
-      if (fresh?.id) await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: counter });
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      toast.success(`הצעת מחיר #${counter} נוצרה`);
+      toast.success(`הצעת מחיר #${quoteNum} נוצרה`);
       navigate(`/quotes/edit?id=${quote?.id}`);
     } finally {
       setSaving(false);
@@ -232,14 +231,16 @@ export default function SalesCatalog() {
     try {
       const freshSettings = await base44.entities.BusinessSettings.list();
       const fresh = freshSettings[0] || businessSettings;
-      const quoteCounter = (fresh?.quote_counter || 1000) + 1;
-      const orderCounter = (fresh?.order_counter || 1000) + 1;
       const vat = fresh?.vat_rate || businessSettings?.vat_rate || 17;
+      const [{ data: quoteNum }, { data: orderNum }] = await Promise.all([
+        supabase.rpc('get_next_quote_number'),
+        supabase.rpc('get_next_order_number'),
+      ]);
       const { data: quoteData, total } = buildQuotePayload("הומרה להזמנה", cartData, vat);
-      quoteData.quote_number = quoteCounter;
+      quoteData.quote_number = quoteNum;
       const quote = await base44.entities.Quote.create(quoteData);
       await base44.entities.Order.create({
-        order_number: orderCounter,
+        order_number: orderNum,
         quote_id: quote.id,
         customer_id: selectedCustomer.id,
         customer_name: selectedCustomer.name,
@@ -256,12 +257,8 @@ export default function SalesCatalog() {
         status: "ממתין לאישור",
       });
 
-      if (fresh?.id) {
-        await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: quoteCounter, order_counter: orderCounter });
-      }
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success("הזמנה נוצרה בהצלחה");
       navigate("/orders");
     } finally {
@@ -285,20 +282,18 @@ export default function SalesCatalog() {
     try {
       const freshSettings = await base44.entities.BusinessSettings.list();
       const fresh = freshSettings[0] || businessSettings;
-      const counter = (fresh?.quote_counter || 1000) + 1;
       const vat = fresh?.vat_rate || businessSettings?.vat_rate || 17;
+      const { data: quoteNum } = await supabase.rpc('get_next_quote_number');
       const { data, total: grossTotal } = buildQuotePayload("טיוטה", cartData, vat);
-      data.quote_number = counter;
+      data.quote_number = quoteNum;
       let quote = await base44.entities.Quote.create(data);
       console.log("[WhatsApp] quote after create:", JSON.stringify(quote));
       if (!quote?.id) {
-        const found = await base44.entities.Quote.filter({ quote_number: counter });
+        const found = await base44.entities.Quote.filter({ quote_number: quoteNum });
         quote = found[0];
         console.log("[WhatsApp] refetched quote:", JSON.stringify(quote));
       }
-      if (fresh?.id) await base44.entities.BusinessSettings.update(fresh.id, { quote_counter: counter });
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
 
       const isBusiness = selectedCustomer?.customer_type === "עסקי";
       const businessName = fresh?.business_name || businessSettings?.business_name || "ERP Pro";
