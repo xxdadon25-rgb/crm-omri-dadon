@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Search, Receipt, Trash2, Eye, Check, Link2 } from "lucide-react";
+import { Search, Receipt, Trash2, Eye, Check, Link2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
 import ExternalInvoiceButton from "@/components/invoices/ExternalInvoiceButton";
@@ -51,6 +51,7 @@ const Checkbox = ({ checked, onChange }) => (
 // };
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatCurrency } from "@/utils/formatCurrency";
+import CreditNoteButton from "@/components/invoices/CreditNoteButton";
 
 export default function Invoices() {
   const [search, setSearch] = useState("");
@@ -283,26 +284,39 @@ export default function Invoices() {
                     <TableCell>{formatDate(inv.date)}</TableCell>
                     <TableCell className="font-medium">₪{(inv.total || 0).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
-                        <SelectTrigger className="h-7 w-fit border-0 p-0">
-                          <Badge className={getPaymentStatusColor(inv.payment_status)}>{inv.payment_status}</Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
-                          <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
-                          <SelectItem value="שולם">שולם</SelectItem>
-                          <SelectItem value="באיחור">באיחור</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {inv.credited_at ? (
+                        <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge>
+                      ) : (
+                        <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
+                          <SelectTrigger className="h-7 w-fit border-0 p-0">
+                            <Badge className={getPaymentStatusColor(inv.payment_status)}>{inv.payment_status}</Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
+                            <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
+                            <SelectItem value="שולם">שולם</SelectItem>
+                            <SelectItem value="באיחור">באיחור</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-[120px]">
-                      <div className="flex items-center gap-1 flex-nowrap">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" onClick={() => setViewInvoice(inv)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0 text-destructive" onClick={() => setDeleteId(inv.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {!inv.credited_at && (
+                          <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0 text-destructive" onClick={() => setDeleteId(inv.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {inv.credited_at && inv.credit_note_id && (
+                          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-purple-600" title="הפק PDF זיכוי"
+                            onClick={() => window.open(`/credit-note-pdf/${inv.credit_note_id}`, "_blank")}>
+                            <FileText className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                        {!inv.credited_at && <CreditNoteButton invoice={inv} />}
                         {settings[0]?.api_url && (
                           <div className="shrink-0">
                             <ExternalInvoiceButton

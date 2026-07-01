@@ -41,6 +41,7 @@ import CustomerLedger from "@/pages/CustomerLedger";
 import PriceMigration from "@/pages/PriceMigration";
 import ImageMigration from "@/pages/ImageMigration";
 import DebtSummary from "@/pages/DebtSummary";
+import CreditNotePDFPreview from "@/pages/CreditNotePDFPreview";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -110,6 +111,7 @@ function App() {
             <Route path="/quote-pdf/:quoteId" element={<QuotePDFPreview />} />
             <Route path="/order-pdf/:orderId" element={<OrderPDFPreview />} />
             <Route path="/invoice-pdf/:invoiceId" element={<InvoicePDFPreview />} />
+            <Route path="/credit-note-pdf/:creditNoteId" element={<CreditNotePDFPreview />} />
             <Route path="*" element={<AuthenticatedApp />} />
           </Routes>
         </Router>

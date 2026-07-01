@@ -14,6 +14,7 @@ import LedgerQuotePreview from "@/components/ledger/LedgerQuotePreview";
 import LedgerInvoicePreview from "@/components/ledger/LedgerInvoicePreview";
 import MonthlyInvoicesTab from "@/components/ledger/MonthlyInvoicesTab";
 import LedgerPaymentsTab from "@/components/ledger/LedgerPaymentsTab";
+import LedgerCreditNotesTab from "@/components/ledger/LedgerCreditNotesTab";
 import PaymentDialog from "@/components/payments/PaymentDialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -140,6 +141,11 @@ export default function CustomerLedger() {
     queryFn: () => base44.entities.Payment.list("-created_date"),
   });
 
+  const { data: creditNotes = [], isLoading: loadingCreditNotes } = useQuery({
+    queryKey: ["credit_notes"],
+    queryFn: () => base44.entities.CreditNote.list("-created_date"),
+  });
+
   const { data: settings = [] } = useQuery({
     queryKey: ["settings"],
     queryFn: () => base44.entities.BusinessSettings.list(),
@@ -261,6 +267,11 @@ export default function CustomerLedger() {
       return filterByDate(inv.date, selectedMonth, selectedYear, dateFrom, dateTo);
     });
   }, [invoices, selectedCustomerId, selectedMonth, selectedYear, statusFilter, dateFrom, dateTo]);
+
+  const customerCreditNotes = useMemo(() => {
+    if (!selectedCustomerId) return [];
+    return creditNotes.filter(cn => cn.customer_id === selectedCustomerId);
+  }, [creditNotes, selectedCustomerId]);
 
   const customerPayments = useMemo(() => {
     if (!selectedCustomerId) return [];
@@ -464,22 +475,24 @@ export default function CustomerLedger() {
               {/* Tabs */}
               {/* OLD - can restore:
               <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
-                <TabsList className="w-full grid grid-cols-6" dir="rtl">
+                <TabsList className="w-full grid grid-cols-7" dir="rtl">
                   <TabsTrigger value="quotes">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
                   <TabsTrigger value="orders">📦 הזמנות ({customerOrders.length})</TabsTrigger>
                   <TabsTrigger value="invoices">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
                   <TabsTrigger value="monthly">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
                   <TabsTrigger value="payments">💳 תשלומים ({customerPayments.length})</TabsTrigger>
+                  <TabsTrigger value="credit_notes">↩️ זיכויים ({customerCreditNotes.length})</TabsTrigger>
                   <TabsTrigger value="tasks">✅ משימות ({openTasks.length})</TabsTrigger>
                 </TabsList>
               */}
               <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
-                <TabsList className="w-full grid grid-cols-6 h-auto p-1" dir="rtl">
+                <TabsList className="w-full grid grid-cols-7 h-auto p-1" dir="rtl">
                   <TabsTrigger value="quotes" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
                   <TabsTrigger value="orders" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📦 הזמנות ({customerOrders.length})</TabsTrigger>
                   <TabsTrigger value="invoices" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
                   <TabsTrigger value="monthly" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
                   <TabsTrigger value="payments" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">💳 תשלומים ({customerPayments.length})</TabsTrigger>
+                  <TabsTrigger value="credit_notes" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">↩️ זיכויים ({customerCreditNotes.length})</TabsTrigger>
                   <TabsTrigger value="tasks" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">✅ משימות ({openTasks.length})</TabsTrigger>
                 </TabsList>
 
@@ -536,6 +549,13 @@ export default function CustomerLedger() {
                     onRecordPayment={setRecordPaymentInvoice}
                     selectedCustomer={selectedCustomer}
                     businessSettings={businessSettings}
+                  />
+                </TabsContent>
+
+                <TabsContent value="credit_notes" className="mt-4">
+                  <LedgerCreditNotesTab
+                    creditNotes={customerCreditNotes}
+                    loading={loadingCreditNotes}
                   />
                 </TabsContent>
 

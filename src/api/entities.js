@@ -108,6 +108,7 @@ const entities = {
   Notification:       makeEntityMethods('notifications'),
   ImportLog:          makeEntityMethods('import_logs'),
   InvoiceLog:         makeEntityMethods('invoice_logs'),
+  CreditNote:         makeEntityMethods('credit_notes'),
   BusinessSettings:   makeEntityMethods('business_settings'),
 };
 

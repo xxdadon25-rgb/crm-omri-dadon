@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import EmptyState from "@/components/shared/EmptyState";
-import { Receipt, Eye, Printer, MessageCircle, Loader2 } from "lucide-react";
+import { Receipt, Eye, Printer, MessageCircle, Loader2, FileText } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useState } from "react";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
@@ -14,6 +14,7 @@ import { generateDocumentPDF } from "@/lib/pdfGenerator";
 //   "באיחור": "bg-red-100 text-red-700",
 // };
 import { getPaymentStatusColor } from "@/utils/statusColors";
+import CreditNoteButton from "@/components/invoices/CreditNoteButton";
 
 export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer, allOrders = [] }) {
   const orderMap = new Map(allOrders.map(o => [o.id, o.order_number]));
@@ -99,12 +100,16 @@ ${companyName}`;
                 <TableCell className="font-medium text-right">₪{(invoice.total || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right text-green-700 font-medium">₪{(invoice.paid_amount || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right">
-                  <Badge className={getPaymentStatusColor(invoice.payment_status)}>
-                    {invoice.payment_status || "—"}
-                  </Badge>
+                  {invoice.credited_at ? (
+                    <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge>
+                  ) : (
+                    <Badge className={getPaymentStatusColor(invoice.payment_status)}>
+                      {invoice.payment_status || "—"}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex gap-1 justify-end">
+                  <div className="flex gap-1 justify-end flex-wrap">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPreview(invoice)} title="צפייה">
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
@@ -114,6 +119,13 @@ ${companyName}`;
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleWhatsApp(invoice)} title="WhatsApp">
                       <MessageCircle className="w-3.5 h-3.5" />
                     </Button>
+                    {invoice.credited_at && invoice.credit_note_id && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-purple-600" title="PDF זיכוי"
+                        onClick={() => window.open(`/credit-note-pdf/${invoice.credit_note_id}`, "_blank")}>
+                        <FileText className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {!invoice.credited_at && <CreditNoteButton invoice={invoice} />}
                   </div>
                 </TableCell>
               </TableRow>

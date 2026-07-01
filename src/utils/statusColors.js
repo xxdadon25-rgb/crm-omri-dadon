@@ -16,6 +16,7 @@ export const getPaymentStatusColor = (status) => {
     'שולם חלקית': 'bg-orange-100 text-orange-700',
     'שולם': 'bg-green-100 text-green-700',
     'באיחור': 'bg-red-200 text-red-800',
+    'זוכה': 'bg-purple-100 text-purple-700',
   };
   return map[status] || 'bg-gray-100 text-gray-700';
 };
