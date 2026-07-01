@@ -65,6 +65,20 @@ export default function ProductCatalog() {
         </div>
       </div>
 
+      {/* Sticky search bar — outside the flex row so sticky works relative to page scroll */}
+      {/* OLD - can restore: move this div back inside flex-1 min-w-0 below, before the grid */}
+      <div className="sticky top-0 z-10 bg-background pb-3 pt-0.5">
+        <div className="relative w-full">
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            placeholder="חיפוש מוצר לפי שם או מק״ט..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pr-11 h-12 text-base w-full"
+          />
+        </div>
+      </div>
+
       {/* Desktop: sidebar + content */}
       <div className="flex flex-row gap-6 items-start">
 
@@ -91,20 +105,8 @@ export default function ProductCatalog() {
           </div>
         </aside>
 
-        {/* Main content: search + grid */}
+        {/* Main content: grid only */}
         <div className="flex-1 min-w-0">
-          {/* OLD - can restore: <div className="relative w-full mb-5"> (without sticky wrapper) */}
-          <div className="sticky top-0 z-10 bg-background pb-3 pt-0.5">
-            <div className="relative w-full">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="חיפוש מוצר לפי שם או מק״ט..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pr-11 h-12 text-base w-full"
-              />
-            </div>
-          </div>
 
           {isLoading ? (
             <div className="flex justify-center py-16">
