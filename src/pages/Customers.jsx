@@ -284,24 +284,24 @@ export default function Customers() {
                                 // <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="נווט בוויז" asChild><a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"><Navigation className="w-3.5 h-3.5" /></a></Button>
                                 // <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}><MapPin className="w-3.5 h-3.5" /></Button>
                                 // <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button> */}
-                                <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
+                                <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
                                   <Eye size={19} strokeWidth={1.6} className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200" />
                                 </button>
-                                <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
+                                <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                                   <Pencil size={19} strokeWidth={1.6} className="text-amber-400 hover:text-amber-600 transition-colors duration-200" />
                                 </button>
                                 {c.location_lat && c.location_lng ? (
                                   <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
-                                    <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }}>
+                                    <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }}>
                                       <Navigation size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
                                     </button>
                                   </a>
                                 ) : (
-                                  <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                                  <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
                                     <MapPin size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
                                   </button>
                                 )}
-                                <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
+                                <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
                                   <Trash2 size={19} strokeWidth={1.6} className="text-rose-400 hover:text-rose-600 transition-colors duration-200" />
                                 </button>
                               </div>
@@ -354,24 +354,24 @@ export default function Customers() {
                           // <Button variant="ghost" size="icon" className="h-9 w-9 text-green-600" title="נווט בוויז" asChild><a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"><Navigation className="w-4 h-4" /></a></Button>
                           // <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}><MapPin className="w-4 h-4" /></Button>
                           // <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4" /></Button> */}
-                          <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
+                          <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
                             <Eye size={19} strokeWidth={1.6} className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200" />
                           </button>
-                          <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
+                          <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
                             <Pencil size={19} strokeWidth={1.6} className="text-amber-400 hover:text-amber-600 transition-colors duration-200" />
                           </button>
                           {c.location_lat && c.location_lng ? (
                             <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
-                              <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }}>
+                              <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }}>
                                 <Navigation size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
                               </button>
                             </a>
                           ) : (
-                            <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                            <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
                               <MapPin size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
                             </button>
                           )}
-                          <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
+                          <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
                             <Trash2 size={19} strokeWidth={1.6} className="text-rose-400 hover:text-rose-600 transition-colors duration-200" />
                           </button>
                         </div>
