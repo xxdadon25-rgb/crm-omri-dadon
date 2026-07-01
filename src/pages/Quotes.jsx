@@ -30,8 +30,6 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { Checkbox } from "@/components/ui/checkbox";
 
-);
-
 const statusColors = {
   "טיוטה": "bg-slate-100 text-slate-600",
   "נשלח": "bg-blue-100 text-blue-700",

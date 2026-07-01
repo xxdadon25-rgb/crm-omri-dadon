@@ -34,7 +34,6 @@ const removePendingDeletedInvoiceIds = (ids) => {
   setPendingDeletedInvoiceIds(current);
 };
 
-);
 
 // const paymentColors = {
 //   "ממתין לתשלום": "bg-amber-100 text-amber-700",

@@ -28,8 +28,6 @@ import ProductDialog from "@/components/inventory/ProductDialog";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
 
-);
-
 export default function Inventory() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");

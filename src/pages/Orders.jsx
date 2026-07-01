@@ -28,8 +28,6 @@ import OrderCreateModal from "@/components/orders/OrderCreateModal";
 import { formatDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
 
-);
-
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
 //   "ממתין לאישור": "bg-yellow-100 text-yellow-800",

@@ -19,8 +19,6 @@ import CustomerStatusBadge from "@/components/crm/CustomerStatusBadge";
 import CrmDashboard from "@/components/crm/CrmDashboard";
 import { toast } from "sonner";
 
-);
-
 const CRM_STATUSES = ["הכל", "ליד חדש", "בטיפול", "הצעת מחיר נשלחה", "ממתין לתשובה", "לקוח פעיל", "VIP", "לא פעיל", "לא רלוונטי"];
 
 export default function Customers() {
