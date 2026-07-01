@@ -831,7 +831,10 @@ export default function QualityControl() {
   function refresh() {
     ["qc_neg_stock","qc_blocked_orders","qc_overpaid","qc_high_debt","qc_fulfilled_no_deduct",
      "qc_stale_supplier_orders","qc_converted_quotes","qc_missing_products","qc_dupe_docs","qc_buy_gt_sell"
-    ].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
+    ].forEach(k => {
+      queryClient.removeQueries({ queryKey: [k] });
+      queryClient.invalidateQueries({ queryKey: [k] });
+    });
     runTechChecks();
   }
 
