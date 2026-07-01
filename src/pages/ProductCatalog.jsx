@@ -93,14 +93,17 @@ export default function ProductCatalog() {
 
         {/* Main content: search + grid */}
         <div className="flex-1 min-w-0">
-          <div className="relative w-full mb-5">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="חיפוש מוצר לפי שם או מק״ט..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pr-11 h-12 text-base w-full"
-            />
+          {/* OLD - can restore: <div className="relative w-full mb-5"> (without sticky wrapper) */}
+          <div className="sticky top-0 z-10 bg-background pb-3 pt-0.5">
+            <div className="relative w-full">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="חיפוש מוצר לפי שם או מק״ט..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pr-11 h-12 text-base w-full"
+              />
+            </div>
           </div>
 
           {isLoading ? (
