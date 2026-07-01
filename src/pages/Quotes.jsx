@@ -206,19 +206,25 @@ export default function Quotes() {
 
   return (
     <div>
-      <PageHeader title="הצעות מחיר" description={`${quotes.length} הצעות`}>
-        <Button size="sm" variant="outline" onClick={() => navigate("/sales-catalog")}>
-          <Store className="w-4 h-4 ml-1" /> מכירה בקטלוג
-        </Button>
-        <Button size="sm" onClick={() => navigate("/quotes/new")}>
-          <Plus className="w-4 h-4 ml-1" /> הצעה חדשה
-        </Button>
-      </PageHeader>
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
-      <div className="relative mb-4">
-         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-         <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
-       </div>
+        {/* Sticky top bar: page header + search */}
+        <div className="sticky top-0 z-10 bg-background pb-3">
+          <PageHeader title="הצעות מחיר" description={`${quotes.length} הצעות`}>
+            <Button size="sm" variant="outline" onClick={() => navigate("/sales-catalog")}>
+              <Store className="w-4 h-4 ml-1" /> מכירה בקטלוג
+            </Button>
+            <Button size="sm" onClick={() => navigate("/quotes/new")}>
+              <Plus className="w-4 h-4 ml-1" /> הצעה חדשה
+            </Button>
+          </PageHeader>
+          <div className="relative mt-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
+          </div>
+        </div>
 
        {selectedCount > 0 && (
          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
@@ -305,6 +311,8 @@ export default function Quotes() {
                       </Button>
                     </div>
                   )}
+
+      </div>{/* end scrollable region */}
 
                   <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
                   <AlertDialogContent dir="rtl">
