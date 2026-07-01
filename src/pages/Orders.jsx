@@ -448,7 +448,7 @@ export default function Orders() {
         {selected.size > 0 && (
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-            <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
+            <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm bg-red-500" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
               <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
             </Button>
           </div>
@@ -527,7 +527,7 @@ export default function Orders() {
          {selected.size > 0 && (
            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
              <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-             <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
+             <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm bg-red-500" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
                <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
              </Button>
            </div>
