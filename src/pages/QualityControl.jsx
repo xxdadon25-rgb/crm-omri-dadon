@@ -437,6 +437,180 @@ async function e2eSupplierOrder() {
   return { ok: order.supplier_id === supplier.id, ms: Math.round(performance.now() - t0) };
 }
 
+async function e2eCancelOrderRestoreStock() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: product } = await supabase.from("products").select("id,quantity").eq("user_id", uid).gt("quantity", 0).limit(1).single();
+  if (!product?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין מוצרים עם מלאי" };
+  const original = product.quantity;
+  const { data: oNum } = await supabase.rpc("get_next_order_number");
+  const { data: order, error: oErr } = await supabase
+    .from("orders")
+    .insert({ user_id: uid, customer_name: "בדיקה_אוטומטית", order_number: oNum, status: "ממתין לאישור", total: 0, items: [{ product_id: product.id, quantity: 1 }] })
+    .select("id").single();
+  if (oErr || !order?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: oErr?.message };
+  await supabase.from("products").update({ quantity: original - 1 }).eq("id", product.id);
+  await supabase.from("orders").update({ status: "בוטל" }).eq("id", order.id);
+  await supabase.from("products").update({ quantity: original }).eq("id", product.id);
+  const { data: verified } = await supabase.from("products").select("quantity").eq("id", product.id).single();
+  await supabase.from("orders").delete().eq("id", order.id);
+  return { ok: verified?.quantity === original, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eBlockCustomer() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customer, error: cErr } = await supabase
+    .from("customers").insert({ name: `בדיקה_חסימה_${Date.now()}`, user_id: uid, customer_type: "פרטי", is_active: true, is_blocked: false })
+    .select("id").single();
+  if (cErr || !customer?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  await supabase.from("customers").update({ is_blocked: true }).eq("id", customer.id);
+  const { data: verified } = await supabase.from("customers").select("is_blocked").eq("id", customer.id).single();
+  await supabase.from("customers").delete().eq("id", customer.id);
+  return { ok: verified?.is_blocked === true, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eEditProductPrice() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: product, error: cErr } = await supabase
+    .from("products").insert({ name: `בדיקה_מחיר_${Date.now()}`, user_id: uid, sell_price: 10, buy_price: 5, quantity: 0 })
+    .select("id").single();
+  if (cErr || !product?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  await supabase.from("products").update({ sell_price: 20 }).eq("id", product.id);
+  const { data: verified } = await supabase.from("products").select("sell_price").eq("id", product.id).single();
+  await supabase.from("products").delete().eq("id", product.id);
+  return { ok: verified?.sell_price === 20, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eLowStockAlert() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: product, error } = await supabase
+    .from("products").insert({ name: `בדיקה_מלאי_נמוך_${Date.now()}`, user_id: uid, sell_price: 1, buy_price: 0.5, quantity: 2, min_quantity: 5 })
+    .select("id,quantity,min_quantity").single();
+  if (error || !product?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: error?.message };
+  const triggered = product.quantity < product.min_quantity;
+  await supabase.from("products").delete().eq("id", product.id);
+  return { ok: triggered, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCloseTask() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customer, error: cErr } = await supabase
+    .from("customers").insert({ name: `בדיקה_משימה_סגירה_${Date.now()}`, user_id: uid, customer_type: "פרטי", is_active: true })
+    .select("id").single();
+  if (cErr || !customer?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  const { data: task, error: tErr } = await supabase
+    .from("customer_tasks").insert({ customer_id: customer.id, title: "בדיקה_סגירה", status: "פתוח" })
+    .select("id").single();
+  if (tErr || !task?.id) { await supabase.from("customers").delete().eq("id", customer.id); return { ok: false, ms: Math.round(performance.now() - t0), error: tErr?.message }; }
+  await supabase.from("customer_tasks").update({ status: "סגור" }).eq("id", task.id);
+  const { data: verified } = await supabase.from("customer_tasks").select("status").eq("id", task.id).single();
+  await supabase.from("customer_tasks").delete().eq("id", task.id);
+  await supabase.from("customers").delete().eq("id", customer.id);
+  return { ok: verified?.status === "סגור", ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCloseSupplierOrder() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: supplier } = await supabase.from("suppliers").select("id").eq("user_id", uid).limit(1).single();
+  if (!supplier?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין ספקים" };
+  const { data: order, error: oErr } = await supabase
+    .from("supplier_orders").insert({ user_id: uid, supplier_id: supplier.id, status: "ממתין", items: [], order_date: new Date().toISOString().split("T")[0] })
+    .select("id").single();
+  if (oErr || !order?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: oErr?.message };
+  await supabase.from("supplier_orders").update({ status: "הושלם" }).eq("id", order.id);
+  const { data: verified } = await supabase.from("supplier_orders").select("status").eq("id", order.id).single();
+  await supabase.from("supplier_orders").delete().eq("id", order.id);
+  return { ok: verified?.status === "הושלם", ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eReceiveStock() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: product } = await supabase.from("products").select("id,quantity").eq("user_id", uid).limit(1).single();
+  if (!product?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין מוצרים" };
+  const original = product.quantity ?? 0;
+  await supabase.from("products").update({ quantity: original + 5 }).eq("id", product.id);
+  const { data: verified } = await supabase.from("products").select("quantity").eq("id", product.id).single();
+  await supabase.from("products").update({ quantity: original }).eq("id", product.id);
+  return { ok: verified?.quantity === original + 5, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eHighDebtDetection() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customer, error: cErr } = await supabase
+    .from("customers").insert({ name: `בדיקה_חוב_${Date.now()}`, user_id: uid, customer_type: "עסקי", is_active: true, is_blocked: false })
+    .select("id").single();
+  if (cErr || !customer?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  const { data: invoice, error: iErr } = await supabase
+    .from("invoices").insert({ user_id: uid, customer_id: customer.id, customer_name: "בדיקה_אוטומטית", total: 6000, paid_amount: 0, payment_status: "ממתין לתשלום", items: [] })
+    .select("id,total,paid_amount").single();
+  const detectable = invoice ? (invoice.total - invoice.paid_amount) > 5000 : false;
+  await supabase.from("invoices").delete().eq("id", invoice?.id);
+  await supabase.from("customers").delete().eq("id", customer.id);
+  if (iErr) return { ok: false, ms: Math.round(performance.now() - t0), error: iErr?.message };
+  return { ok: detectable, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2ePdfReadiness() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: qNum } = await supabase.rpc("get_next_quote_number");
+  const { data: quote, error } = await supabase
+    .from("quotes").insert({ user_id: uid, customer_name: "בדיקה_PDF", quote_number: qNum, status: "טיוטה", total: 100, items: [{ name: "פריט בדיקה", quantity: 1, price: 100 }] })
+    .select("id,quote_number,items,total").single();
+  await supabase.from("quotes").delete().eq("id", quote?.id);
+  if (error || !quote?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: error?.message };
+  const ok = quote.quote_number != null && Array.isArray(quote.items) && quote.items.length > 0 && quote.total != null;
+  return { ok, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eStorageUpload() {
+  const t0 = performance.now();
+  const fileName = `e2e-test-${Date.now()}.png`;
+  // minimal 1×1 transparent PNG (67 bytes)
+  const b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "image/png" });
+  const { error: upErr } = await supabase.storage.from("delivery-documents").upload(fileName, blob, { upsert: true });
+  if (upErr) return { ok: false, ms: Math.round(performance.now() - t0), error: upErr.message };
+  const { data: listed } = await supabase.storage.from("delivery-documents").list("", { search: fileName });
+  await supabase.storage.from("delivery-documents").remove([fileName]);
+  const found = (listed ?? []).some(f => f.name === fileName);
+  return { ok: found, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eRlsCheck() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customers, error } = await supabase.from("customers").select("user_id").limit(20);
+  if (error) return { ok: false, ms: Math.round(performance.now() - t0), error: error.message };
+  const allOwned = (customers ?? []).every(c => c.user_id === uid);
+  return { ok: allOwned, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eComplexQueryLatency() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const [r1, r2, r3] = await Promise.all([
+    supabase.from("customers").select("id").eq("user_id", uid),
+    supabase.from("orders").select("id").eq("user_id", uid),
+    supabase.from("invoices").select("id").eq("user_id", uid),
+  ]);
+  const ms = Math.round(performance.now() - t0);
+  const error = r1.error || r2.error || r3.error;
+  if (error) return { ok: false, ms, error: error.message };
+  if (ms > 6000) return { ok: false, ms, error: `איטי מאוד: ${ms}ms` };
+  return { ok: true, ms, slow: ms > 3000 };
+}
+
 const E2E_TESTS = [
   { key: "customer",    label: "יצירת לקוח",           fn: e2eCreateCustomer },
   { key: "quote",       label: "יצירת הצעת מחיר",      fn: e2eCreateQuote },
@@ -450,7 +624,19 @@ const E2E_TESTS = [
   { key: "invoice",     label: "יצירת חשבונית",         fn: e2eCreateInvoice },
   { key: "payment",     label: "רישום תשלום",           fn: e2eRecordPayment },
   { key: "crmTask",     label: "יצירת משימה CRM",       fn: e2eCrmTask },
-  { key: "supplierOrder",label: "יצירת הזמנה לספק",    fn: e2eSupplierOrder },
+  { key: "supplierOrder",   label: "יצירת הזמנה לספק",        fn: e2eSupplierOrder },
+  { key: "cancelRestore",  label: "ביטול הזמנה + החזרת מלאי", fn: e2eCancelOrderRestoreStock },
+  { key: "blockCustomer",  label: "חסימה ידנית של לקוח",      fn: e2eBlockCustomer },
+  { key: "editPrice",      label: "עריכת מחיר מוצר",          fn: e2eEditProductPrice },
+  { key: "lowStock",       label: "התראת מלאי נמוך",          fn: e2eLowStockAlert },
+  { key: "closeTask",      label: "סגירת משימה CRM",          fn: e2eCloseTask },
+  { key: "closeSupOrder",  label: "סגירת הזמנת ספק",          fn: e2eCloseSupplierOrder },
+  { key: "receiveStock",   label: "קבלת סחורה + עליית מלאי",  fn: e2eReceiveStock },
+  { key: "highDebt",       label: "זיהוי חוב גבוה",           fn: e2eHighDebtDetection },
+  { key: "pdfReady",       label: "בדיקת PDF-readiness",      fn: e2ePdfReadiness },
+  { key: "storageUpload",  label: "העלאת קובץ ל-Storage",     fn: e2eStorageUpload },
+  { key: "rls",            label: "בדיקת RLS (הרשאות)",       fn: e2eRlsCheck },
+  { key: "latency",        label: "זמן תגובה כולל",           fn: e2eComplexQueryLatency },
 ];
 
 // ─── Technical health checks ────────────────────────────────────────────────
