@@ -213,33 +213,39 @@ export default function Invoices() {
 
   return (
     <div>
-      <PageHeader title="חשבוניות" description={`${invoices.length} חשבוניות`} />
+      {/* Self-contained scrollable region — sticky works within this container */}
+      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
-      {selectedCount > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selectedCount} חשבוניות</span>
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
+        {/* Sticky top bar: page header + search + status filter */}
+        <div className="sticky top-0 z-10 bg-background pb-3">
+          <PageHeader title="חשבוניות" description={`${invoices.length} חשבוניות`} />
+          <div className="flex flex-col sm:flex-row gap-3 mt-1">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">כל הסטטוסים</SelectItem>
+                <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
+                <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
+                <SelectItem value="שולם">שולם</SelectItem>
+                <SelectItem value="באיחור">באיחור</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">כל הסטטוסים</SelectItem>
-            <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
-            <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
-            <SelectItem value="שולם">שולם</SelectItem>
-            <SelectItem value="באיחור">באיחור</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {selectedCount > 0 && (
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm font-medium">נבחרו {selectedCount} חשבוניות</span>
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+              <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
+            </Button>
+          </div>
+        )}
 
       {isLoading ? (
         <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
@@ -323,6 +329,8 @@ export default function Invoices() {
           </Button>
         </div>
       )}
+
+      </div>{/* end scrollable region */}
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
