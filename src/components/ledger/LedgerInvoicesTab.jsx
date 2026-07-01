@@ -73,7 +73,7 @@ ${companyName}`;
     <div className="bg-card rounded-xl border border-border overflow-hidden">
       {/* OLD - can restore: <Table> (without className below) */}
       <div className="overflow-x-auto">
-        <Table className="[&_td]:py-4 [&_td]:px-4 [&_td]:text-base [&_th]:px-4">
+        <Table className="min-w-[640px] [&_td]:py-2 md:[&_td]:py-4 [&_td]:px-2 md:[&_td]:px-4 [&_td]:text-sm md:[&_td]:text-base [&_th]:px-2 md:[&_th]:px-4">
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="text-right">מספר חשבונית</TableHead>
