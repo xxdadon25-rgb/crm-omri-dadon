@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Search, Receipt, Trash2, Eye, Check, Link2, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
 import ExternalInvoiceButton from "@/components/invoices/ExternalInvoiceButton";
@@ -33,14 +34,6 @@ const removePendingDeletedInvoiceIds = (ids) => {
   setPendingDeletedInvoiceIds(current);
 };
 
-const Checkbox = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-4 h-4 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
-    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
-  >
-    {checked && <Check className="w-3 h-3 text-white" />}
-  </button>
 );
 
 // const paymentColors = {
@@ -261,7 +254,7 @@ export default function Invoices() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onChange={handleSelectAll} />
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                   </TableHead>
                   <TableHead className="text-right">מספר</TableHead>
                   <TableHead className="text-right">לקוח</TableHead>
@@ -277,7 +270,7 @@ export default function Invoices() {
                   return (
                   <TableRow key={inv.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell>
-                      <Checkbox checked={isSelected} onChange={() => handleSelectInvoice(inv.id)} />
+                      <Checkbox checked={isSelected} onCheckedChange={() => handleSelectInvoice(inv.id)} />
                     </TableCell>
                     <TableCell className="font-medium">#{inv.invoice_number}</TableCell>
                     <TableCell>{inv.customer_name}</TableCell>

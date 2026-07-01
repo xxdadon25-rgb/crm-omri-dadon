@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List, MapPin, Navigation } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/api/supabaseClient";
 import { formatDate } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
@@ -18,14 +19,6 @@ import CustomerStatusBadge from "@/components/crm/CustomerStatusBadge";
 import CrmDashboard from "@/components/crm/CrmDashboard";
 import { toast } from "sonner";
 
-const CheckboxBtn = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-4 h-4 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
-    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
-  >
-    {checked && <Check className="w-3 h-3 text-white" />}
-  </button>
 );
 
 const CRM_STATUSES = ["הכל", "ליד חדש", "בטיפול", "הצעת מחיר נשלחה", "ממתין לתשובה", "לקוח פעיל", "VIP", "לא פעיל", "לא רלוונטי"];
@@ -245,7 +238,7 @@ export default function Customers() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-10 text-right">
-                          <CheckboxBtn checked={isAllSelected} onChange={toggleSelectAll} />
+                          <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
                         </TableHead>
                         <TableHead className="text-right">שם</TableHead>
                         <TableHead className="text-right">סטטוס CRM</TableHead>
@@ -263,7 +256,7 @@ export default function Customers() {
                         const stats = getStats(c.id);
                         return (
                           <TableRow key={c.id} className={`hover:bg-muted/30 ${selectedCustomers.has(c.id) ? "bg-primary/5" : ""}`}>
-                            <TableCell><CheckboxBtn checked={selectedCustomers.has(c.id)} onChange={() => toggleSelect(c.id)} /></TableCell>
+                            <TableCell><Checkbox checked={selectedCustomers.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} /></TableCell>
                             <TableCell>
                               <button onClick={() => navigate(`/customers/${c.id}`)} className="font-medium hover:text-primary transition-colors text-right">
                                 {c.name}
@@ -319,7 +312,7 @@ export default function Customers() {
               {/* Tablet/mobile card list */}
               <div className="lg:hidden space-y-2">
                 <div className="flex items-center gap-2 px-1 pb-1 border-b border-border">
-                  <CheckboxBtn checked={isAllSelected} onChange={toggleSelectAll} />
+                  <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
                   <span className="text-xs text-muted-foreground">בחר הכל</span>
                 </div>
                 {filtered.map(c => {
@@ -333,7 +326,7 @@ export default function Customers() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-3 min-w-0">
                           <div className="pt-0.5">
-                            <CheckboxBtn checked={isSelected} onChange={() => toggleSelect(c.id)} />
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(c.id)} />
                           </div>
                           <div className="min-w-0">
                             <button onClick={() => navigate(`/customers/${c.id}`)} className="font-semibold text-base hover:text-primary transition-colors text-right block truncate">

@@ -28,15 +28,8 @@ import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const Checkbox = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-4 h-4 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
-    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
-  >
-    {checked && <Check className="w-3 h-3 text-white" />}
-  </button>
 );
 
 const statusColors = {
@@ -254,7 +247,7 @@ export default function Quotes() {
                   <TableHead className="text-right w-12">
                     <Checkbox
                       checked={isAllSelected}
-                      onChange={handleSelectAll}
+                      onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
                   <TableHead className="text-right">מספר</TableHead>
@@ -274,7 +267,7 @@ export default function Quotes() {
                     <TableCell className="text-right">
                       <Checkbox
                         checked={isSelected}
-                        onChange={() => handleSelectQuote(q.id)}
+                        onCheckedChange={() => handleSelectQuote(q.id)}
                       />
                     </TableCell>
                     <TableCell className="font-medium">#{q.quote_number}</TableCell>

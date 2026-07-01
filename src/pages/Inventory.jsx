@@ -14,6 +14,7 @@ const setPendingDeletedProductIds = (set) => {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Plus, Search, Trash2, Pencil, AlertTriangle, Download, Upload, Check, BarChart3 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +28,6 @@ import ProductDialog from "@/components/inventory/ProductDialog";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
 
-const Checkbox = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-4 h-4 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
-    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
-  >
-    {checked && <Check className="w-3 h-3 text-white" />}
-  </button>
 );
 
 export default function Inventory() {
@@ -217,7 +210,7 @@ export default function Inventory() {
               {/* <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onChange={handleSelectAll} />
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                   </TableHead>
                   <TableHead className="text-right">מוצר</TableHead>
                   <TableHead className="text-right">מק״ט</TableHead>
@@ -232,7 +225,7 @@ export default function Inventory() {
               <TableHeader className="sticky top-0 z-10 bg-white shadow-sm">
                 <TableRow className="bg-muted/50 border-b-2 border-gray-200">
                   <TableHead className="text-right w-12">
-                    <Checkbox checked={isAllSelected} onChange={handleSelectAll} />
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                   </TableHead>
                   <TableHead className="text-right">מוצר</TableHead>
                   <TableHead className="text-right">מק״ט</TableHead>
@@ -253,7 +246,7 @@ export default function Inventory() {
                 return (
                   <TableRow key={p.id} className={`hover:bg-muted/30 ${isOutOfStock ? "bg-red-50" : isLow ? "bg-orange-50" : ""} ${isSelected ? "bg-primary/5" : ""}`}>
                       <TableCell className="text-right">
-                        <Checkbox checked={isSelected} onChange={() => handleSelectProduct(p.id)} />
+                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectProduct(p.id)} />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

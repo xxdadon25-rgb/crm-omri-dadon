@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Search, Plus, Trash2, Eye, Pencil, Check, FileText, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import OrderViewModal from "@/components/orders/OrderViewModal";
@@ -27,14 +28,6 @@ import OrderCreateModal from "@/components/orders/OrderCreateModal";
 import { formatDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
 
-const Checkbox2 = ({ checked, onChange }) => (
-  <button
-    onClick={onChange}
-    className="w-6 h-6 border border-amber-400 rounded flex items-center justify-center hover:bg-amber-50 transition-colors"
-    style={{ backgroundColor: checked ? "#fbbf24" : "transparent" }}
-  >
-    {checked && <Check className="w-3.5 h-3.5 text-white" />}
-  </button>
 );
 
 // const statusColors = {
@@ -466,9 +459,9 @@ export default function Orders() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12 text-right">
-                  <Checkbox2
+                  <Checkbox
                     checked={selected.size === filtered.length && filtered.length > 0}
-                    onChange={toggleSelectAll}
+                    onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
                 <TableHead className="text-right">מס׳ הזמנה</TableHead>
@@ -485,9 +478,9 @@ export default function Orders() {
               {filtered.map((order) => (
                 <TableRow key={order.id} className={`hover:bg-muted/30 ${selected.has(order.id) ? "bg-primary/5" : ""}`}>
                   <TableCell className="text-right">
-                    <Checkbox2
+                    <Checkbox
                       checked={selected.has(order.id)}
-                      onChange={() => toggleSelect(order.id)}
+                      onCheckedChange={() => toggleSelect(order.id)}
                     />
                   </TableCell>
                   <TableCell className="font-medium text-right">#{order.order_number || "---"}</TableCell>
