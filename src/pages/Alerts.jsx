@@ -48,10 +48,11 @@ export default function Alerts() {
   };
 
   return (
-    <div>
-      <PageHeader title="התראות" description={`${allAlerts.length} התראות פעילות`} />
+    <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+      <div className="sticky top-0 z-10 bg-background pb-3">
+        <PageHeader title="התראות" description={`${allAlerts.length} התראות פעילות`} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-red-700">{allAlerts.filter((a) => a.severity === "critical").length}</p>
           <p className="text-sm text-red-600">קריטי</p>
@@ -66,6 +67,7 @@ export default function Alerts() {
         </div>
       </div>
 
+      <div className="pt-4">
       {allAlerts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="p-4 rounded-full bg-green-50 mb-4">
@@ -87,6 +89,7 @@ export default function Alerts() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
