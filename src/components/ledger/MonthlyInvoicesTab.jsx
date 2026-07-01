@@ -9,6 +9,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { CalendarDays, Eye, Printer, MessageCircle, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
+import { getPaymentStatusColor } from "@/utils/statusColors";
 
 const MONTHS = [
   { value: 1, label: "ינואר" }, { value: 2, label: "פברואר" },
@@ -183,12 +184,12 @@ ${companyName}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  const paymentColors = {
-    "ממתין לתשלום": "bg-orange-100 text-orange-700",
-    "שולם חלקית": "bg-yellow-100 text-yellow-700",
-    "שולם": "bg-green-100 text-green-700",
-    "באיחור": "bg-red-100 text-red-700",
-  };
+  // const paymentColors = {
+  //   "ממתין לתשלום": "bg-orange-100 text-orange-700",
+  //   "שולם חלקית": "bg-yellow-100 text-yellow-700",
+  //   "שולם": "bg-green-100 text-green-700",
+  //   "באיחור": "bg-red-100 text-red-700",
+  // };
 
   return (
     <div className="space-y-4">
@@ -271,7 +272,7 @@ ${companyName}`;
                         <TableCell className="text-right text-muted-foreground">{(inv.included_order_ids || inv.included_invoice_ids || []).length} הזמנות</TableCell>
                         <TableCell className="font-medium text-right">₪{(inv.total || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right">
-                          <Badge className={paymentColors[inv.payment_status] || "bg-gray-100 text-gray-700"}>
+                          <Badge className={getPaymentStatusColor(inv.payment_status)}>
                             {inv.payment_status || "—"}
                           </Badge>
                         </TableCell>

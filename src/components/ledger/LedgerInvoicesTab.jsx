@@ -7,12 +7,13 @@ import { formatDate } from "@/lib/dateUtils";
 import { useState } from "react";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 
-const paymentColors = {
-  "ממתין לתשלום": "bg-orange-100 text-orange-700",
-  "שולם חלקית": "bg-yellow-100 text-yellow-700",
-  "שולם": "bg-green-100 text-green-700",
-  "באיחור": "bg-red-100 text-red-700",
-};
+// const paymentColors = {
+//   "ממתין לתשלום": "bg-orange-100 text-orange-700",
+//   "שולם חלקית": "bg-yellow-100 text-yellow-700",
+//   "שולם": "bg-green-100 text-green-700",
+//   "באיחור": "bg-red-100 text-red-700",
+// };
+import { getPaymentStatusColor } from "@/utils/statusColors";
 
 export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer, allOrders = [] }) {
   const orderMap = new Map(allOrders.map(o => [o.id, o.order_number]));
@@ -98,7 +99,7 @@ ${companyName}`;
                 <TableCell className="font-medium text-right">₪{(invoice.total || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right text-green-700 font-medium">₪{(invoice.paid_amount || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right">
-                  <Badge className={paymentColors[invoice.payment_status] || "bg-gray-100 text-gray-700"}>
+                  <Badge className={getPaymentStatusColor(invoice.payment_status)}>
                     {invoice.payment_status || "—"}
                   </Badge>
                 </TableCell>

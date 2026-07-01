@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, BookUser, Search, Users } from "lucide-react";
+import { getPaymentStatusColor } from "@/utils/statusColors";
 
 const DEBT_BLOCK_THRESHOLD = 5000;
 
@@ -242,11 +243,8 @@ export default function DebtSummary() {
                               <TableCell className="text-right text-green-700">{fmtILS(inv.paid_amount)}</TableCell>
                               <TableCell className="text-right font-bold text-red-600">{fmtILS(remaining)}</TableCell>
                               <TableCell className="text-right">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                  inv.payment_status === "באיחור" ? "bg-red-100 text-red-700" :
-                                  inv.payment_status === "שולם חלקית" ? "bg-blue-100 text-blue-700" :
-                                  "bg-amber-100 text-amber-700"
-                                }`}>{inv.payment_status}</span>
+                                {/* inv.payment_status === "באיחור" ? "bg-red-100 text-red-700" : inv.payment_status === "שולם חלקית" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700" */}
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getPaymentStatusColor(inv.payment_status)}`}>{inv.payment_status}</span>
                               </TableCell>
                             </TableRow>
                           );

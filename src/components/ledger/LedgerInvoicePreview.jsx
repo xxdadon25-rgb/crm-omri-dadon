@@ -7,12 +7,13 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { toast } from "sonner";
 
-const paymentColors = {
-  "ממתין לתשלום": "bg-orange-100 text-orange-700",
-  "שולם חלקית": "bg-yellow-100 text-yellow-700",
-  "שולם": "bg-green-100 text-green-700",
-  "באיחור": "bg-red-100 text-red-700",
-};
+// const paymentColors = {
+//   "ממתין לתשלום": "bg-orange-100 text-orange-700",
+//   "שולם חלקית": "bg-yellow-100 text-yellow-700",
+//   "שולם": "bg-green-100 text-green-700",
+//   "באיחור": "bg-red-100 text-red-700",
+// };
+import { getPaymentStatusColor } from "@/utils/statusColors";
 
 const BUCKET = "payment-attachments";
 
@@ -127,7 +128,7 @@ ${companyName}`;
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>חשבונית #{invoice.invoice_number || "—"}</span>
-            <Badge className={paymentColors[invoice.payment_status] || "bg-gray-100 text-gray-700"}>
+            <Badge className={getPaymentStatusColor(invoice.payment_status)}>
               {invoice.payment_status || "—"}
             </Badge>
           </DialogTitle>

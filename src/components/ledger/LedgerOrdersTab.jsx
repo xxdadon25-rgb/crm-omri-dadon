@@ -5,21 +5,21 @@ import EmptyState from "@/components/shared/EmptyState";
 import { ShoppingCart, Eye, Printer, MessageCircle } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 
-const statusColors = {
-  "טיוטה": "bg-gray-100 text-gray-700",
-  "ממתין לאישור": "bg-yellow-100 text-yellow-800",
-  "אושר": "bg-blue-100 text-blue-800",
-  "בהכנה": "bg-purple-100 text-purple-800",
-  "הושלם": "bg-green-100 text-green-800",
-  "בוטל": "bg-red-100 text-red-800",
-};
-
-const paymentColors = {
-  "ממתין לתשלום": "bg-orange-100 text-orange-700",
-  "שולם חלקית": "bg-yellow-100 text-yellow-700",
-  "שולם": "bg-green-100 text-green-700",
-  "באיחור": "bg-red-100 text-red-700",
-};
+// const statusColors = {
+//   "טיוטה": "bg-gray-100 text-gray-700",
+//   "ממתין לאישור": "bg-yellow-100 text-yellow-800",
+//   "אושר": "bg-blue-100 text-blue-800",
+//   "בהכנה": "bg-purple-100 text-purple-800",
+//   "הושלם": "bg-green-100 text-green-800",
+//   "בוטל": "bg-red-100 text-red-800",
+// };
+// const paymentColors = {
+//   "ממתין לתשלום": "bg-orange-100 text-orange-700",
+//   "שולם חלקית": "bg-yellow-100 text-yellow-700",
+//   "שולם": "bg-green-100 text-green-700",
+//   "באיחור": "bg-red-100 text-red-700",
+// };
+import { getOrderStatusColor, getPaymentStatusColor } from "@/utils/statusColors";
 
 export default function LedgerOrdersTab({ orders, invoices, loading, onPreview, businessSettings, selectedCustomer, allMonthlyInvoices }) {
   if (loading) {
@@ -87,7 +87,7 @@ ${companyName}`;
                   <TableCell className="text-right">{formatDate(order.date)}</TableCell>
                   <TableCell className="font-medium text-right">₪{(order.total || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <Badge className={statusColors[order.status] || "bg-gray-100 text-gray-700"}>
+                    <Badge className={getOrderStatusColor(order.status)}>
                       {order.status}
                     </Badge>
                   </TableCell>
@@ -95,7 +95,7 @@ ${companyName}`;
                     {order.monthly_invoice_id ? (
                       <Badge className="bg-purple-100 text-purple-700">חשבונית חודשית</Badge>
                     ) : invoice ? (
-                      <Badge className={paymentColors[invoice.payment_status] || "bg-gray-100 text-gray-700"}>
+                      <Badge className={getPaymentStatusColor(invoice.payment_status)}>
                         {invoice.payment_status}
                       </Badge>
                     ) : (

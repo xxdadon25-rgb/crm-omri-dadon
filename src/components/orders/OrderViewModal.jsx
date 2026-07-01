@@ -7,14 +7,15 @@ import { formatDate } from "@/lib/dateUtils";
 import DocumentActions from "@/components/documents/DocumentActions";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 
-const statusColors = {
-  "טיוטה": "bg-gray-100 text-gray-700",
-  "ממתין לאישור": "bg-yellow-100 text-yellow-800",
-  "אושר": "bg-blue-100 text-blue-800",
-  "בהכנה": "bg-purple-100 text-purple-800",
-  "הושלם": "bg-green-100 text-green-800",
-  "בוטל": "bg-red-100 text-red-800",
-};
+// const statusColors = {
+//   "טיוטה": "bg-gray-100 text-gray-700",
+//   "ממתין לאישור": "bg-yellow-100 text-yellow-800",
+//   "אושר": "bg-blue-100 text-blue-800",
+//   "בהכנה": "bg-purple-100 text-purple-800",
+//   "הושלם": "bg-green-100 text-green-800",
+//   "בוטל": "bg-red-100 text-red-800",
+// };
+import { getOrderStatusColor } from "@/utils/statusColors";
 
 export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDocument, onBackToQuote, onCreateInvoice, creatingInvoice, customers, quotes, businessSettings }) {
   if (!order) return null;
@@ -52,7 +53,7 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
             </div>
             <div>
               <p className="text-xs text-muted-foreground">סטטוס</p>
-              <Badge className={statusColors[order.status] || "bg-gray-100 text-gray-700"}>
+              <Badge className={getOrderStatusColor(order.status)}>
                 {order.status}
               </Badge>
             </div>

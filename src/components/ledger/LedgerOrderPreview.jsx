@@ -4,14 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, MessageCircle, X } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 
-const statusColors = {
-  "טיוטה": "bg-gray-100 text-gray-700",
-  "ממתין לאישור": "bg-yellow-100 text-yellow-800",
-  "אושר": "bg-blue-100 text-blue-800",
-  "בהכנה": "bg-purple-100 text-purple-800",
-  "הושלם": "bg-green-100 text-green-800",
-  "בוטל": "bg-red-100 text-red-800",
-};
+// const statusColors = {
+//   "טיוטה": "bg-gray-100 text-gray-700",
+//   "ממתין לאישור": "bg-yellow-100 text-yellow-800",
+//   "אושר": "bg-blue-100 text-blue-800",
+//   "בהכנה": "bg-purple-100 text-purple-800",
+//   "הושלם": "bg-green-100 text-green-800",
+//   "בוטל": "bg-red-100 text-red-800",
+// };
+import { getOrderStatusColor } from "@/utils/statusColors";
 
 export default function LedgerOrderPreview({ order, onClose, invoices, businessSettings, selectedCustomer }) {
   if (!order) return null;
@@ -47,7 +48,7 @@ ${companyName}`;
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>הזמנה #{order.order_number || "—"}</span>
-            <Badge className={statusColors[order.status] || "bg-gray-100 text-gray-700"}>
+            <Badge className={getOrderStatusColor(order.status)}>
               {order.status}
             </Badge>
           </DialogTitle>

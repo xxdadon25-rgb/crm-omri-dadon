@@ -37,21 +37,21 @@ const PlaceholderCard = ({ title }) => (
   </div>
 );
 
-const orderStatusColors = {
-  "טיוטה": "bg-gray-100 text-gray-700",
-  "ממתין לאישור": "bg-yellow-100 text-yellow-800",
-  "אושר": "bg-blue-100 text-blue-800",
-  "בהכנה": "bg-purple-100 text-purple-800",
-  "הושלם": "bg-green-100 text-green-800",
-  "בוטל": "bg-red-100 text-red-800",
-};
-
-const paymentStatusColors = {
-  "ממתין לתשלום": "bg-amber-100 text-amber-700",
-  "שולם חלקית": "bg-blue-100 text-blue-700",
-  "שולם": "bg-green-100 text-green-700",
-  "באיחור": "bg-red-100 text-red-700",
-};
+// const orderStatusColors = {
+//   "טיוטה": "bg-gray-100 text-gray-700",
+//   "ממתין לאישור": "bg-yellow-100 text-yellow-800",
+//   "אושר": "bg-blue-100 text-blue-800",
+//   "בהכנה": "bg-purple-100 text-purple-800",
+//   "הושלם": "bg-green-100 text-green-800",
+//   "בוטל": "bg-red-100 text-red-800",
+// };
+// const paymentStatusColors = {
+//   "ממתין לתשלום": "bg-amber-100 text-amber-700",
+//   "שולם חלקית": "bg-blue-100 text-blue-700",
+//   "שולם": "bg-green-100 text-green-700",
+//   "באיחור": "bg-red-100 text-red-700",
+// };
+import { getOrderStatusColor, getPaymentStatusColor } from "@/utils/statusColors";
 
 function ListCard({ title, count, items, emptyText, renderItem, onClick }) {
   return (
@@ -508,7 +508,7 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-700 truncate block">{o.customer_name || `הזמנה #${o.order_number || o.id}`}</span>
                 <span className="text-xs text-gray-400">{o.date?.slice(0, 10).split("-").reverse().join("/")}</span>
               </div>
-              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${orderStatusColors[o.status] || "bg-gray-100 text-gray-700"}`}>{o.status}</span>
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${getOrderStatusColor(o.status)}`}>{o.status}</span>
             </>
           )}
         />
@@ -525,7 +525,7 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-700 truncate block">{inv.customer_name}</span>
                 <span className="text-xs text-gray-400">{inv.date?.slice(0, 10).split("-").reverse().join("/")} · ₪{((inv.total || 0) - (inv.paid_amount || 0)).toLocaleString()}</span>
               </div>
-              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${paymentStatusColors[inv.payment_status] || "bg-gray-100 text-gray-700"}`}>{inv.payment_status}</span>
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${getPaymentStatusColor(inv.payment_status)}`}>{inv.payment_status}</span>
             </>
           )}
         />

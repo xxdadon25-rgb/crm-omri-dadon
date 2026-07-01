@@ -43,12 +43,13 @@ const Checkbox = ({ checked, onChange }) => (
   </button>
 );
 
-const paymentColors = {
-  "ממתין לתשלום": "bg-amber-100 text-amber-700",
-  "שולם חלקית": "bg-blue-100 text-blue-700",
-  "שולם": "bg-green-100 text-green-700",
-  "באיחור": "bg-red-100 text-red-700",
-};
+// const paymentColors = {
+//   "ממתין לתשלום": "bg-amber-100 text-amber-700",
+//   "שולם חלקית": "bg-blue-100 text-blue-700",
+//   "שולם": "bg-green-100 text-green-700",
+//   "באיחור": "bg-red-100 text-red-700",
+// };
+import { getPaymentStatusColor } from "@/utils/statusColors";
 
 export default function Invoices() {
   const [search, setSearch] = useState("");
@@ -283,7 +284,7 @@ export default function Invoices() {
                     <TableCell>
                       <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
                         <SelectTrigger className="h-7 w-fit border-0 p-0">
-                          <Badge className={paymentColors[inv.payment_status] || ""}>{inv.payment_status}</Badge>
+                          <Badge className={getPaymentStatusColor(inv.payment_status)}>{inv.payment_status}</Badge>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
