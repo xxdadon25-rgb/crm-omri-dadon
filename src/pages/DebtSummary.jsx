@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, BookUser, Search, Users } from "lucide-react";
+import { Loader2, BookUser, Search, Users, ChevronRight } from "lucide-react";
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatCurrency } from "@/utils/formatCurrency";
 
@@ -130,8 +130,8 @@ export default function DebtSummary() {
         /* NEW sidebar+main layout */
         <div className="flex flex-row gap-5 items-start">
 
-          {/* RIGHT: customer sidebar */}
-          <aside className="w-72 shrink-0 bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+          {/* RIGHT: customer sidebar — hidden on mobile when a customer is selected */}
+          <aside className={`shrink-0 bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col overflow-hidden w-full lg:w-72 ${selectedId ? "hidden lg:flex" : "flex"}`}>
             <div className="px-4 py-3 border-b border-gray-100">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-2">
                 <Users className="w-3.5 h-3.5" /> לקוחות ({rows.length})
@@ -183,8 +183,8 @@ export default function DebtSummary() {
             </div>
           </aside>
 
-          {/* LEFT: main detail area */}
-          <div className="flex-1 min-w-0">
+          {/* LEFT: main detail area — hidden on mobile when no customer is selected */}
+          <div className={`flex-1 min-w-0 ${selectedId ? "block" : "hidden lg:block"}`}>
             {!selectedRow ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
                 <BookUser className="w-10 h-10 opacity-30" />
@@ -196,8 +196,16 @@ export default function DebtSummary() {
                 {/* Customer header */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold">{selectedRow.name}</h2>
-                    <div className="flex gap-4 mt-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-1">
+                      <button
+                        onClick={() => setSelectedId(null)}
+                        className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" /> חזרה
+                      </button>
+                      <h2 className="text-xl font-bold">{selectedRow.name}</h2>
+                    </div>
+                    <div className="flex gap-4 text-sm text-muted-foreground">
                       {selectedRow.phone && selectedRow.phone !== "—" && <span>📞 {selectedRow.phone}</span>}
                       {selectedRow.isBlocked && <span className="text-red-600 font-medium">🚫 חסום</span>}
                     </div>
