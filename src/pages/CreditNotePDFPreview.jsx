@@ -65,11 +65,11 @@ export default function CreditNotePDFPreview() {
   if (!creditNote) return null;
 
   const items = creditNote.items || [];
-  // Calculate from items since subtotal/vat_amount columns don't exist in schema
-  const subtotal = items.reduce((s, i) => s + Math.abs((i.unit_price || 0) * (i.quantity || 0)), 0);
-  const vatRate = 17;
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+  // Use stored total (saved as negative of original invoice total); derive subtotal/vat at 18%
+  const total = Math.abs(creditNote.total || 0);
+  const vatRate = 18;
+  const subtotal = total / 1.18;
+  const vatAmount = total - subtotal;
   // Extract original invoice number from reason field (format: "זיכוי עבור חשבונית מספר X")
   const invoiceNumberMatch = creditNote.reason?.match(/(\d+)$/);
   const originalInvoiceNumber = invoiceNumberMatch ? invoiceNumberMatch[1] : null;
