@@ -505,12 +505,11 @@ export default function Reports() {
         </div>
       </div>
 
-        <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
-
-        {/* OLD - can restore: <div className="sticky top-16 z-10 bg-white shadow-md border-b border-gray-200 rounded-xl p-4 mb-6"> */}
-        <div className="fixed top-16 left-[var(--sidebar-width,16rem)] right-0 z-50 bg-white shadow-md border-b border-gray-200 p-4">
-          {/* Filter row: stacks to 2-col on tablet, 4-col on desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+        <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3">
+          <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
+          <div className="bg-card border border-border rounded-xl p-4 mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="text-sm font-medium mb-2 block">טווח תאריכים</label>
               <Select value={dateRange} onValueChange={setDateRange}>
@@ -567,11 +566,9 @@ export default function Reports() {
                 ייצוא PDF
               </Button>
             </div>
+            </div>
           </div>
-          </div>
-        </div>{/* end filter card */}
-        {/* Spacer to prevent content hiding behind fixed filter bar */}
-        <div className="h-24" />
+        </div>
 
       {/* Sales Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -702,7 +699,7 @@ export default function Reports() {
           </table>
         </div>
       </div>
-    </div>
+      </div>
 
     </>
   );
