@@ -7,6 +7,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, BookOpen, Package, Tag, LayoutGrid } from "lucide-react";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 export default function ProductCatalog() {
   const [search, setSearch] = useState("");
@@ -139,7 +140,8 @@ export default function ProductCatalog() {
                       {product.category && (
                         <Badge variant="secondary" className="mt-1 text-xs">{product.category}</Badge>
                       )}
-                      <p className="text-sm font-bold mt-2">₪{product.sell_price?.toLocaleString()}</p>
+                      {/* <p className="text-sm font-bold mt-2">₪{product.sell_price?.toLocaleString()}</p> */}
+                      <p className="text-sm font-bold mt-2">{formatCurrency(product.sell_price)}</p>
                     </div>
                   </div>
                 ))}

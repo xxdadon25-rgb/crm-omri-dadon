@@ -678,8 +678,10 @@ export default function Reports() {
                 <tr key={product.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 px-3">{product.name}</td>
                   <td className="py-2 px-3">{product.quantity}</td>
-                  <td className="py-2 px-3">₪{product.sales.toLocaleString()}</td>
-                  <td className="py-2 px-3 text-green-600">₪{product.profit.toLocaleString()}</td>
+                  {/* <td className="py-2 px-3">₪{product.sales.toLocaleString()}</td> */}
+                  <td className="py-2 px-3">{formatCurrency(product.sales)}</td>
+                  {/* <td className="py-2 px-3 text-green-600">₪{product.profit.toLocaleString()}</td> */}
+                  <td className="py-2 px-3 text-green-600">{formatCurrency(product.profit)}</td>
                 </tr>
               ))}
             </tbody>
@@ -707,8 +709,10 @@ export default function Reports() {
                 <tr key={customer.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 px-3">{customer.name}</td>
                   <td className="py-2 px-3">{customer.orders}</td>
-                  <td className="py-2 px-3">₪{customer.total.toLocaleString()}</td>
-                  <td className="py-2 px-3 text-green-600">₪{customer.profit.toLocaleString()}</td>
+                  {/* <td className="py-2 px-3">₪{customer.total.toLocaleString()}</td> */}
+                  <td className="py-2 px-3">{formatCurrency(customer.total)}</td>
+                  {/* <td className="py-2 px-3 text-green-600">₪{customer.profit.toLocaleString()}</td> */}
+                  <td className="py-2 px-3 text-green-600">{formatCurrency(customer.profit)}</td>
                 </tr>
               ))}
             </tbody>
