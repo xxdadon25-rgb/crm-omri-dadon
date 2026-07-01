@@ -39,9 +39,11 @@ export default function LedgerCreditNotesTab({ creditNotes = [], loading }) {
             {creditNotes.map(cn => (
               <TableRow key={cn.id} className="hover:bg-muted/30">
                 <TableCell className="font-medium text-right text-purple-700">{cn.credit_note_number}</TableCell>
-                <TableCell className="text-right">{formatDate(cn.date)}</TableCell>
+                <TableCell className="text-right">
+                  {cn.created_at ? cn.created_at.slice(0, 10).split("-").reverse().join("/") : "—"}
+                </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {cn.invoice_number ? `#${cn.invoice_number}` : "—"}
+                  {cn.credit_note_number?.includes("-") ? `#${cn.credit_note_number.split("-").pop()}` : "—"}
                 </TableCell>
                 <TableCell className="text-right font-bold text-red-600">
                   ({formatCurrency(Math.abs(cn.total || 0))})
