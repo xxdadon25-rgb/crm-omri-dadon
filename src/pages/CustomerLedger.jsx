@@ -411,7 +411,7 @@ export default function CustomerLedger() {
                     <label className="text-xs text-muted-foreground">חודש</label>
                     <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); setDateFrom(""); setDateTo(""); }}>
                       <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-50">
                         {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -421,7 +421,7 @@ export default function CustomerLedger() {
                     <label className="text-xs text-muted-foreground">שנה</label>
                     <Select value={selectedYear} onValueChange={v => { setSelectedYear(v); setDateFrom(""); setDateTo(""); }}>
                       <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-50">
                         <SelectItem value="all">כל השנים</SelectItem>
                         {YEARS.filter(y => y !== "all").map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                       </SelectContent>
