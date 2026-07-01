@@ -225,7 +225,7 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
   const total       = parseFloat(doc.total)       || subtotal + vatAmount;
   const discountPct = grossTotal > 0 && discountAmt > 0.001 ? (discountAmt / grossTotal) * 100 : 0;
 
-  const agentName    = doc.agent_name    || "";
+  const agentName    = doc.agent    || "";
   const paymentTerms = doc.payment_terms || businessSettings?.payment_terms || "";
 
   const notesToShow = [

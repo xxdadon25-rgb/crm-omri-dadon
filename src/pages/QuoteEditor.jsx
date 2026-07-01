@@ -17,6 +17,7 @@ import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAcces
 import { toast } from "sonner";
 
 const STATUSES = ["טיוטה", "נשלח", "אושר", "נדחה", "פגה תוקף", "הומרה להזמנה", "הומרה לחשבונית"];
+const AGENTS = ["עומרי דדון", "בן אסידו"];
 
 export default function QuoteEditor() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -59,6 +60,7 @@ export default function QuoteEditor() {
     delivery_notes: "",
     status: "טיוטה",
     vat_rate: 18,
+    agent: "",
   });
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -139,6 +141,7 @@ export default function QuoteEditor() {
   const handleSave = async () => {
     console.log("[SAVE] handleSave called, customer_id:", form.customer_id);
     if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
+    if (!form.agent) { toast.error("יש לבחור סוכן"); return; }
     setSaving(true);
     console.log("[SAVE] setSaving(true), quoteId:", quoteId);
     try {
@@ -194,6 +197,7 @@ export default function QuoteEditor() {
       subtotal, vat_rate: form.vat_rate, vat_amount: vatAmount, total,
       notes: form.delivery_notes || form.notes,
       status: "ממתין לאישור",
+      agent: form.agent || "",
     };
     const order = await base44.entities.Order.create(orderData);
     queryClient.setQueryData(["orders"], (old = []) => {
@@ -277,6 +281,21 @@ export default function QuoteEditor() {
                 className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>סוכן {!quoteId && <span className="text-destructive">*</span>}</Label>
+              {quoteId ? (
+                <div className="h-9 flex items-center px-3 rounded-md border border-input bg-muted/30 text-sm">
+                  {form.agent || <span className="text-muted-foreground">—</span>}
+                </div>
+              ) : (
+                <Select value={form.agent} onValueChange={(val) => setForm({ ...form, agent: val })}>
+                  <SelectTrigger className={!form.agent ? "border-destructive/50" : ""}><SelectValue placeholder="בחר סוכן" /></SelectTrigger>
+                  <SelectContent>
+                    {AGENTS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         </div>

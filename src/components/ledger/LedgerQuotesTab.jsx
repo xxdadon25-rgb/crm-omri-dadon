@@ -68,6 +68,7 @@ ${companyName}`;
               <TableHead className="text-right">תאריך</TableHead>
               <TableHead className="text-right">תוקף עד</TableHead>
               <TableHead className="text-right">סכום</TableHead>
+              <TableHead className="text-right">סוכן</TableHead>
               <TableHead className="text-right">סטטוס</TableHead>
               <TableHead className="text-right w-28">פעולות</TableHead>
             </TableRow>
@@ -79,6 +80,7 @@ ${companyName}`;
                 <TableCell className="text-right">{formatDate(quote.date)}</TableCell>
                 <TableCell className="text-right">{formatDate(quote.valid_until)}</TableCell>
                 <TableCell className="font-medium text-right">₪{(quote.total || 0).toLocaleString()}</TableCell>
+                <TableCell className="text-right text-sm text-muted-foreground">{quote.agent || "—"}</TableCell>
                 <TableCell className="text-right">
                   <Badge className={statusColors[quote.status] || "bg-gray-100 text-gray-700"}>
                     {quote.status || "—"}

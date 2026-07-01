@@ -50,6 +50,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
     status: "ממתין לאישור",
     fulfilled: null,
     vat_rate: businessSettings?.vat_rate || 17,
+    agent: "",
   });
 
   const [form, setForm] = useState(emptyForm);
@@ -92,6 +93,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
 
   const handleSave = async () => {
     if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
+    if (!form.agent) { toast.error("יש לבחור סוכן"); return; }
     if (form.items.length === 0) { toast.error("יש להוסיף לפחות פריט אחד"); return; }
     if (form.fulfilled === null) { toast.error("יש לציין האם ההזמנה סופקה ללקוח"); return; }
 
@@ -117,6 +119,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
         status: form.status,
         fulfilled: !!form.fulfilled,
         inventory_deducted: false,
+        agent: form.agent || "",
       };
 
       const created = await base44.entities.Order.create(orderData);
@@ -140,6 +143,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
   };
 
   const STATUSES = ["טיוטה", "ממתין לאישור", "אושר", "בהכנה", "הושלם", "בוטל"];
+  const AGENTS = ["עומרי דדון", "בן אסידו"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,6 +192,16 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
             <div className="space-y-1.5">
               <Label>מע״מ %</Label>
               <Input type="number" value={form.vat_rate} onChange={(e) => setForm({ ...form, vat_rate: parseFloat(e.target.value) || 0 })} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>סוכן <span className="text-destructive">*</span></Label>
+              <Select value={form.agent} onValueChange={(val) => setForm({ ...form, agent: val })}>
+                <SelectTrigger className={!form.agent ? "border-destructive/50" : ""}><SelectValue placeholder="בחר סוכן" /></SelectTrigger>
+                <SelectContent>
+                  {AGENTS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">

@@ -260,6 +260,7 @@ export default function Quotes() {
                   <TableHead className="text-right">לקוח</TableHead>
                   <TableHead className="text-right">תאריך</TableHead>
                   <TableHead className="text-right">סה״כ</TableHead>
+                  <TableHead className="text-right">סוכן</TableHead>
                   <TableHead className="text-right">סטטוס</TableHead>
                   <TableHead className="text-right w-36">פעולות</TableHead>
                 </TableRow>
@@ -280,6 +281,7 @@ export default function Quotes() {
                     <TableCell>{formatDate(q.date)}</TableCell>
                     {/* <TableCell className="font-medium">₪{(q.total || 0).toLocaleString()}</TableCell> */}
                     <TableCell className="font-medium">{formatCurrency(q.total)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{q.agent || "—"}</TableCell>
                     <TableCell><Badge className={statusColors[q.status] || ""}>{q.status}</Badge></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

@@ -73,6 +73,7 @@ ${companyName}`;
               <TableHead className="text-right">מספר הזמנה</TableHead>
               <TableHead className="text-right">תאריך</TableHead>
               <TableHead className="text-right">סכום</TableHead>
+              <TableHead className="text-right">סוכן</TableHead>
               <TableHead className="text-right">סטטוס הזמנה</TableHead>
               <TableHead className="text-right">סטטוס תשלום</TableHead>
               <TableHead className="text-right w-28">פעולות</TableHead>
@@ -86,6 +87,7 @@ ${companyName}`;
                   <TableCell className="font-medium text-right">#{order.order_number || "—"}</TableCell>
                   <TableCell className="text-right">{formatDate(order.date)}</TableCell>
                   <TableCell className="font-medium text-right">₪{(order.total || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{order.agent || "—"}</TableCell>
                   <TableCell className="text-right">
                     <Badge className={getOrderStatusColor(order.status)}>
                       {order.status}

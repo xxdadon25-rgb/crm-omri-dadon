@@ -72,6 +72,13 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Agent — read-only */}
+          {order.agent && (
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-4 py-2">
+              סוכן: <span className="font-medium text-foreground">{order.agent}</span>
+            </div>
+          )}
+
           {/* Status */}
           <div className="space-y-2">
             <Label>סטטוס</Label>

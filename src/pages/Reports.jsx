@@ -15,6 +15,7 @@ import html2canvas from "html2canvas";
 
 const COLORS = ["hsl(48,96%,53%)", "hsl(200,60%,50%)", "hsl(150,50%,45%)", "hsl(280,60%,55%)"];
 const STATUS_FILTER_OPTIONS = ["ממתין לאישור", "אושר", "בהכנה", "הושלם", "בוטל"];
+const AGENT_OPTIONS = ["עומרי דדון", "בן אסידו"];
 
 const CustomYAxisTick = ({ x, y, payload }) => (
   <text x={x - 40} y={y} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#666">
@@ -27,6 +28,7 @@ export default function Reports() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [agentFilter, setAgentFilter] = useState("all");
 
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
@@ -72,7 +74,8 @@ export default function Reports() {
       const orderDate = new Date(order.date);
       const inDateRange = orderDate >= dateStart && orderDate <= dateEnd;
       const hasStatus = statusFilter === "all" || statusFilter === order.status;
-      return inDateRange && hasStatus;
+      const hasAgent = agentFilter === "all" || order.agent === agentFilter;
+      return inDateRange && hasStatus && hasAgent;
     });
   }, [orders, dateStart, dateEnd, statusFilter]);
 
@@ -83,10 +86,10 @@ export default function Reports() {
       .filter((o) => {
         if (!o.date) return false;
         const d = new Date(o.date);
-        return d >= today && d <= endOfDay(new Date()) && (statusFilter === "all" || statusFilter === o.status);
+        return d >= today && d <= endOfDay(new Date()) && (statusFilter === "all" || statusFilter === o.status) && (agentFilter === "all" || o.agent === agentFilter);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilter]);
+  }, [orders, statusFilter, agentFilter]);
 
   const salesMonth = useMemo(() => {
     const start = startOfMonth(new Date());
@@ -94,10 +97,10 @@ export default function Reports() {
       .filter((o) => {
         if (!o.date) return false;
         const d = new Date(o.date);
-        return d >= start && (statusFilter === "all" || statusFilter === o.status);
+        return d >= start && (statusFilter === "all" || statusFilter === o.status) && (agentFilter === "all" || o.agent === agentFilter);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilter]);
+  }, [orders, statusFilter, agentFilter]);
 
   const salesYear = useMemo(() => {
     const start = startOfYear(new Date());
@@ -105,10 +108,10 @@ export default function Reports() {
       .filter((o) => {
         if (!o.date) return false;
         const d = new Date(o.date);
-        return d >= start && (statusFilter === "all" || statusFilter === o.status);
+        return d >= start && (statusFilter === "all" || statusFilter === o.status) && (agentFilter === "all" || o.agent === agentFilter);
       })
       .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  }, [orders, statusFilter]);
+  }, [orders, statusFilter, agentFilter]);
 
   const totalOrders = filteredOrders.length;
   const avgPerOrder = totalOrders > 0 ? filteredOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0) / totalOrders : 0;
@@ -551,6 +554,21 @@ export default function Reports() {
                     <SelectItem key={status} value={status}>
                       {status}
                     </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">סוכן</label>
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">כל הסוכנים</SelectItem>
+                  {AGENT_OPTIONS.map((a) => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -135,6 +135,7 @@ export default function QuotePDFPreview() {
             {/* Second = LEFT in RTL: doc details */}
             <div style={{ textAlign: "right", fontSize: 13 }}>
               <div style={{ fontWeight: 700, marginBottom: 3 }}>תאריך: {quote.date ? quote.date.split("-").reverse().join("/") : "—"}</div>
+              {quote.agent && <div style={{ fontWeight: 700, marginBottom: 3 }}>סוכן: {quote.agent}</div>}
               <div style={{ fontWeight: 700, marginBottom: 3 }}>סטטוס: {quote.status || "טיוטה"}</div>
               <div>דף 1 מתוך 1</div>
             </div>
