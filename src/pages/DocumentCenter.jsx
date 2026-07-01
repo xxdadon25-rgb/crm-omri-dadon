@@ -14,24 +14,21 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import { getPaymentStatusColor, getOrderStatusColor } from "@/utils/statusColors";
 
 const TYPE_META = {
-  quote:        { label: "הצעת מחיר", badge: "bg-blue-100 text-blue-700",    pdfBase: "/quote-pdf/" },
-  order:        { label: "הזמנה",     badge: "bg-amber-100 text-amber-700",   pdfBase: "/order-pdf/" },
-  invoice:      { label: "חשבונית",   badge: "bg-green-100 text-green-700",   pdfBase: "/invoice-pdf/" },
-  credit_note:  { label: "זיכוי",     badge: "bg-purple-100 text-purple-700", pdfBase: "/credit-note-pdf/" },
-  supplier_doc: { label: "מסמך ספק",  badge: "bg-gray-100 text-gray-600",     pdfBase: "" },
+  quote:        { label: "הצעת מחיר", badge: "bg-blue-100 text-blue-700",   pdfBase: "/quote-pdf/" },
+  order:        { label: "הזמנה",     badge: "bg-amber-100 text-amber-700",  pdfBase: "/order-pdf/" },
+  invoice:      { label: "חשבונית",   badge: "bg-green-100 text-green-700",  pdfBase: "/invoice-pdf/" },
+  supplier_doc: { label: "מסמך ספק",  badge: "bg-gray-100 text-gray-600",    pdfBase: "" },
 };
 
 function docNumber(doc, type) {
   if (type === "quote")        return doc.quote_number   ? `#${doc.quote_number}`   : "—";
   if (type === "order")        return doc.order_number   ? `#${doc.order_number}`   : "—";
   if (type === "invoice")      return doc.invoice_number ? `#${doc.invoice_number}` : "—";
-  if (type === "credit_note")  return doc.credit_note_number || "—";
   if (type === "supplier_doc") return doc.id ? `מסמך-${doc.id.slice(0, 6)}` : "—";
   return "—";
 }
 
 function docDate(doc, type) {
-  if (type === "credit_note")  return doc.created_at ? doc.created_at.slice(0, 10) : "";
   if (type === "supplier_doc") return doc.delivery_date ? doc.delivery_date.slice(0, 10) : (doc.created_at ? doc.created_at.slice(0, 10) : "");
   const raw = doc.date;
   if (!raw) return "";
@@ -42,7 +39,6 @@ function docStatus(doc, type) {
   if (type === "quote")        return { label: doc.status || "—",         className: "bg-gray-100 text-gray-700" };
   if (type === "order")        return { label: doc.status || "—",         className: getOrderStatusColor(doc.status) };
   if (type === "invoice")      return { label: doc.payment_status || "—", className: getPaymentStatusColor(doc.payment_status) };
-  if (type === "credit_note")  return { label: "זוכה",                    className: "bg-purple-100 text-purple-700" };
   if (type === "supplier_doc") return { label: doc.status || "—",         className: "bg-gray-100 text-gray-600" };
   return { label: "—", className: "" };
 }
@@ -58,30 +54,30 @@ export default function DocumentCenter() {
   const [dateFrom, setDateFrom]     = useState("");
   const [dateTo, setDateTo]         = useState("");
 
-  const { data: quotes = [],      isLoading: lq } = useQuery({ queryKey: ["quotes"],      queryFn: () => base44.entities.Quote.list("-created_date") });
-  const { data: orders = [],      isLoading: lo } = useQuery({ queryKey: ["orders"],      queryFn: () => base44.entities.Order.list("-created_date") });
-  const { data: invoices = [],    isLoading: li } = useQuery({ queryKey: ["invoices"],    queryFn: () => base44.entities.Invoice.list("-created_date") });
-  const { data: creditNotes = [], isLoading: lc } = useQuery({
-    queryKey: ["credit_notes"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.from("credit_notes").select("*").eq("user_id", user?.id).order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+  const { data: quotes = [],   isLoading: lq } = useQuery({ queryKey: ["quotes"],   queryFn: () => base44.entities.Quote.list("-created_date") });
+  const { data: orders = [],   isLoading: lo } = useQuery({ queryKey: ["orders"],   queryFn: () => base44.entities.Order.list("-created_date") });
+  const { data: invoices = [], isLoading: li } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
+
+  // Fetch suppliers separately so we can build supplierMap for display
+  const { data: suppliers = [], isLoading: ls } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => base44.entities.Supplier.list(),
   });
-  const { data: suppliers = [],   isLoading: ls } = useQuery({ queryKey: ["suppliers"],   queryFn: () => base44.entities.Supplier.list() });
+
+  // Fetch supplier deliveries in one self-contained query — avoids enabled-timing issues
   const { data: supplierDocs = [], isLoading: lsd } = useQuery({
-    queryKey: ["supplier_deliveries"],
-    enabled: suppliers.length > 0,
+    queryKey: ["supplier_deliveries_docs"],
     queryFn: async () => {
-      const ids = suppliers.map(s => s.id);
+      const suppList = await base44.entities.Supplier.list();
+      if (!suppList?.length) return [];
+      const ids = suppList.map(s => s.id);
       const { data, error } = await supabase
         .from("supplier_deliveries")
         .select("id,supplier_id,delivery_date,file_url,status,created_at")
         .in("supplier_id", ids)
         .order("delivery_date", { ascending: false });
       if (error) throw error;
+      console.log("[DocumentCenter] supplier_deliveries:", data);
       return data ?? [];
     },
   });
@@ -92,14 +88,14 @@ export default function DocumentCenter() {
     return m;
   }, [suppliers]);
 
-  const loading = lq || lo || li || lc || ls || lsd;
+  const loading = lq || lo || li || ls || lsd;
 
   const unified = useMemo(() => {
     const rows = [
       ...quotes.map(d       => ({ ...d, _type: "quote" })),
       ...orders.map(d       => ({ ...d, _type: "order" })),
+      // Credit notes are NOT separate rows — they appear as a second PDF button on the invoice row
       ...invoices.map(d     => ({ ...d, _type: "invoice" })),
-      ...creditNotes.map(d  => ({ ...d, _type: "credit_note" })),
       ...supplierDocs.filter(d => d.file_url).map(d => ({ ...d, _type: "supplier_doc" })),
     ];
     rows.sort((a, b) => {
@@ -108,7 +104,7 @@ export default function DocumentCenter() {
       return db.localeCompare(da);
     });
     return rows;
-  }, [quotes, orders, invoices, creditNotes, supplierDocs]);
+  }, [quotes, orders, invoices, supplierDocs]);
 
   const filtered = useMemo(() => {
     return unified.filter(doc => {
@@ -155,7 +151,6 @@ export default function DocumentCenter() {
                   <SelectItem value="quote">הצעות מחיר</SelectItem>
                   <SelectItem value="order">הזמנות</SelectItem>
                   <SelectItem value="invoice">חשבוניות</SelectItem>
-                  <SelectItem value="credit_note">זיכויים</SelectItem>
                   <SelectItem value="supplier_doc">מסמכי ספק</SelectItem>
                 </SelectContent>
               </Select>
@@ -192,13 +187,13 @@ export default function DocumentCenter() {
                       <TableHead className="text-right">תאריך</TableHead>
                       <TableHead className="text-right">סכום</TableHead>
                       <TableHead className="text-right">סטטוס</TableHead>
-                      <TableHead className="text-right w-24">מסמכים</TableHead>
+                      <TableHead className="text-right w-28">מסמכים</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map(doc => {
-                      const meta   = TYPE_META[doc._type];
-                      const status = docStatus(doc, doc._type);
+                      const meta      = TYPE_META[doc._type];
+                      const status    = docStatus(doc, doc._type);
                       const partyName = doc._type === "supplier_doc"
                         ? (supplierMap[doc.supplier_id] || "—")
                         : (doc.customer_name || "—");
@@ -217,9 +212,7 @@ export default function DocumentCenter() {
                             {fmtDisplayDate(docDate(doc, doc._type))}
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            {doc._type === "credit_note"
-                              ? <span className="text-red-600">({formatCurrency(Math.abs(doc.total || 0))})</span>
-                              : doc._type === "supplier_doc"
+                            {doc._type === "supplier_doc"
                               ? "—"
                               : formatCurrency(doc.total)}
                           </TableCell>
