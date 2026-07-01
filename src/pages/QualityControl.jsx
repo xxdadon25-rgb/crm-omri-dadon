@@ -301,12 +301,156 @@ async function e2eStoragePing() {
   return { ok: !error, ms: Math.round(performance.now() - t0), error: error?.message };
 }
 
+async function e2eEditCustomer() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: created, error: cErr } = await supabase
+    .from("customers")
+    .insert({ name: `בדיקה_עריכה_${Date.now()}`, user_id: uid, customer_type: "פרטי", is_active: true })
+    .select("id")
+    .single();
+  if (cErr || !created?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  const { error: uErr } = await supabase.from("customers").update({ phone: "0500000001" }).eq("id", created.id);
+  if (uErr) { await supabase.from("customers").delete().eq("id", created.id); return { ok: false, ms: Math.round(performance.now() - t0), error: uErr.message }; }
+  const { data: verified } = await supabase.from("customers").select("phone").eq("id", created.id).single();
+  await supabase.from("customers").delete().eq("id", created.id);
+  return { ok: verified?.phone === "0500000001", ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCreateProduct() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: created, error } = await supabase
+    .from("products")
+    .insert({ name: `בדיקה_מוצר_${Date.now()}`, user_id: uid, sell_price: 1, buy_price: 0.5, quantity: 10 })
+    .select("id")
+    .single();
+  if (error || !created?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: error?.message };
+  await supabase.from("products").delete().eq("id", created.id);
+  return { ok: true, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eQuoteToOrder() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: qNum } = await supabase.rpc("get_next_quote_number");
+  const { data: quote, error: qErr } = await supabase
+    .from("quotes")
+    .insert({ user_id: uid, customer_name: "בדיקה_אוטומטית", quote_number: qNum, status: "טיוטה", total: 0, items: [] })
+    .select("id")
+    .single();
+  if (qErr || !quote?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: qErr?.message };
+  const { data: oNum } = await supabase.rpc("get_next_order_number");
+  const { data: order, error: oErr } = await supabase
+    .from("orders")
+    .insert({ user_id: uid, customer_name: "בדיקה_אוטומטית", order_number: oNum, quote_id: quote.id, status: "טיוטה", total: 0, items: [] })
+    .select("id,quote_id")
+    .single();
+  await supabase.from("orders").delete().eq("id", order?.id);
+  await supabase.from("quotes").delete().eq("id", quote.id);
+  if (oErr || !order?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: oErr?.message };
+  return { ok: order.quote_id === quote.id, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eFulfillAndDeduct() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: product } = await supabase
+    .from("products").select("id,quantity").eq("user_id", uid).gt("quantity", 0).limit(1).single();
+  if (!product?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין מוצרים עם מלאי" };
+  const { data: oNum } = await supabase.rpc("get_next_order_number");
+  const { data: order, error: oErr } = await supabase
+    .from("orders")
+    .insert({ user_id: uid, customer_name: "בדיקה_אוטומטית", order_number: oNum, status: "ממתין לאישור", total: 0,
+      items: [{ product_id: product.id, quantity: 1 }] })
+    .select("id").single();
+  if (oErr || !order?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: oErr?.message };
+  await supabase.from("orders").update({ fulfilled: true, inventory_deducted: true }).eq("id", order.id);
+  await supabase.from("products").update({ quantity: product.quantity - 1 }).eq("id", product.id);
+  const { data: verified } = await supabase.from("products").select("quantity").eq("id", product.id).single();
+  await supabase.from("products").update({ quantity: product.quantity }).eq("id", product.id);
+  await supabase.from("orders").delete().eq("id", order.id);
+  return { ok: verified?.quantity === product.quantity - 1, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCreateInvoice() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customer, error: cErr } = await supabase
+    .from("customers")
+    .insert({ name: `בדיקה_לקוח_חשבונית_${Date.now()}`, user_id: uid, customer_type: "פרטי", is_active: true })
+    .select("id").single();
+  if (cErr || !customer?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  const { data: invoice, error: iErr } = await supabase
+    .from("invoices")
+    .insert({ user_id: uid, customer_id: customer.id, customer_name: "בדיקה_אוטומטית", total: 100, paid_amount: 0, payment_status: "ממתין לתשלום", items: [] })
+    .select("id,total").single();
+  await supabase.from("invoices").delete().eq("id", invoice?.id);
+  await supabase.from("customers").delete().eq("id", customer.id);
+  if (iErr || !invoice?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: iErr?.message };
+  return { ok: invoice.total === 100, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eRecordPayment() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: invoice, error: iErr } = await supabase
+    .from("invoices")
+    .insert({ user_id: uid, customer_name: "בדיקה_אוטומטית", total: 100, paid_amount: 0, payment_status: "ממתין לתשלום", items: [] })
+    .select("id").single();
+  if (iErr || !invoice?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: iErr?.message };
+  await supabase.from("invoices").update({ paid_amount: 100, payment_status: "שולם" }).eq("id", invoice.id);
+  const { data: verified } = await supabase.from("invoices").select("payment_status").eq("id", invoice.id).single();
+  await supabase.from("invoices").delete().eq("id", invoice.id);
+  return { ok: verified?.payment_status === "שולם", ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCrmTask() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: customer, error: cErr } = await supabase
+    .from("customers")
+    .insert({ name: `בדיקה_משימה_${Date.now()}`, user_id: uid, customer_type: "פרטי", is_active: true })
+    .select("id").single();
+  if (cErr || !customer?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message };
+  const { data: task, error: tErr } = await supabase
+    .from("customer_tasks")
+    .insert({ customer_id: customer.id, title: "בדיקה_אוטומטית", due_date: new Date().toISOString().split("T")[0], status: "פתוח" })
+    .select("id,customer_id").single();
+  await supabase.from("customer_tasks").delete().eq("id", task?.id);
+  await supabase.from("customers").delete().eq("id", customer.id);
+  if (tErr || !task?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: tErr?.message };
+  return { ok: task.customer_id === customer.id, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eSupplierOrder() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: supplier } = await supabase.from("suppliers").select("id").eq("user_id", uid).limit(1).single();
+  if (!supplier?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין ספקים" };
+  const { data: order, error: oErr } = await supabase
+    .from("supplier_orders")
+    .insert({ user_id: uid, supplier_id: supplier.id, status: "ממתין", items: [], order_date: new Date().toISOString().split("T")[0] })
+    .select("id,supplier_id").single();
+  await supabase.from("supplier_orders").delete().eq("id", order?.id);
+  if (oErr || !order?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: oErr?.message };
+  return { ok: order.supplier_id === supplier.id, ms: Math.round(performance.now() - t0) };
+}
+
 const E2E_TESTS = [
-  { key: "customer", label: "יצירת לקוח",      fn: e2eCreateCustomer },
-  { key: "quote",    label: "יצירת הצעת מחיר", fn: e2eCreateQuote },
-  { key: "order",    label: "יצירת הזמנה",      fn: e2eCreateOrder },
-  { key: "inventory",label: "בדיקת מלאי",       fn: e2eInventoryUpdate },
-  { key: "storage",  label: "חיבור Storage",    fn: e2eStoragePing },
+  { key: "customer",    label: "יצירת לקוח",           fn: e2eCreateCustomer },
+  { key: "quote",       label: "יצירת הצעת מחיר",      fn: e2eCreateQuote },
+  { key: "order",       label: "יצירת הזמנה",           fn: e2eCreateOrder },
+  { key: "inventory",   label: "בדיקת מלאי",            fn: e2eInventoryUpdate },
+  { key: "storage",     label: "חיבור Storage",         fn: e2eStoragePing },
+  { key: "editCustomer",label: "עריכת לקוח",            fn: e2eEditCustomer },
+  { key: "product",     label: "יצירת מוצר",            fn: e2eCreateProduct },
+  { key: "quoteToOrder",label: "המרת הצעה להזמנה",      fn: e2eQuoteToOrder },
+  { key: "fulfill",     label: "סימון הזמנה כסופק + מלאי", fn: e2eFulfillAndDeduct },
+  { key: "invoice",     label: "יצירת חשבונית",         fn: e2eCreateInvoice },
+  { key: "payment",     label: "רישום תשלום",           fn: e2eRecordPayment },
+  { key: "crmTask",     label: "יצירת משימה CRM",       fn: e2eCrmTask },
+  { key: "supplierOrder",label: "יצירת הזמנה לספק",    fn: e2eSupplierOrder },
 ];
 
 // ─── Technical health checks ────────────────────────────────────────────────
@@ -936,7 +1080,7 @@ export default function QualityControl() {
                   </div>
                   <div className="px-5 py-3 bg-muted/30 border-t border-border flex items-center justify-between">
                     <span className="text-sm font-semibold">
-                      {e2eResults.filter(r => r.ok).length}/{e2eResults.length} בדיקות עברו בהצלחה
+                      {e2eResults.filter(r => r.ok).length}/{E2E_TESTS.length} בדיקות עברו בהצלחה
                     </span>
                     {e2eResults.every(r => r.ok)
                       ? <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> הכל תקין</Badge>
