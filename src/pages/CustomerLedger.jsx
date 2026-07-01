@@ -323,7 +323,7 @@ export default function CustomerLedger() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Customer Selector */}
         {/* OLD - can restore: <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit"> */}
-        <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-0 self-start">
+        <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-[4.5rem] self-start">
           <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
             <Users className="w-4 h-4" /> בחר לקוח
           </h2>
