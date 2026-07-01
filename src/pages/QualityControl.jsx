@@ -211,6 +211,104 @@ async function checkBuyPriceHigherThanSell() {
   return (data ?? []).filter(p => (p.buy_price || 0) >= (p.sell_price || 0));
 }
 
+// ─── E2E test runners ────────────────────────────────────────────────────────
+
+async function e2eCreateCustomer() {
+  const t0 = performance.now();
+  const name = `בדיקה_אוטומטית_${Date.now()}`;
+  const uid = await getUserId();
+  const { data: created, error: cErr } = await supabase
+    .from("customers")
+    .insert({ name, user_id: uid, customer_type: "פרטי", is_active: true })
+    .select("id,name")
+    .single();
+  if (cErr || !created?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: cErr?.message || "לא נוצר" };
+  const { data: fetched } = await supabase.from("customers").select("id").eq("id", created.id).single();
+  await supabase.from("customers").delete().eq("id", created.id);
+  const ok = !!fetched?.id;
+  return { ok, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCreateQuote() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: seqData } = await supabase.rpc("get_next_quote_number");
+  const { data: created, error } = await supabase
+    .from("quotes")
+    .insert({
+      user_id: uid,
+      customer_name: "בדיקה_אוטומטית",
+      quote_number: seqData,
+      status: "טיוטה",
+      total: 0,
+      items: [],
+    })
+    .select("id,quote_number")
+    .single();
+  if (error || !created?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: error?.message || "לא נוצר" };
+  const ok = created.quote_number != null;
+  await supabase.from("quotes").delete().eq("id", created.id);
+  return { ok, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eCreateOrder() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: seqData } = await supabase.rpc("get_next_order_number");
+  const { data: created, error } = await supabase
+    .from("orders")
+    .insert({
+      user_id: uid,
+      customer_name: "בדיקה_אוטומטית",
+      order_number: seqData,
+      status: "טיוטה",
+      total: 0,
+      items: [],
+    })
+    .select("id,order_number")
+    .single();
+  if (error || !created?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: error?.message || "לא נוצר" };
+  const ok = created.order_number != null;
+  await supabase.from("orders").delete().eq("id", created.id);
+  return { ok, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eInventoryUpdate() {
+  const t0 = performance.now();
+  const uid = await getUserId();
+  const { data: products } = await supabase
+    .from("products")
+    .select("id,quantity")
+    .eq("user_id", uid)
+    .limit(1)
+    .single();
+  if (!products?.id) return { ok: false, ms: Math.round(performance.now() - t0), error: "אין מוצרים" };
+  const original = products.quantity ?? 0;
+  const { error: upErr } = await supabase
+    .from("products")
+    .update({ quantity: original + 1 })
+    .eq("id", products.id);
+  if (upErr) return { ok: false, ms: Math.round(performance.now() - t0), error: upErr.message };
+  const { data: verify } = await supabase.from("products").select("quantity").eq("id", products.id).single();
+  await supabase.from("products").update({ quantity: original }).eq("id", products.id);
+  const ok = verify?.quantity === original + 1;
+  return { ok, ms: Math.round(performance.now() - t0) };
+}
+
+async function e2eStoragePing() {
+  const t0 = performance.now();
+  const { error } = await supabase.storage.from("product-images").list("", { limit: 1 });
+  return { ok: !error, ms: Math.round(performance.now() - t0), error: error?.message };
+}
+
+const E2E_TESTS = [
+  { key: "customer", label: "יצירת לקוח",      fn: e2eCreateCustomer },
+  { key: "quote",    label: "יצירת הצעת מחיר", fn: e2eCreateQuote },
+  { key: "order",    label: "יצירת הזמנה",      fn: e2eCreateOrder },
+  { key: "inventory",label: "בדיקת מלאי",       fn: e2eInventoryUpdate },
+  { key: "storage",  label: "חיבור Storage",    fn: e2eStoragePing },
+];
+
 // ─── Technical health checks ────────────────────────────────────────────────
 
 async function pingDatabase() {
@@ -337,6 +435,56 @@ export default function QualityControl() {
   }, []);
 
   useEffect(() => { runTechChecks(); }, [runTechChecks]);
+
+  // E2E state
+  const [e2eRunning, setE2eRunning] = useState(false);
+  const [e2eResults, setE2eResults] = useState(null); // array of {key,label,ok,ms,error}
+  const [e2eLastRun, setE2eLastRun] = useState(null); // ISO string
+
+  // Load last run from DB on mount
+  useEffect(() => {
+    (async () => {
+      const uid = await getUserId();
+      const { data } = await supabase
+        .from("system_health_checks")
+        .select("ran_at,results")
+        .eq("user_id", uid)
+        .order("ran_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (data?.results) {
+        setE2eResults(data.results);
+        setE2eLastRun(data.ran_at);
+      }
+    })();
+  }, []);
+
+  const runE2E = useCallback(async () => {
+    setE2eRunning(true);
+    setE2eResults(null);
+    const results = [];
+    for (const test of E2E_TESTS) {
+      try {
+        const r = await test.fn();
+        results.push({ key: test.key, label: test.label, ok: r.ok, ms: r.ms, error: r.error || null });
+      } catch (err) {
+        results.push({ key: test.key, label: test.label, ok: false, ms: 0, error: err?.message || "שגיאה" });
+      }
+    }
+    const uid = await getUserId();
+    const passed = results.filter(r => r.ok).length;
+    const ranAt = new Date().toISOString();
+    await supabase.from("system_health_checks").insert({
+      user_id: uid,
+      ran_at: ranAt,
+      results,
+      total_passed: passed,
+      total_failed: results.length - passed,
+    });
+    setE2eResults(results);
+    setE2eLastRun(ranAt);
+    setE2eRunning(false);
+  }, []);
 
   const { data: negStock = [],          isLoading: l1, error: e1 } = useQuery({ queryKey: ["qc_neg_stock"],             queryFn: checkNegativeStock });
   const { data: blockedOrders = [],     isLoading: l2, error: e2 } = useQuery({ queryKey: ["qc_blocked_orders"],        queryFn: checkBlockedWithOpenOrders });
@@ -725,6 +873,84 @@ export default function QualityControl() {
                 )
               }
             />
+            </div>
+          </div>
+
+          {/* ── E2E automated test suite ── */}
+          <div className="pt-2">
+            <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות מערכת מלאות</h2>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-border">
+                <div>
+                  <h3 className="font-semibold text-base">E2E — בדיקות קצה לקצה</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">יצירה, אימות ומחיקה של נתוני בדיקה אמיתיים</p>
+                  {e2eLastRun && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      בדיקה אחרונה:{" "}
+                      {new Date(e2eLastRun).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={runE2E}
+                  disabled={e2eRunning}
+                  className="flex items-center gap-2 shrink-0"
+                >
+                  {e2eRunning
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> מריץ בדיקות...</>
+                    : <><RefreshCw className="w-4 h-4" /> הרץ בדיקות מלאות</>
+                  }
+                </Button>
+              </div>
+
+              {e2eRunning && (
+                <div className="px-5 py-6 flex items-center gap-3 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">מריץ בדיקות מלאות — אנא המתן...</span>
+                </div>
+              )}
+
+              {!e2eRunning && e2eResults && (
+                <>
+                  <div className="divide-y divide-border">
+                    {e2eResults.map((r) => (
+                      <div key={r.key} className="px-5 py-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          {r.ok
+                            ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                            : <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                          }
+                          <span className="text-sm font-medium">{r.label}</span>
+                          {r.error && <span className="text-xs text-red-500 truncate max-w-[200px]">{r.error}</span>}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-xs text-muted-foreground">{r.ms}ms</span>
+                          <Badge className={r.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
+                            {r.ok ? "עבר" : "נכשל"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-5 py-3 bg-muted/30 border-t border-border flex items-center justify-between">
+                    <span className="text-sm font-semibold">
+                      {e2eResults.filter(r => r.ok).length}/{e2eResults.length} בדיקות עברו בהצלחה
+                    </span>
+                    {e2eResults.every(r => r.ok)
+                      ? <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> הכל תקין</Badge>
+                      : <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> יש כשלים</Badge>
+                    }
+                  </div>
+                </>
+              )}
+
+              {!e2eRunning && !e2eResults && (
+                <div className="px-5 py-6 text-sm text-muted-foreground">
+                  לחץ על "הרץ בדיקות מלאות" להפעלת הבדיקות
+                </div>
+              )}
             </div>
           </div>
 
