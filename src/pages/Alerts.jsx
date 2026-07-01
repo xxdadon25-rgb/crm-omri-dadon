@@ -66,6 +66,7 @@ export default function Alerts() {
           <p className="text-sm text-blue-600">מידע</p>
         </div>
       </div>
+      </div>{/* end sticky bar */}
 
       <div className="pt-4">
       {allAlerts.length === 0 ? (
