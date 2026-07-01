@@ -287,7 +287,6 @@ export default function QualityControl() {
 
   return (
     <div dir="rtl">
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
 
         <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3">
           <div className="flex items-center justify-between pr-4">
@@ -582,7 +581,6 @@ export default function QualityControl() {
           </CheckCard>
 
         </div>
-      </div>
     </div>
   );
 }
