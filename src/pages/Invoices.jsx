@@ -377,7 +377,6 @@ export default function Invoices() {
                       </tr>
                     )}
                     {(viewInvoice.items || []).map((item, i) => (
-                      {/* <tr key={i}><td>...</td><td>₪{unit_price.toFixed(2)}</td><td>₪{total.toFixed(2)}</td></tr> */}
                       <tr key={i} className="border-t border-border"><td className="px-3 py-2">{item.name}</td><td className="px-3 py-2">{item.quantity}</td><td className="px-3 py-2">{formatCurrency(item.unit_price)}</td><td className="px-3 py-2 font-medium">{formatCurrency(item.total)}</td></tr>
                     ))}
                   </tbody>
