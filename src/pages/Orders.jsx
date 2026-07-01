@@ -497,8 +497,8 @@ export default function Orders() {
                   <TableCell className="text-right text-sm text-muted-foreground">{order.agent || "—"}</TableCell>
                   <TableCell className="text-right">
                     {order.fulfilled
-                      ? <Badge className="bg-green-100 text-green-700">סופק</Badge>
-                      : <Badge className="bg-gray-100 text-gray-500">לא סופק</Badge>}
+                      ? <Badge className="bg-teal-100 text-teal-700">✓ סופקה סחורה</Badge>
+                      : <Badge className="bg-orange-100 text-orange-700">✗ טרם סופקה</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
                     <Badge className={getOrderStatusColor(order.status)}>
