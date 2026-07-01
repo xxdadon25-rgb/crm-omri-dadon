@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { cn } from "@/lib/utils";
@@ -8,10 +8,12 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const location = useLocation();
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar 
-        collapsed={collapsed} 
+      <Sidebar
+        collapsed={collapsed}
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
@@ -25,7 +27,10 @@ export default function AppLayout() {
         )}
         style={{ paddingTop: "calc(4rem + env(safe-area-inset-top))" }}
       >
-        <div className="p-3 md:p-4 lg:p-6">
+        <div
+          key={location.pathname}
+          className="p-3 md:p-4 lg:p-6 animate-in fade-in duration-150"
+        >
           <Outlet />
         </div>
       </main>
