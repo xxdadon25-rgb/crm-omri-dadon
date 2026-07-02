@@ -6,6 +6,7 @@ import {
   Landmark, FolderOpen, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 const navGroups = [
   {
@@ -50,20 +51,197 @@ const navGroups = [
   },
 ];
 
+// ─── NEW SIDEBAR (Heillo style) ───────────────────────────────────────────────
+
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
+  const { user } = useAuth();
+
+  const displayName = user?.full_name || user?.email?.split("@")[0] || "משתמש";
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <>
+      {/* Mobile backdrop */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
+
+      <aside
+        style={{
+          background: "#F5F3F6",
+          borderLeft: "1px solid rgba(0,0,0,0.04)",
+          fontFamily: "'Heebo', sans-serif",
+          width: collapsed ? 72 : 260,
+          transition: "width 0.3s ease",
+        }}
+        className={cn(
+          "fixed top-0 right-0 h-full flex flex-col",
+          mobileOpen ? "z-50" : "z-30 lg:z-50",
+          mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        )}
+      >
+        {/* ── Logo + collapse button ── */}
+        <div
+          style={{ padding: collapsed ? "20px 0" : "20px 24px" }}
+          className="flex items-center justify-between shrink-0"
+        >
+          {!collapsed && (
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#120F1C", letterSpacing: "-0.3px" }}>
+              ERP<span style={{ color: "#F5885E" }}>.</span>Pro
+            </div>
+          )}
+          <button
+            onClick={() => {
+              if (mobileOpen) setMobileOpen(false);
+              else setCollapsed(!collapsed);
+            }}
+            style={{
+              background: "rgba(0,0,0,0.04)",
+              border: "none",
+              borderRadius: 10,
+              padding: 8,
+              cursor: "pointer",
+              color: "#B2B0B1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s ease",
+              marginRight: collapsed ? "auto" : undefined,
+              marginLeft: collapsed ? "auto" : undefined,
+              minWidth: 36,
+              minHeight: 36,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.08)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
+          >
+            <span className="hidden lg:block">
+              {collapsed
+                ? <ChevronLeft style={{ width: 16, height: 16 }} />
+                : <ChevronRight style={{ width: 16, height: 16 }} />
+              }
+            </span>
+            <X style={{ width: 16, height: 16 }} className="lg:hidden" />
+          </button>
+        </div>
+
+        {/* ── Nav ── */}
+        <nav
+          style={{ padding: collapsed ? "0 8px" : "0 16px", flex: 1, overflowY: "auto" }}
+          className="thin-scrollbar"
+        >
+          {navGroups.map((group) => (
+            <div key={group.label} style={{ marginTop: 8 }}>
+              {!collapsed && (
+                <p style={{
+                  fontSize: 10,
+                  color: "#B2B0B1",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  fontWeight: 500,
+                  padding: "12px 10px 4px",
+                  margin: 0,
+                }}>
+                  {group.label}
+                </p>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {group.items.map((item) => {
+                  const isActive =
+                    location.pathname === item.path ||
+                    (item.path !== "/" && location.pathname.startsWith(item.path));
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileOpen(false)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: collapsed ? 0 : 10,
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        padding: collapsed ? "10px 0" : "10px 14px",
+                        borderRadius: 14,
+                        textDecoration: "none",
+                        fontWeight: isActive ? 600 : 400,
+                        fontSize: isActive ? 14 : 13,
+                        color: isActive ? "#120F1C" : "#B2B0B1",
+                        background: isActive ? "#FFFFFF" : "transparent",
+                        boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
+                        transition: "all 0.2s ease",
+                        minHeight: 40,
+                      }}
+                      onMouseEnter={e => {
+                        if (!isActive) e.currentTarget.style.background = "rgba(0,0,0,0.04)";
+                      }}
+                      onMouseLeave={e => {
+                        if (!isActive) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <item.icon
+                        style={{
+                          width: 20,
+                          height: 20,
+                          flexShrink: 0,
+                          color: isActive ? "#120F1C" : "#B2B0B1",
+                          strokeWidth: 1.8,
+                        }}
+                      />
+                      {!collapsed && <span>{item.label}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* ── User section ── */}
+        <div style={{
+          borderTop: "1px solid rgba(0,0,0,0.05)",
+          padding: collapsed ? "16px 8px" : "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexShrink: 0,
+        }}>
+          <div style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "#F5885E",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 13,
+            flexShrink: 0,
+          }}>
+            {initials}
+          </div>
+          {!collapsed && (
+            <div style={{ overflow: "hidden" }}>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: "#120F1C", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {displayName}
+              </p>
+              <p style={{ margin: 0, fontSize: 11, color: "#B2B0B1" }}>
+                {user?.email || ""}
+              </p>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* OLD CODE START
       <aside className={cn(
         "fixed top-0 right-0 h-full bg-card border-l border-border transition-all duration-300 flex flex-col",
         collapsed ? "w-[72px]" : "w-[240px]",
-        // z-50 only when open as drawer (so it layers above backdrop); z-30 when off-screen so it never blocks TopBar touch targets
         mobileOpen ? "z-50" : "z-30 lg:z-50",
-        // Hidden off-screen on tablet/mobile; slides in as drawer when mobileOpen
         mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
         <div className={cn(
@@ -124,6 +302,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           ))}
         </nav>
       </aside>
+      OLD CODE END */}
     </>
   );
 }
