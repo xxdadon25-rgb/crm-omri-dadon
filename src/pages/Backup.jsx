@@ -82,26 +82,46 @@ export default function Backup() {
     }
   };
 
-  return (
-    <div>
-      <PageHeader title="גיבוי ושחזור" description="גיבוי ידני של כל נתוני המערכת">
-        <Button onClick={handleManualBackup} disabled={isRunning}>
-          {isRunning
-            ? <><RefreshCw className="w-4 h-4 ml-2 animate-spin" /> מגבה...</>
-            : <><DatabaseBackup className="w-4 h-4 ml-2" /> גיבוי ידני</>
-          }
-        </Button>
-      </PageHeader>
+  const MUTED  = "#B2B0B1";
+  const DARK   = "#120F1C";
+  const ACCENT = "#F5885E";
 
-      <div className="space-y-4 max-w-3xl">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-          <strong>גיבוי ידני</strong> — מוריד קובץ JSON עם כל הנתונים: מוצרים, לקוחות, הזמנות, חשבוניות, תשלומים, ספקים, הצעות מחיר, קריאות שירות, הגדרות עסק וצרופות חשבוניות.
+  return (
+    /* OLD: <div> */
+    <div className="heillo-page" dir="rtl" style={{ maxWidth: 760 }}>
+
+      {/* OLD: <PageHeader title="גיבוי ושחזור" ...><Button onClick={handleManualBackup}...></PageHeader> */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>גיבוי ושחזור</h1>
+          <p style={{ fontSize: 13, color: MUTED, margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>גיבוי ידני של כל נתוני המערכת</p>
+        </div>
+        <button
+          className="heillo-btn-primary"
+          onClick={handleManualBackup}
+          disabled={isRunning}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: isRunning ? 0.7 : 1 }}
+        >
+          {isRunning
+            ? <><RefreshCw style={{ width: 14, height: 14, animation: "spin 0.8s linear infinite" }} /> מגבה...</>
+            : <><DatabaseBackup style={{ width: 14, height: 14 }} /> גיבוי ידני</>
+          }
+        </button>
+      </div>
+
+      {/* OLD: <div className="space-y-4 max-w-3xl"> */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* OLD: <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800"> */}
+        <div style={{ background: "rgba(245,136,94,0.08)", borderRight: `3px solid ${ACCENT}`, borderRadius: 12, padding: "14px 18px", fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", lineHeight: 1.6 }}>
+          <strong style={{ fontWeight: 700 }}>גיבוי ידני</strong> — מוריד קובץ JSON עם כל הנתונים: מוצרים, לקוחות, הזמנות, חשבוניות, תשלומים, ספקים, הצעות מחיר, קריאות שירות, הגדרות עסק וצרופות חשבוניות.
         </div>
 
         {backups.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground">
-            <DatabaseBackup className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>אין גיבויים עדיין. לחץ על "גיבוי ידני" להתחיל.</p>
+          /* OLD: <div className="text-center py-16 text-muted-foreground"> */
+          <div className="heillo-card" style={{ padding: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+            <DatabaseBackup style={{ width: 44, height: 44, color: MUTED, opacity: 0.4 }} />
+            <p style={{ fontSize: 14, color: MUTED, margin: 0, fontFamily: "'Heebo', sans-serif" }}>אין גיבויים עדיין. לחץ על "גיבוי ידני" להתחיל.</p>
           </div>
         )}
 
