@@ -336,120 +336,145 @@ export default function CustomerLedger() {
     setStatusFilter(ALL_STATUSES);
   };
 
-  return (
-    <div>
-      <PageHeader title="כרטסת לקוח" description="היסטוריית מסמכים וסיכום חשבון לפי לקוח" />
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const selectStyle = { background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 36, fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif" };
+  const dateInputStyle = { background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 36, padding: "0 12px", fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", width: 144 };
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Customer Selector — hidden on mobile when a customer is selected */}
-        {/* OLD - can restore: <div className="lg:col-span-1 bg-card rounded-xl border border-border p-4 h-fit"> */}
-        <div className={`lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-[4.5rem] self-start ${selectedCustomerId ? "hidden lg:block" : "block"}`}>
-          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-            <Users className="w-4 h-4" /> בחר לקוח
+  return (
+    /* OLD: <div> */
+    <div className="heillo-page" dir="rtl">
+
+      {/* ── Page title ── */}
+      {/* OLD: <PageHeader title="כרטסת לקוח" description="..." /> */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>כרטסת לקוח</h1>
+        <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>היסטוריית מסמכים וסיכום חשבון לפי לקוח</p>
+      </div>
+
+      {/* OLD: <div className="grid grid-cols-1 lg:grid-cols-4 gap-4"> */}
+      <div className="grid grid-cols-1 lg:grid-cols-4" style={{ gap: 16 }}>
+
+        {/* ── Customer Selector sidebar ── */}
+        {/* OLD: <div className={`lg:col-span-1 bg-card rounded-xl border border-border p-4 sticky top-[4.5rem] self-start ${...}`}> */}
+        <div className={`lg:col-span-1 heillo-card ${selectedCustomerId ? "hidden lg:block" : "block"}`}
+          style={{ padding: 16, position: "sticky", top: "4.5rem", alignSelf: "flex-start" }}>
+          {/* OLD: <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase tracking-wide"> */}
+          <h2 style={{ fontSize: 11, fontWeight: 600, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Users style={{ width: 14, height: 14 }} /> בחר לקוח
           </h2>
-          <div className="relative mb-3">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="חיפוש לקוח..."
-              value={customerSearch}
-              onChange={e => setCustomerSearch(e.target.value)}
-              className="pr-9"
-            />
+
+          {/* OLD: <div className="relative mb-3"><Search .../><Input placeholder="חיפוש לקוח..." className="pr-9" /></div> */}
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 15, height: 15, color: MUTED, pointerEvents: "none" }} />
+            <input placeholder="חיפוש לקוח..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
+              className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 38, height: 36 }} />
           </div>
+
           {loadingCustomers ? (
-            <div className="flex justify-center py-8">
-              <div className="w-6 h-6 border-4 border-muted border-t-primary rounded-full animate-spin" />
+            <div style={{ display: "flex", justifyContent: "center", padding: "32px 0" }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
             </div>
           ) : (
-            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto thin-scrollbar divide-y divide-gray-100">
-              {filteredCustomers.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => handleSelectCustomer(c.id)}
-                  className={`w-full text-right py-3 px-3 rounded-md transition-colors duration-150 ${
-                    selectedCustomerId === c.id
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "hover:bg-gray-50 text-foreground"
-                  }`}
-                >
-                  <div className="font-semibold text-base leading-snug">{c.name}</div>
-                  <div className="flex gap-2 mt-0.5">
-                    {c.phone && (
-                      <span className={`text-xs ${selectedCustomerId === c.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{c.phone}</span>
-                    )}
-                    {c.customer_type && (
-                      <span className={`text-xs ${selectedCustomerId === c.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{c.customer_type}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
+            /* OLD: <div className="max-h-[calc(100vh-12rem)] overflow-y-auto thin-scrollbar divide-y divide-gray-100"> */
+            <div style={{ maxHeight: "calc(100vh - 12rem)", overflowY: "auto" }} className="thin-scrollbar">
+              {filteredCustomers.map(c => {
+                const isSelected = selectedCustomerId === c.id;
+                return (
+                  /* OLD: <button className={`w-full text-right py-3 px-3 rounded-md transition-colors duration-150 ${isSelected ? "bg-primary text-primary-foreground font-medium" : "hover:bg-gray-50 text-foreground"}`}> */
+                  <button key={c.id} onClick={() => handleSelectCustomer(c.id)}
+                    style={{
+                      width: "100%", textAlign: "right", padding: "10px 12px", borderRadius: 12,
+                      border: "none", cursor: "pointer", display: "block", transition: "all 0.15s ease",
+                      marginBottom: 2, fontFamily: "'Heebo', sans-serif",
+                      background: isSelected ? ACCENT : "transparent",
+                      color: isSelected ? "#FFFFFF" : DARK,
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--heillo-accent-light)"; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{c.name}</div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                      {c.phone && <span style={{ fontSize: 11, color: isSelected ? "rgba(255,255,255,0.75)" : MUTED }}>{c.phone}</span>}
+                      {c.customer_type && <span style={{ fontSize: 11, color: isSelected ? "rgba(255,255,255,0.75)" : MUTED }}>{c.customer_type}</span>}
+                    </div>
+                  </button>
+                );
+              })}
               {filteredCustomers.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">לא נמצאו לקוחות</p>
+                <p style={{ fontSize: 13, color: MUTED, textAlign: "center", padding: "16px 0", fontFamily: "'Heebo', sans-serif" }}>לא נמצאו לקוחות</p>
               )}
             </div>
           )}
         </div>
 
-        {/* Main Ledger Area */}
-        <div className={`lg:col-span-3 space-y-4 ${selectedCustomerId ? "block" : "hidden lg:block"}`}>
+        {/* ── Main Ledger Area ── */}
+        {/* OLD: <div className={`lg:col-span-3 space-y-4 ${selectedCustomerId ? "block" : "hidden lg:block"}`}> */}
+        <div className={`lg:col-span-3 ${selectedCustomerId ? "block" : "hidden lg:block"}`} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {!selectedCustomer ? (
-            <div className="bg-card rounded-xl border border-border">
-              <EmptyState
-                icon={BookUser}
-                title="בחר לקוח"
-                description="בחר לקוח מהרשימה כדי לצפות בכרטסת שלו"
-              />
+            /* OLD: <div className="bg-card rounded-xl border border-border"> */
+            <div className="heillo-card">
+              <EmptyState icon={BookUser} title="בחר לקוח" description="בחר לקוח מהרשימה כדי לצפות בכרטסת שלו" />
             </div>
           ) : (
             <>
-              {/* Customer Header */}
-              <div className="bg-card rounded-xl border border-border p-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* ── Customer Header ── */}
+              {/* OLD: <div className="bg-card rounded-xl border border-border p-4"> */}
+              <div className="heillo-card" style={{ padding: 16 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      {/* Back button — mobile/tablet only */}
-                      <button
-                        onClick={() => setSelectedCustomerId(null)}
-                        className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" /> חזרה
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      {/* OLD: <button className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"> */}
+                      <button onClick={() => setSelectedCustomerId(null)}
+                        className="lg:hidden"
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: MUTED, background: "none", border: "none", cursor: "pointer", fontFamily: "'Heebo', sans-serif" }}>
+                        <ChevronRight style={{ width: 15, height: 15 }} /> חזרה
                       </button>
-                      <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
+                      {/* OLD: <h2 className="text-xl font-bold">{selectedCustomer.name}</h2> */}
+                      <h2 style={{ fontSize: 18, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{selectedCustomer.name}</h2>
                     </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                    {/* OLD: <div className="flex flex-wrap gap-4 text-sm text-muted-foreground"> */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 13, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>
                       {selectedCustomer.phone && <span>📞 {selectedCustomer.phone}</span>}
                       {selectedCustomer.email && <span>✉️ {selectedCustomer.email}</span>}
                       {selectedCustomer.address && <span>📍 {selectedCustomer.address}</span>}
                     </div>
                   </div>
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                    selectedCustomer.customer_type === "עסקי" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-                  }`}>
+                  {/* OLD: <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${...}`}> */}
+                  <span className="heillo-badge" style={{
+                    background: selectedCustomer.customer_type === "עסקי" ? "rgba(99,102,241,0.1)" : "rgba(22,163,74,0.1)",
+                    color: selectedCustomer.customer_type === "עסקי" ? "#4f46e5" : "#15803d",
+                  }}>
                     {selectedCustomer.customer_type || "פרטי"}
                   </span>
                 </div>
               </div>
 
-              {/* Summary Bar */}
+              {/* ── Summary Bar ── */}
               <LedgerSummaryBar summary={summary} />
 
-              {/* Filters */}
-              <div className="bg-card rounded-xl border border-border p-4">
-                <div className="flex flex-wrap gap-3 items-end">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">חודש</label>
+              {/* ── Filters ── */}
+              {/* OLD: <div className="bg-card rounded-xl border border-border p-4"> */}
+              <div className="heillo-card" style={{ padding: 16 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 11, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>חודש</label>
+                    {/* OLD: <Select ...><SelectTrigger className="w-36"> */}
                     <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); setDateFrom(""); setDateTo(""); }}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                      <SelectTrigger style={{ ...selectStyle, width: 144 }}><SelectValue /></SelectTrigger>
                       <SelectContent className="z-50">
                         {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">שנה</label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 11, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>שנה</label>
+                    {/* OLD: <Select ...><SelectTrigger className="w-24"> */}
                     <Select value={selectedYear} onValueChange={v => { setSelectedYear(v); setDateFrom(""); setDateTo(""); }}>
-                      <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                      <SelectTrigger style={{ ...selectStyle, width: 96 }}><SelectValue /></SelectTrigger>
                       <SelectContent className="z-50">
                         <SelectItem value="all">כל השנים</SelectItem>
                         {YEARS.filter(y => y !== "all").map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
@@ -457,22 +482,25 @@ export default function CustomerLedger() {
                     </Select>
                   </div>
 
-                  <div className="text-muted-foreground text-sm self-end pb-2">— או טווח —</div>
+                  <div style={{ fontSize: 13, color: MUTED, alignSelf: "flex-end", paddingBottom: 8, fontFamily: "'Heebo', sans-serif" }}>— או טווח —</div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">מתאריך</label>
-                    <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 11, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>מתאריך</label>
+                    {/* OLD: <Input type="date" value={dateFrom} onChange={...} className="w-36" /> */}
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={dateInputStyle} />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">עד תאריך</label>
-                    <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 11, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>עד תאריך</label>
+                    {/* OLD: <Input type="date" value={dateTo} onChange={...} className="w-36" /> */}
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateInputStyle} />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">סטטוס</label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 11, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>סטטוס</label>
+                    {/* OLD: <Select ...><SelectTrigger className="w-40"> */}
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectTrigger style={{ ...selectStyle, width: 160 }}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {allStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
@@ -481,126 +509,105 @@ export default function CustomerLedger() {
                 </div>
               </div>
 
-              {/* Tabs */}
-              {/* OLD - can restore:
+              {/* ── Tabs ── */}
               <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
-                <TabsList className="w-full grid grid-cols-7" dir="rtl">
-                  <TabsTrigger value="quotes">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
-                  <TabsTrigger value="orders">📦 הזמנות ({customerOrders.length})</TabsTrigger>
-                  <TabsTrigger value="invoices">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
-                  <TabsTrigger value="monthly">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
-                  <TabsTrigger value="payments">💳 תשלומים ({customerPayments.length})</TabsTrigger>
-                  <TabsTrigger value="credit_notes">↩️ זיכויים ({customerCreditNotes.length})</TabsTrigger>
-                  <TabsTrigger value="tasks">✅ משימות ({openTasks.length})</TabsTrigger>
-                </TabsList>
-              */}
-              <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setStatusFilter(ALL_STATUSES); }}>
-                <TabsList className="w-full grid grid-cols-7 h-auto p-1" dir="rtl">
-                  <TabsTrigger value="quotes" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📄 הצעות מחיר ({customerQuotes.length})</TabsTrigger>
-                  <TabsTrigger value="orders" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📦 הזמנות ({customerOrders.length})</TabsTrigger>
-                  <TabsTrigger value="invoices" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">🧾 חשבוניות ({customerInvoices.length})</TabsTrigger>
-                  <TabsTrigger value="monthly" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">📅 חודשיות ({customerMonthlyInvoices.length})</TabsTrigger>
-                  <TabsTrigger value="payments" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">💳 תשלומים ({customerPayments.length})</TabsTrigger>
-                  <TabsTrigger value="credit_notes" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">↩️ זיכויים ({customerCreditNotes.length})</TabsTrigger>
-                  <TabsTrigger value="tasks" className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">✅ משימות ({openTasks.length})</TabsTrigger>
+                {/* OLD: <TabsList className="w-full grid grid-cols-7 h-auto p-1" dir="rtl">
+                    <TabsTrigger ... className="py-3 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"> */}
+                <TabsList className="w-full grid grid-cols-7 h-auto p-1" dir="rtl"
+                  style={{ background: "#F5F3F6", borderRadius: 14 }}>
+                  {[
+                    { value: "quotes",       label: `📄 הצעות מחיר (${customerQuotes.length})` },
+                    { value: "orders",       label: `📦 הזמנות (${customerOrders.length})` },
+                    { value: "invoices",     label: `🧾 חשבוניות (${customerInvoices.length})` },
+                    { value: "monthly",      label: `📅 חודשיות (${customerMonthlyInvoices.length})` },
+                    { value: "payments",     label: `💳 תשלומים (${customerPayments.length})` },
+                    { value: "credit_notes", label: `↩️ זיכויים (${customerCreditNotes.length})` },
+                    { value: "tasks",        label: `✅ משימות (${openTasks.length})` },
+                  ].map(({ value, label }) => (
+                    <TabsTrigger key={value} value={value}
+                      style={{ fontFamily: "'Heebo', sans-serif" }}
+                      className="py-3 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#120F1C] data-[state=active]:shadow-[0_4px_20px_rgba(0,0,0,0.04)] data-[state=active]:rounded-[10px]">
+                      {label}
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
                 <TabsContent value="quotes" className="mt-4">
-                  <LedgerQuotesTab
-                    quotes={customerQuotes}
-                    loading={loadingQuotes}
-                    onPreview={setPreviewQuote}
-                    businessSettings={businessSettings}
-                    selectedCustomer={selectedCustomer}
-                  />
+                  <LedgerQuotesTab quotes={customerQuotes} loading={loadingQuotes} onPreview={setPreviewQuote} businessSettings={businessSettings} selectedCustomer={selectedCustomer} />
                 </TabsContent>
 
                 <TabsContent value="orders" className="mt-4">
-                  <LedgerOrdersTab
-                    orders={customerOrders}
-                    invoices={invoices}
-                    loading={loadingOrders}
-                    onPreview={setPreviewOrder}
-                    businessSettings={businessSettings}
-                    selectedCustomer={selectedCustomer}
-                    allMonthlyInvoices={customerMonthlyInvoices}
-                  />
+                  <LedgerOrdersTab orders={customerOrders} invoices={invoices} loading={loadingOrders} onPreview={setPreviewOrder} businessSettings={businessSettings} selectedCustomer={selectedCustomer} allMonthlyInvoices={customerMonthlyInvoices} />
                 </TabsContent>
 
                 <TabsContent value="invoices" className="mt-4">
-                  <LedgerInvoicesTab
-                    invoices={customerInvoices}
-                    loading={loadingInvoices}
-                    onPreview={setPreviewInvoice}
-                    businessSettings={businessSettings}
-                    selectedCustomer={selectedCustomer}
-                    allOrders={orders}
-                  />
+                  <LedgerInvoicesTab invoices={customerInvoices} loading={loadingInvoices} onPreview={setPreviewInvoice} businessSettings={businessSettings} selectedCustomer={selectedCustomer} allOrders={orders} />
                 </TabsContent>
 
                 <TabsContent value="monthly" className="mt-4">
-                  <MonthlyInvoicesTab
-                    selectedCustomer={selectedCustomer}
-                    allInvoices={invoices}
-                    allOrders={orders}
-                    monthlyInvoices={customerMonthlyInvoices}
-                    loadingInvoices={loadingInvoices}
-                    businessSettings={businessSettings}
-                    onPreview={setPreviewMonthlyInvoice}
-                  />
+                  <MonthlyInvoicesTab selectedCustomer={selectedCustomer} allInvoices={invoices} allOrders={orders} monthlyInvoices={customerMonthlyInvoices} loadingInvoices={loadingInvoices} businessSettings={businessSettings} onPreview={setPreviewMonthlyInvoice} />
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-4">
-                  <LedgerPaymentsTab
-                    payments={customerPayments}
-                    loading={loadingPayments}
-                    invoices={invoices.filter(i => i.customer_id === selectedCustomerId)}
-                    onRecordPayment={setRecordPaymentInvoice}
-                    selectedCustomer={selectedCustomer}
-                    businessSettings={businessSettings}
-                  />
+                  <LedgerPaymentsTab payments={customerPayments} loading={loadingPayments} invoices={invoices.filter(i => i.customer_id === selectedCustomerId)} onRecordPayment={setRecordPaymentInvoice} selectedCustomer={selectedCustomer} businessSettings={businessSettings} />
                 </TabsContent>
 
                 <TabsContent value="credit_notes" className="mt-4">
-                  <LedgerCreditNotesTab
-                    creditNotes={customerCreditNotes}
-                    loading={loadingCreditNotes}
-                  />
+                  <LedgerCreditNotesTab creditNotes={customerCreditNotes} loading={loadingCreditNotes} />
                 </TabsContent>
 
                 <TabsContent value="tasks" className="mt-4">
-                  <div className="bg-card rounded-xl border border-border p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">משימות</h3>
-                      <Button size="sm" className="gap-1" onClick={() => { setTaskForm({ title: "", description: "", due_date: "" }); setTaskDialogOpen(true); }}>
-                        <Plus className="w-3.5 h-3.5" /> משימה חדשה
-                      </Button>
+                  {/* OLD: <div className="bg-card rounded-xl border border-border p-4 space-y-4"> */}
+                  <div className="heillo-card" style={{ padding: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                      {/* OLD: <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide"> */}
+                      <h3 style={{ fontSize: 11, fontWeight: 600, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0, fontFamily: "'Heebo', sans-serif" }}>משימות</h3>
+                      {/* OLD: <Button size="sm" className="gap-1" onClick={...}> */}
+                      <button className="heillo-btn-primary"
+                        onClick={() => { setTaskForm({ title: "", description: "", due_date: "" }); setTaskDialogOpen(true); }}
+                        style={{ fontSize: 12, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5 }}>
+                        <Plus style={{ width: 13, height: 13 }} /> משימה חדשה
+                      </button>
                     </div>
                     {loadingTasks ? (
-                      <div className="flex justify-center py-8"><div className="w-6 h-6 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+                      <div style={{ display: "flex", justifyContent: "center", padding: "32px 0" }}>
+                        <div style={{ width: 22, height: 22, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+                      </div>
                     ) : sortedTasks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-6">אין משימות עבור לקוח זה</p>
+                      <p style={{ fontSize: 13, color: MUTED, textAlign: "center", padding: "24px 0", fontFamily: "'Heebo', sans-serif" }}>אין משימות עבור לקוח זה</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {sortedTasks.map(task => {
                           const isOpen = task.status === "פתוח";
                           const overdue = isOpen && task.due_date && new Date(task.due_date) < new Date();
                           return (
-                            <div key={task.id} className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${isOpen ? "border-border bg-background" : "border-border/50 bg-muted/30 opacity-60"}`}>
-                              <button onClick={() => handleToggleTask(task)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors">
-                                {isOpen ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                            /* OLD: <div className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${isOpen ? "border-border bg-background" : "border-border/50 bg-muted/30 opacity-60"}`}> */
+                            <div key={task.id} style={{
+                              display: "flex", alignItems: "flex-start", gap: 10, borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.06)", padding: 12, transition: "background 0.15s ease",
+                              background: isOpen ? "#FFFFFF" : "rgba(0,0,0,0.02)", opacity: isOpen ? 1 : 0.6,
+                            }}>
+                              {/* OLD: <button onClick={() => handleToggleTask(task)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"> */}
+                              <button onClick={() => handleToggleTask(task)}
+                                style={{ marginTop: 2, flexShrink: 0, color: MUTED, background: "none", border: "none", cursor: "pointer", transition: "color 0.15s ease" }}
+                                onMouseEnter={e => e.currentTarget.style.color = ACCENT}
+                                onMouseLeave={e => e.currentTarget.style.color = MUTED}>
+                                {isOpen ? <Circle style={{ width: 16, height: 16 }} /> : <CheckCircle2 style={{ width: 16, height: 16, color: "#16a34a" }} />}
                               </button>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium ${!isOpen ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
-                                {task.description && <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* OLD: <p className={`text-sm font-medium ${!isOpen ? "line-through text-muted-foreground" : ""}`}> */}
+                                <p style={{ fontSize: 13, fontWeight: 500, color: isOpen ? DARK : MUTED, margin: 0, textDecoration: isOpen ? "none" : "line-through", fontFamily: "'Heebo', sans-serif" }}>{task.title}</p>
+                                {task.description && <p style={{ fontSize: 11, color: MUTED, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{task.description}</p>}
                                 {task.due_date && (
-                                  <p className={`text-xs mt-1 ${overdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+                                  <p style={{ fontSize: 11, margin: "4px 0 0", color: overdue ? "#ef4444" : MUTED, fontWeight: overdue ? 600 : 400, fontFamily: "'Heebo', sans-serif" }}>
                                     {overdue ? "⚠️ " : ""}תאריך יעד: {task.due_date?.split("-").reverse().join("/")}
                                   </p>
                                 )}
                               </div>
-                              <button onClick={() => setDeleteTaskId(task.id)} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors mt-0.5">
-                                <Trash2 className="w-3.5 h-3.5" />
+                              {/* OLD: <button onClick={() => setDeleteTaskId(task.id)} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors mt-0.5"> */}
+                              <button onClick={() => setDeleteTaskId(task.id)} className="heillo-icon-btn"
+                                style={{ marginTop: 2, flexShrink: 0 }}>
+                                <Trash2 style={{ width: 14, height: 14 }} />
                               </button>
                             </div>
                           );
