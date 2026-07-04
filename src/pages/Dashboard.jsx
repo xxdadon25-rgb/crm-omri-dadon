@@ -545,7 +545,7 @@ export default function Dashboard() {
   */
 
   return (
-    <div dir="rtl" style={{ minHeight: "100vh", background: PAGE_BG, fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
+    <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 60% 50% at 20% 15%, rgba(252,234,227,0.7) 0%, rgba(236,237,240,0) 70%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
       <PageHeader title="דשבורד" description="סקירה כללית של העסק" />
 
       {/* ── Section 1: KPI cards ─────────────────────────────────────────── */}
