@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, LogOut, User, Search, Settings, Bell } from "lucide-react";
+import { Menu, LogOut, User, Search } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -123,62 +123,6 @@ export default function TopBar({ onMenuClick, collapsed }) {
 
           {/* Left side (RTL): icons + avatar */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {/* Bell */}
-            <div style={{ position: "relative" }}>
-              <button
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#B2B0B1",
-                  padding: 8,
-                  borderRadius: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = "#120F1C"; e.currentTarget.style.transform = "scale(1.05)"; }}
-                onMouseLeave={e => { e.currentTarget.style.color = "#B2B0B1"; e.currentTarget.style.transform = "scale(1)"; }}
-              >
-                <Bell style={{ width: 20, height: 20, strokeWidth: 1.8 }} />
-              </button>
-              {/* Notification dot */}
-              <span style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: "#F5885E",
-                border: "2px solid #FFFFFF",
-              }} />
-            </div>
-
-            {/* Settings */}
-            <button
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "#B2B0B1",
-                padding: 8,
-                borderRadius: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#120F1C"; e.currentTarget.style.transform = "scale(1.05)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "#B2B0B1"; e.currentTarget.style.transform = "scale(1)"; }}
-            >
-              <Settings style={{ width: 20, height: 20, strokeWidth: 1.8 }} />
-            </button>
-
-            {/* Divider */}
-            <div style={{ width: 1, height: 24, background: "rgba(0,0,0,0.07)", margin: "0 4px" }} />
-
             {/* Avatar + dropdown */}
             <DropdownMenu dir="rtl">
               <DropdownMenuTrigger asChild>
