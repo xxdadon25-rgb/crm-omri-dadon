@@ -219,187 +219,168 @@ export default function DocumentCenter() {
 
   const allSelected = filtered.length > 0 && selected.size === filtered.length;
 
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const selectStyle = { background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif" };
+
   return (
-    <div dir="rtl">
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    /* OLD: <div dir="rtl"><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
+    <div className="heillo-page" dir="rtl">
 
-        {/* Sticky bar */}
-        <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3">
-          <PageHeader title="מרכז מסמכים" description={`${unified.length} מסמכים`} />
-          <div className="bg-card border border-border rounded-xl p-4 mt-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── Top bar ── */}
+      {/* OLD: <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3"><PageHeader .../><div className="bg-card border border-border rounded-xl p-4 mt-1"> */}
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>מרכז מסמכים</h1>
+        <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{unified.length} מסמכים</p>
+      </div>
 
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="חיפוש לקוח / מספר..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pr-9"
-                />
-              </div>
+      {/* ── Filters row ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
 
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger><SelectValue placeholder="סוג מסמך" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">כל הסוגים</SelectItem>
-                  <SelectItem value="quote">הצעות מחיר</SelectItem>
-                  <SelectItem value="order">הזמנות</SelectItem>
-                  <SelectItem value="invoice">חשבוניות</SelectItem>
-                  <SelectItem value="supplier_doc">מסמכי ספק</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div>
-                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="מתאריך" />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="עד תאריך" className="flex-1" />
-                {selected.size > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 border-amber-400 text-amber-700 hover:bg-amber-50"
-                    onClick={handleBulkHide}
-                    disabled={hiding}
-                  >
-                    הסר מסומנים ({selected.size})
-                  </Button>
-                )}
-              </div>
-
-            </div>
-          </div>
+        {/* Search */}
+        <div style={{ position: "relative" }}>
+          <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+          {/* OLD: <Input placeholder="חיפוש לקוח / מספר..." className="pr-9" /> */}
+          <input placeholder="חיפוש לקוח / מספר..." value={search} onChange={e => setSearch(e.target.value)}
+            className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 40 }} />
         </div>
 
-        {/* Content */}
-        <div className="pt-4">
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <EmptyState icon={FolderOpen} title="אין מסמכים" description="לא נמצאו מסמכים התואמים את הסינון" />
-          ) : (
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-14" />
-                      <TableHead className="text-right">סוג</TableHead>
-                      <TableHead className="text-right">מספר</TableHead>
-                      <TableHead className="text-right">לקוח / ספק</TableHead>
-                      <TableHead className="text-right">תאריך</TableHead>
-                      <TableHead className="text-right">סכום</TableHead>
-                      <TableHead className="text-right">סטטוס</TableHead>
-                      <TableHead className="text-right w-28">מסמכים</TableHead>
-                      <TableHead className="w-8" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map(doc => {
-                      const key       = `${doc._type}:${doc.id}`;
-                      const meta      = TYPE_META[doc._type];
-                      const status    = docStatus(doc, doc._type);
-                      const partyName = doc._type === "supplier_doc"
-                        ? (supplierMap[doc.supplier_id] || "—")
-                        : (doc.customer_name || "—");
-                      return (
-                        <TableRow key={key} className="hover:bg-muted/30">
-                          <TableCell className="text-right">
-                            <div className="pr-4">
-                              <Checkbox
-                                checked={selected.has(key)}
-                                onCheckedChange={() => toggleSelect(doc)}
-                                aria-label="בחר שורה"
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={meta.badge}>{meta.label}</Badge>
-                          </TableCell>
-                          <TableCell className="font-medium text-right">
-                            {docNumber(doc, doc._type)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {partyName}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {fmtDisplayDate(docDate(doc, doc._type))}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {doc._type === "supplier_doc"
-                              ? "—"
-                              : formatCurrency(doc.total)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge className={status.className}>{status.label}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center gap-1 justify-end">
-                              {doc._type === "supplier_doc" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => window.open(doc.file_url, "_blank")}
-                                  title="פתח מסמך"
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => window.open(`${meta.pdfBase}${doc.id}`, "_blank")}
-                                    title="פתח PDF"
-                                  >
-                                    <FileText className="w-4 h-4" />
-                                  </Button>
-                                  {doc._type === "invoice" && doc.credit_note_id && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-purple-600 hover:text-purple-700"
-                                      onClick={() => window.open(`/credit-note-pdf/${doc.credit_note_id}`, "_blank")}
-                                      title="פתח PDF זיכוי"
-                                    >
-                                      <FileText className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-red-500"
-                              onClick={() => setConfirmDoc(doc)}
-                              title="הסר מרשימה"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="px-4 py-3 border-t border-border bg-muted/30 text-sm text-muted-foreground">
-                מציג {filtered.length} מתוך {unified.length} מסמכים
-              </div>
-            </div>
+        {/* Type filter */}
+        {/* OLD: <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger><SelectValue .../></SelectTrigger> */}
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger style={selectStyle}><SelectValue placeholder="סוג מסמך" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">כל הסוגים</SelectItem>
+            <SelectItem value="quote">הצעות מחיר</SelectItem>
+            <SelectItem value="order">הזמנות</SelectItem>
+            <SelectItem value="invoice">חשבוניות</SelectItem>
+            <SelectItem value="supplier_doc">מסמכי ספק</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Date from */}
+        {/* OLD: <Input type="date" value={dateFrom} onChange={...} placeholder="מתאריך" /> */}
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          className="heillo-input" style={{ width: "100%", boxSizing: "border-box" }} />
+
+        {/* Date to + bulk button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* OLD: <Input type="date" value={dateTo} onChange={...} placeholder="עד תאריך" className="flex-1" /> */}
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className="heillo-input" style={{ flex: 1, minWidth: 0 }} />
+          {selected.size > 0 && (
+            /* OLD: <Button variant="outline" size="sm" className="shrink-0 border-amber-400 text-amber-700 hover:bg-amber-50" onClick={handleBulkHide} disabled={hiding}> */
+            <button onClick={handleBulkHide} disabled={hiding}
+              style={{ flexShrink: 0, background: "transparent", border: `1px solid ${ACCENT}`, borderRadius: 10, color: ACCENT, fontSize: 12, fontWeight: 500, padding: "6px 12px", cursor: "pointer", fontFamily: "'Heebo', sans-serif", whiteSpace: "nowrap" }}>
+              הסר מסומנים ({selected.size})
+            </button>
           )}
         </div>
 
       </div>
+
+      {/* ── Content ── */}
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={FolderOpen} title="אין מסמכים" description="לא נמצאו מסמכים התואמים את הסינון" />
+      ) : (
+        /* OLD: <div className="bg-card rounded-xl border border-border overflow-hidden"> */
+        <div className="heillo-card">
+          <div style={{ overflowX: "auto" }}>
+            {/* OLD: <Table><TableHeader><TableRow className="bg-muted/50"> */}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              <thead className="heillo-table-header">
+                <tr>
+                  <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} aria-label="בחר הכל" />
+                  </th>
+                  {["סוג", "מספר", "לקוח / ספק", "תאריך", "סכום", "סטטוס", "מסמכים", ""].map((col, i) => (
+                    <th key={i} style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap", width: col === "" ? 40 : undefined }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((doc, i) => {
+                  const key       = `${doc._type}:${doc.id}`;
+                  const meta      = TYPE_META[doc._type];
+                  const status    = docStatus(doc, doc._type);
+                  const partyName = doc._type === "supplier_doc"
+                    ? (supplierMap[doc.supplier_id] || "—")
+                    : (doc.customer_name || "—");
+                  return (
+                    /* OLD: <TableRow key={key} className="hover:bg-muted/30"> */
+                    <tr key={key} className="heillo-table-row"
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
+                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                        <Checkbox checked={selected.has(key)} onCheckedChange={() => toggleSelect(doc)} aria-label="בחר שורה" />
+                      </td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <Badge className={meta.badge}>{meta.label}</Badge> */}
+                        <span className={`heillo-badge ${meta.badge}`}>{meta.label}</span>
+                      </td>
+                      {/* OLD: <TableCell className="font-medium text-right"> */}
+                      <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>{docNumber(doc, doc._type)}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{partyName}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{fmtDisplayDate(docDate(doc, doc._type))}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: DARK }}>
+                        {doc._type === "supplier_doc" ? "—" : formatCurrency(doc.total)}
+                      </td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <Badge className={status.className}>{status.label}</Badge> */}
+                        <span className={`heillo-badge ${status.className}`}>{status.label}</span>
+                      </td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <div className="flex items-center gap-1 justify-end"> */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                          {doc._type === "supplier_doc" ? (
+                            /* OLD: <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(doc.file_url, "_blank")} title="פתח מסמך"> */
+                            <button title="פתח מסמך" className="heillo-icon-btn" onClick={() => window.open(doc.file_url, "_blank")}>
+                              <ExternalLink size={17} strokeWidth={1.8} />
+                            </button>
+                          ) : (
+                            <>
+                              {/* OLD: <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(...)} title="פתח PDF"> */}
+                              <button title="פתח PDF" className="heillo-icon-btn" onClick={() => window.open(`${meta.pdfBase}${doc.id}`, "_blank")}>
+                                <FileText size={17} strokeWidth={1.8} />
+                              </button>
+                              {doc._type === "invoice" && doc.credit_note_id && (
+                                /* OLD: <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600 hover:text-purple-700" onClick={() => window.open(...)} title="פתח PDF זיכוי"> */
+                                <button title="פתח PDF זיכוי" className="heillo-icon-btn" style={{ color: "#7c3aed" }}
+                                  onClick={() => window.open(`/credit-note-pdf/${doc.credit_note_id}`, "_blank")}
+                                  onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.08)"}
+                                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                  <FileText size={17} strokeWidth={1.8} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => setConfirmDoc(doc)} title="הסר מרשימה"> */}
+                        <button title="הסר מרשימה" className="heillo-icon-btn" onClick={() => setConfirmDoc(doc)}
+                          onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = ""; e.currentTarget.style.background = "transparent"; }}>
+                          <X size={17} strokeWidth={1.8} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* OLD: <div className="px-4 py-3 border-t border-border bg-muted/30 text-sm text-muted-foreground"> */}
+          <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(0,0,0,0.05)", fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>
+            מציג {filtered.length} מתוך {unified.length} מסמכים
+          </div>
+        </div>
+      )}
 
       {/* Single-hide confirmation dialog */}
       <AlertDialog open={!!confirmDoc} onOpenChange={open => { if (!open) setConfirmDoc(null); }}>
