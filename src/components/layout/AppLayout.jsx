@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,7 @@ import { cn } from "@/lib/utils";
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  useRealtimeSync();
 
   const location = useLocation();
 
