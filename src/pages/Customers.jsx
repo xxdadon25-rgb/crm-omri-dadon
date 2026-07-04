@@ -373,7 +373,7 @@ export default function Customers() {
                           <button title="עריכה" className="heillo-icon-btn" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}><Pencil size={18} strokeWidth={1.8} /></button>
                           {c.location_lat && c.location_lng ? (
                             <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
-                              <button title="נווט בוויז" className="heillo-icon-btn"><Navigation size={18} strokeWidth={1.8} /></button>
+                              <button title="נווט בוויז" className="heillo-icon-btn" style={{ color: "#16a34a" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(22,163,74,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Navigation size={18} strokeWidth={1.8} /></button>
                             </a>
                           ) : (
                             <button title="שמור מיקום" className="heillo-icon-btn" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)} style={{ color: "#2563eb" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(37,99,235,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><MapPin size={18} strokeWidth={1.8} /></button>
