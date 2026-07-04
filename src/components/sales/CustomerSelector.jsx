@@ -99,8 +99,8 @@ export default function CustomerSelector({ onConfirm, onBack }) {
     <div className="h-screen flex flex-col" style={{ background: "var(--heillo-bg-gradient)", fontFamily: "'Heebo', sans-serif" }} dir="rtl">
 
       {/* Header */}
-      {/* OLD: <div className="bg-card border-b border-border px-6 py-4 flex items-center gap-4"> */}
-      <div style={{ background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)", padding: "14px 24px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+      {/* OLD: <div style={{ background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)", ... }}> */}
+      <div style={{ background: "transparent", padding: "14px 24px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowRight className="w-4 h-4 ml-1" /> חזרה
         </Button>
@@ -116,8 +116,8 @@ export default function CustomerSelector({ onConfirm, onBack }) {
         {mode === "select" ? (
           <>
             {/* Sticky search + new customer bar */}
-            {/* OLD: <div className="sticky top-0 z-10 bg-background px-6 pt-4 pb-3 border-b border-border shrink-0"> */}
-            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#FFFFFF", padding: "12px 24px", borderBottom: "1px solid rgba(0,0,0,0.05)", flexShrink: 0 }}>
+            {/* OLD: <div style={{ background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)", ... }}> */}
+            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", padding: "12px 24px", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ position: "relative", flex: 1 }}>
                   <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 15, height: 15, color: MUTED, pointerEvents: "none" }} />
