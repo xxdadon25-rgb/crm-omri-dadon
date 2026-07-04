@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import '@/index.css'
+import '@/styles/heillo.css'
 
 // In standalone PWA mode, continuously remove any Base44 editor badges injected by the platform
 if (window.matchMedia('(display-mode: standalone)').matches) {

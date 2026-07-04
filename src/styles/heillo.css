@@ -1,0 +1,106 @@
+:root {
+  --heillo-bg: #ECEDF0;
+  --heillo-bg-gradient: radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0;
+  --heillo-accent: #F5885E;
+  --heillo-accent-light: rgba(245,136,94,0.08);
+  --heillo-card-bg: #FFFFFF;
+  --heillo-card-radius: 22px;
+  --heillo-card-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  --heillo-card-border: 1px solid rgba(0,0,0,0.03);
+  --heillo-text-primary: #120F1C;
+  --heillo-text-muted: #B2B0B1;
+  --heillo-border: rgba(0,0,0,0.05);
+  --heillo-header-bg: #FAFAFA;
+}
+
+.heillo-page {
+  background: var(--heillo-bg-gradient);
+  min-height: 100vh;
+  padding: 32px;
+  font-family: 'Heebo', sans-serif;
+}
+
+.heillo-card {
+  background: var(--heillo-card-bg);
+  border-radius: var(--heillo-card-radius);
+  border: var(--heillo-card-border);
+  box-shadow: var(--heillo-card-shadow);
+  overflow: hidden;
+}
+
+.heillo-table-header {
+  background: var(--heillo-header-bg);
+  border-bottom: 1px solid var(--heillo-border);
+}
+
+.heillo-table-header th {
+  color: var(--heillo-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 14px 20px;
+}
+
+.heillo-table-row {
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  transition: background 0.15s ease;
+}
+
+.heillo-table-row:hover {
+  background: var(--heillo-accent-light);
+}
+
+.heillo-table-row td {
+  padding: 14px 20px;
+  color: var(--heillo-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.heillo-btn-primary {
+  background: var(--heillo-accent);
+  color: #FFFFFF;
+  border-radius: 12px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border: none;
+  font-family: 'Heebo', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.heillo-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.heillo-input {
+  background: #FFFFFF;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  height: 40px;
+  padding: 0 14px;
+  font-family: 'Heebo', sans-serif;
+  font-size: 13px;
+  color: var(--heillo-text-primary);
+}
+
+.heillo-badge {
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+}
+
+.heillo-icon-btn {
+  color: var(--heillo-text-muted);
+  transition: all 0.2s ease;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.heillo-icon-btn:hover {
+  color: var(--heillo-text-primary);
+  background: rgba(0,0,0,0.04);
+}
