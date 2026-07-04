@@ -196,151 +196,201 @@ export default function Quotes() {
     toast.success(`חשבונית מספר ${counter} נוצרה בהצלחה`);
   };
 
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const CARD_STYLE = {
+    background: "#FFFFFF",
+    borderRadius: 22,
+    border: "1px solid rgba(0,0,0,0.03)",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+    overflow: "hidden",
+    fontFamily: "'Heebo', sans-serif",
+  };
+
   return (
-    <div>
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
 
-        {/* Sticky top bar: page header + search */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
-          <PageHeader title="הצעות מחיר" description={`${quotes.length} הצעות`}>
-            <Button size="sm" variant="outline" onClick={() => navigate("/sales-catalog")}>
-              <Store className="w-4 h-4 ml-1" /> מכירה בקטלוג
-            </Button>
-            <Button size="sm" onClick={() => navigate("/quotes/new")}>
-              <Plus className="w-4 h-4 ml-1" /> הצעה חדשה
-            </Button>
-          </PageHeader>
-          <div className="relative mt-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
-          </div>
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      {/* OLD:
+      <div className="sticky top-0 z-10 bg-background pb-3">
+        <PageHeader title="הצעות מחיר" ...><Button>מכירה בקטלוג</Button><Button>הצעה חדשה</Button></PageHeader>
+        <div className="relative mt-1"><Search .../><Input .../></div>
+      </div>
+      */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0 }}>הצעות מחיר</h1>
+          <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{quotes.length} הצעות</p>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative" }}>
+            <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+            <input
+              placeholder="חיפוש..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, padding: "0 40px 0 14px", fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", width: 220 }}
+            />
+          </div>
+          <button
+            onClick={() => navigate("/sales-catalog")}
+            style={{ background: "#FFFFFF", color: DARK, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 600, padding: "8px 16px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+          >
+            <Store style={{ width: 15, height: 15 }} /> מכירה בקטלוג
+          </button>
+          <button
+            onClick={() => navigate("/quotes/new")}
+            style={{ background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12, fontWeight: 600, padding: "8px 18px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "opacity 0.2s ease" }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            <Plus style={{ width: 16, height: 16 }} /> הצעה חדשה
+          </button>
+        </div>
+      </div>
 
-       {selectedCount > 0 && (
-         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-           <span className="text-sm font-medium">נבחרו {selectedCount} הצעות</span>
-           <Button
-             variant="outline"
-             size="sm"
-             className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm"
-             onClick={() => setBulkDeleteOpen(true)}
-           >
-             <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-           </Button>
-         </div>
-       )}
+      {/* ── Bulk selection bar ───────────────────────────────────────────── */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
+      {selectedCount > 0 && (
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selectedCount} הצעות</span>
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
+          >
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
+        </div>
+      )}
 
-       {isLoading ? (
-        <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+      {/* ── Main card ────────────────────────────────────────────────────── */}
+      {/* OLD: loading spinner / EmptyState / <div className="bg-card rounded-xl border border-border overflow-hidden"> */}
+      {isLoading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={FileText} title="אין הצעות מחיר" description="צור הצעת מחיר ראשונה" />
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right w-12">
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-right">מספר</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">תאריך</TableHead>
-                  <TableHead className="text-right">סה״כ</TableHead>
-                  <TableHead className="text-right">סוכן</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right w-36">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(q => {
+        <div style={CARD_STYLE}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              {/* OLD: <TableHeader><TableRow className="bg-muted/50">...</TableRow></TableHeader> */}
+              <thead>
+                <tr style={{ background: "#FAFAFA", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                  <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                  </th>
+                  {["מספר","לקוח","תאריך","סה״כ","סוכן","סטטוס","פעולות"].map(col => (
+                    <th key={col} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 500, fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              {/* OLD: <TableBody>{filtered.map(q => <TableRow ...>...</TableRow>)}</TableBody> */}
+              <tbody>
+                {filtered.map((q, i) => {
                   const isSelected = selectedQuotes.has(q.id);
                   return (
-                  <TableRow key={q.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => handleSelectQuote(q.id)}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">#{q.quote_number}</TableCell>
-                    <TableCell>{q.customer_name}</TableCell>
-                    <TableCell>{formatDate(q.date)}</TableCell>
-                    {/* <TableCell className="font-medium">₪{(q.total || 0).toLocaleString()}</TableCell> */}
-                    <TableCell className="font-medium">{formatCurrency(q.total)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{q.agent || "—"}</TableCell>
-                    <TableCell><Badge className={statusColors[q.status] || ""}>{q.status}</Badge></TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/quotes/edit?id=${q.id}`)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        {q.status !== "הומרה לחשבונית" && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="הפוך לחשבונית" onClick={() => handleConvertToInvoice(q)}>
-                            <Receipt className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(q.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                    <tr
+                      key={q.id}
+                      style={{
+                        borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
+                        background: isSelected ? "rgba(245,136,94,0.04)" : "transparent",
+                        transition: "background 0.15s ease",
+                      }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(245,136,94,0.04)"; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectQuote(q.id)} />
+                      </td>
+                      <td style={{ padding: "14px 20px", fontWeight: 500, fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>#{q.quote_number}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{q.customer_name}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED, whiteSpace: "nowrap" }}>{formatDate(q.date)}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: DARK, whiteSpace: "nowrap" }}>{formatCurrency(q.total)}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 12, color: MUTED }}>{q.agent || "—"}</td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <Badge className={statusColors[q.status] || ""}>{q.status}</Badge> */}
+                        <span className={statusColors[q.status] || ""} style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", display: "inline-block" }}>
+                          {q.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <Button variant="ghost" size="icon" ...> */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {[
+                            { icon: Pencil, action: () => navigate(`/quotes/edit?id=${q.id}`), title: "עריכה" },
+                            ...( q.status !== "הומרה לחשבונית" ? [{ icon: Receipt, action: () => handleConvertToInvoice(q), title: "הפוך לחשבונית", accent: true }] : [] ),
+                            { icon: Trash2, action: () => setDeleteId(q.id), title: "מחיקה", danger: true },
+                          ].map(({ icon: Icon, action, title, danger, accent }) => (
+                            <button
+                              key={title}
+                              onClick={action}
+                              title={title}
+                              style={{ background: "transparent", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: danger ? "#ef4444" : accent ? "#16a34a" : MUTED, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = danger ? "rgba(239,68,68,0.08)" : accent ? "rgba(22,163,74,0.08)" : "rgba(0,0,0,0.04)"; e.currentTarget.style.color = danger ? "#ef4444" : accent ? "#16a34a" : DARK; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = danger ? "#ef4444" : accent ? "#16a34a" : MUTED; }}
+                            >
+                              <Icon style={{ width: 18, height: 18, strokeWidth: 1.8 }} />
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
                   );
-                  })}
-                  </TableBody>
-                  </Table>
-                  </div>
-                  </div>
-                  )}
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                  {selectedCount > 0 && (
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
-                      <span className="text-sm font-medium">נבחרו {selectedCount} הצעות</span>
-                      <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-                        <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-                      </Button>
-                    </div>
-                  )}
+          {/* Bottom bulk-delete bar */}
+          {selectedCount > 0 && (
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.04)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selectedCount} הצעות</span>
+              <button
+                onClick={() => setBulkDeleteOpen(true)}
+                style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
+              >
+                <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-      </div>{/* end scrollable region */}
+      {/* ── Dialogs (unchanged) ──────────────────────────────────────────── */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת הצעת מחיר</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את הצעה זו?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">מחק הצעה</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                  <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-                  <AlertDialogContent dir="rtl">
-                  <AlertDialogHeader>
-                  <AlertDialogTitle>מחיקת הצעת מחיר</AlertDialogTitle>
-                  <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את הצעה זו?</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="flex-row-reverse gap-2">
-                  <AlertDialogCancel>ביטול</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">מחק הצעה</AlertDialogAction>
-                  </AlertDialogFooter>
-                  </AlertDialogContent>
-                  </AlertDialog>
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת הצעות מחיר</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את {selectedCount} ההצעות שנבחרו?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={deleting}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+              {deleting ? "מוחק..." : "מחק הצעות"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                  <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-                  <AlertDialogContent dir="rtl">
-                  <AlertDialogHeader>
-                  <AlertDialogTitle>מחיקת הצעות מחיר</AlertDialogTitle>
-                  <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את {selectedCount} ההצעות שנבחרו?</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="flex-row-reverse gap-2">
-                  <AlertDialogCancel disabled={deleting}>ביטול</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
-                  {deleting ? "מוחק..." : "מחק הצעות"}
-                  </AlertDialogAction>
-                  </AlertDialogFooter>
-                  </AlertDialogContent>
-                  </AlertDialog>
-                  </div>
-                  );
-                  }
+    </div>
+  );
+}
