@@ -521,15 +521,46 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
-        <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3">
-          <PageHeader title="דוחות" description="סקירה עסקית ונתונים סטטיסטיים" />
-          <div className="bg-card border border-border rounded-xl p-4 mt-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* OLD: <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> + <div className="sticky top-0 ..."><PageHeader .../> */}
+      <div className="heillo-page" dir="rtl">
+
+        {/* Inline title */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>דוחות</h1>
+            <p style={{ fontSize: 13, color: "#B2B0B1", margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>סקירה עסקית ונתונים סטטיסטיים</p>
+          </div>
+          {/* Export buttons — coral outline */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* OLD: <Button onClick={exportExcel} variant="outline" size="sm" className="flex-1"> */}
+            <button
+              onClick={exportExcel}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "#F5885E", fontSize: 13, fontWeight: 500, padding: "8px 16px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "'Heebo', sans-serif" }}
+            >
+              <Download style={{ width: 14, height: 14 }} /> ייצוא CSV
+            </button>
+            {/* OLD: <Button onClick={exportPDF} disabled={generatingPDF} variant="outline" size="sm" className="flex-1"> */}
+            <button
+              onClick={exportPDF}
+              disabled={generatingPDF}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "#F5885E", fontSize: 13, fontWeight: 500, padding: "8px 16px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "'Heebo', sans-serif", opacity: generatingPDF ? 0.7 : 1 }}
+            >
+              {generatingPDF ? <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> : <FileText style={{ width: 14, height: 14 }} />}
+              ייצוא PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Filter card */}
+        {/* OLD: <div className="bg-card border border-border rounded-xl p-4 mt-1"> */}
+        <div className="heillo-card" style={{ padding: 20, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
             <div>
-              <label className="text-sm font-medium mb-2 block">טווח תאריכים</label>
+              {/* OLD: <label className="text-sm font-medium mb-2 block">טווח תאריכים</label> */}
+              <label style={{ fontSize: 12, fontWeight: 500, color: "#120F1C", display: "block", marginBottom: 6, fontFamily: "'Heebo', sans-serif" }}>טווח תאריכים</label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger>
+                {/* OLD: <SelectTrigger> */}
+                <SelectTrigger style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: "#120F1C", fontFamily: "'Heebo', sans-serif" }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -543,26 +574,28 @@ export default function Reports() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">סטטוס הזמנה</label>
+              {/* OLD: <label className="text-sm font-medium mb-2 block">סטטוס הזמנה</label> */}
+              <label style={{ fontSize: 12, fontWeight: 500, color: "#120F1C", display: "block", marginBottom: 6, fontFamily: "'Heebo', sans-serif" }}>סטטוס הזמנה</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
+                {/* OLD: <SelectTrigger> */}
+                <SelectTrigger style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: "#120F1C", fontFamily: "'Heebo', sans-serif" }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">הכל</SelectItem>
                   {STATUS_FILTER_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">סוכן</label>
+              {/* OLD: <label className="text-sm font-medium mb-2 block">סוכן</label> */}
+              <label style={{ fontSize: 12, fontWeight: 500, color: "#120F1C", display: "block", marginBottom: 6, fontFamily: "'Heebo', sans-serif" }}>סוכן</label>
               <Select value={agentFilter} onValueChange={setAgentFilter}>
-                <SelectTrigger>
+                {/* OLD: <SelectTrigger> */}
+                <SelectTrigger style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: "#120F1C", fontFamily: "'Heebo', sans-serif" }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -577,166 +610,170 @@ export default function Reports() {
             {dateRange === "custom" && (
               <>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">מתאריך</label>
-                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+                  {/* OLD: <label className="text-sm font-medium mb-2 block">מתאריך</label><Input type="date" .../> */}
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "#120F1C", display: "block", marginBottom: 6, fontFamily: "'Heebo', sans-serif" }}>מתאריך</label>
+                  <input type="date" className="heillo-input" value={customStart} onChange={(e) => setCustomStart(e.target.value)} style={{ height: 40, width: "100%" }} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">עד תאריך</label>
-                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+                  {/* OLD: <label className="text-sm font-medium mb-2 block">עד תאריך</label><Input type="date" .../> */}
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "#120F1C", display: "block", marginBottom: 6, fontFamily: "'Heebo', sans-serif" }}>עד תאריך</label>
+                  <input type="date" className="heillo-input" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} style={{ height: 40, width: "100%" }} />
                 </div>
               </>
             )}
-
-            {/* Export buttons always visible, take full row on mobile */}
-            <div className={`flex items-end gap-2 ${dateRange === "custom" ? "sm:col-span-2 lg:col-span-4" : ""}`}>
-              <Button onClick={exportExcel} variant="outline" size="sm" className="flex-1">
-                <Download className="w-4 h-4 ml-1" /> ייצוא CSV
-              </Button>
-              <Button onClick={exportPDF} disabled={generatingPDF} variant="outline" size="sm" className="flex-1">
-                {generatingPDF ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <FileText className="w-4 h-4 ml-1" />}
-                ייצוא PDF
-              </Button>
-            </div>
-            </div>
           </div>
         </div>
 
-      {/* Sales Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 pt-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <stat.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-xl font-bold">{stat.value}</p>
+        {/* Sales Summary KPI cards */}
+        {/* OLD: <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 pt-4"> */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16, marginBottom: 20 }}>
+          {stats.map((stat) => (
+            /* OLD: <div key={stat.label} className="bg-card border border-border rounded-xl p-4"> */
+            <div key={stat.label} className="heillo-card" style={{ padding: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {/* OLD: <div className="p-2 rounded-lg bg-primary/10"><stat.icon className="w-5 h-5 text-primary" /></div> */}
+                <div style={{ padding: 8, borderRadius: 10, background: "rgba(245,136,94,0.1)", flexShrink: 0 }}>
+                  <stat.icon style={{ width: 18, height: 18, color: "#F5885E" }} />
+                </div>
+                <div>
+                  {/* OLD: <p className="text-xs text-muted-foreground">{stat.label}</p> */}
+                  <p style={{ fontSize: 11, color: "#B2B0B1", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{stat.label}</p>
+                  {/* OLD: <p className="text-xl font-bold">{stat.value}</p> */}
+                  <p style={{ fontSize: 18, fontWeight: 700, color: "#120F1C", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{stat.value}</p>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+
+        {/* Profitability Summary cards */}
+        {/* OLD: <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"> */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16, marginBottom: 20 }}>
+          {/* OLD: <div className="bg-card border border-border rounded-xl p-4"> */}
+          <div className="heillo-card" style={{ padding: 20 }}>
+            {/* OLD: <p className="text-xs text-muted-foreground mb-2">מכירה כוללת</p> */}
+            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>מכירה כוללת</p>
+            {/* OLD: <p className="text-2xl font-bold">{formatCurrency(profitability.totalSales)}</p> */}
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(profitability.totalSales)}</p>
           </div>
-        ))}
-      </div>
-
-      {/* Profitability Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-2">מכירה כוללת</p>
-          {/* <p className="text-2xl font-bold">₪{profitability.totalSales.toLocaleString()}</p> */}
-          <p className="text-2xl font-bold">{formatCurrency(profitability.totalSales)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-2">עלות כוללת</p>
-          {/* <p className="text-2xl font-bold">₪{profitability.totalCost.toLocaleString()}</p> */}
-          <p className="text-2xl font-bold">{formatCurrency(profitability.totalCost)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-2">רווח גולמי</p>
-          {/* <p className="text-2xl font-bold text-green-600">₪{profitability.profit.toLocaleString()}</p> */}
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(profitability.profit)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-2">רווחיות %</p>
-          <p className="text-2xl font-bold text-green-600">{profitability.profitMargin.toFixed(1)}%</p>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h3 className="font-semibold mb-4">מכירות ורווח חודשיים</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
-              <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
-              <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" name="מכירות" />
-              <Line type="monotone" dataKey="profit" stroke="hsl(200,60%,50%)" name="רווח" />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="heillo-card" style={{ padding: 20 }}>
+            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>עלות כוללת</p>
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(profitability.totalCost)}</p>
+          </div>
+          <div className="heillo-card" style={{ padding: 20 }}>
+            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווח גולמי</p>
+            {/* OLD: <p className="text-2xl font-bold text-green-600">{formatCurrency(profitability.profit)}</p> */}
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(profitability.profit)}</p>
+          </div>
+          <div className="heillo-card" style={{ padding: 20 }}>
+            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווחיות %</p>
+            {/* OLD: <p className="text-2xl font-bold text-green-600">{profitability.profitMargin.toFixed(1)}%</p> */}
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.profitMargin.toFixed(1)}%</p>
+          </div>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h3 className="font-semibold mb-4">מוצרים מובילים</h3>
-          {topProductsChart.length === 0 ? (
-            <div className="flex items-center justify-center h-[240px] text-muted-foreground">אין נתונים</div>
-          ) : (
+        {/* Charts */}
+        {/* OLD: <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"> */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 20, marginBottom: 20 }}>
+          {/* OLD: <div className="bg-card border border-border rounded-xl p-6"> */}
+          <div className="heillo-card" style={{ padding: 20 }}>
+            {/* OLD: <h3 className="font-semibold mb-4">מכירות ורווח חודשיים</h3> */}
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", fontFamily: "'Heebo', sans-serif" }}>מכירות ורווח חודשיים</h3>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={topProductsChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
                 <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
-                <Bar dataKey="sales" fill="hsl(var(--primary))" name="מכירות" />
-                <Bar dataKey="profit" fill="hsl(200,60%,50%)" name="רווח" />
-              </BarChart>
+                {/* OLD: stroke="hsl(var(--primary))" / stroke="hsl(200,60%,50%)" */}
+                <Line type="monotone" dataKey="sales" stroke="#F5885E" name="מכירות" strokeWidth={2} />
+                <Line type="monotone" dataKey="profit" stroke="#CEB9B5" name="רווח" strokeWidth={2} />
+              </LineChart>
             </ResponsiveContainer>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Top Products Table */}
-      <div className="bg-card border border-border rounded-xl p-6 mb-6">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" /> מוצרים מובילים
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b">
-              <tr>
-                <th className="text-right py-2 px-3">מוצר</th>
-                <th className="text-right py-2 px-3">כמות שנמכרה</th>
-                <th className="text-right py-2 px-3">סך מכירות</th>
-                <th className="text-right py-2 px-3">רווח</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProducts.map((product) => (
-                <tr key={product.id} className="border-b hover:bg-muted/30">
-                  <td className="py-2 px-3">{product.name}</td>
-                  <td className="py-2 px-3">{product.quantity}</td>
-                  {/* <td className="py-2 px-3">₪{product.sales.toLocaleString()}</td> */}
-                  <td className="py-2 px-3">{formatCurrency(product.sales)}</td>
-                  {/* <td className="py-2 px-3 text-green-600">₪{product.profit.toLocaleString()}</td> */}
-                  <td className="py-2 px-3 text-green-600">{formatCurrency(product.profit)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* OLD: <div className="bg-card border border-border rounded-xl p-6"> */}
+          <div className="heillo-card" style={{ padding: 20 }}>
+            {/* OLD: <h3 className="font-semibold mb-4">מוצרים מובילים</h3> */}
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", fontFamily: "'Heebo', sans-serif" }}>מוצרים מובילים</h3>
+            {topProductsChart.length === 0 ? (
+              /* OLD: <div className="flex items-center justify-center h-[240px] text-muted-foreground">אין נתונים</div> */
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 240, color: "#B2B0B1", fontSize: 13, fontFamily: "'Heebo', sans-serif" }}>אין נתונים</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={topProductsChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
+                  <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
+                  {/* OLD: fill="hsl(var(--primary))" / fill="hsl(200,60%,50%)" */}
+                  <Bar dataKey="sales" fill="#F5885E" name="מכירות" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" fill="#CEB9B5" name="רווח" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Top Customers Table */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5" /> לקוחות מובילים
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b">
-              <tr>
-                <th className="text-right py-2 px-3">לקוח</th>
-                <th className="text-right py-2 px-3">מספר הזמנות</th>
-                <th className="text-right py-2 px-3">סך רכישות</th>
-                <th className="text-right py-2 px-3">רווח גולמי</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topCustomers.map((customer) => (
-                <tr key={customer.id} className="border-b hover:bg-muted/30">
-                  <td className="py-2 px-3">{customer.name}</td>
-                  <td className="py-2 px-3">{customer.orders}</td>
-                  {/* <td className="py-2 px-3">₪{customer.total.toLocaleString()}</td> */}
-                  <td className="py-2 px-3">{formatCurrency(customer.total)}</td>
-                  {/* <td className="py-2 px-3 text-green-600">₪{customer.profit.toLocaleString()}</td> */}
-                  <td className="py-2 px-3 text-green-600">{formatCurrency(customer.profit)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Top Products Table */}
+        {/* OLD: <div className="bg-card border border-border rounded-xl p-6 mb-6"> */}
+        <div className="heillo-card" style={{ padding: 20, marginBottom: 20 }}>
+          {/* OLD: <h3 className="font-semibold mb-4 flex items-center gap-2"><BarChart3 .../> מוצרים מובילים</h3> */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Heebo', sans-serif" }}>
+            <BarChart3 style={{ width: 16, height: 16, color: "#F5885E" }} /> מוצרים מובילים
+          </h3>
+          <div style={{ overflowX: "auto" }}>
+            {/* OLD: <table className="w-full text-sm"><thead className="border-b"><tr>...<tr className="border-b hover:bg-muted/30"> */}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              <thead className="heillo-table-header"><tr>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>מוצר</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>כמות שנמכרה</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>סך מכירות</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>רווח</th>
+              </tr></thead>
+              <tbody>
+                {topProducts.map((product) => (
+                  <tr key={product.id} className="heillo-table-row">
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C", fontWeight: 500 }}>{product.name}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C" }}>{product.quantity}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#F5885E", fontWeight: 600 }}>{formatCurrency(product.sales)}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{formatCurrency(product.profit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+        {/* Top Customers Table */}
+        {/* OLD: <div className="bg-card border border-border rounded-xl p-6"> */}
+        <div className="heillo-card" style={{ padding: 20 }}>
+          {/* OLD: <h3 className="font-semibold mb-4 flex items-center gap-2"><Users .../> לקוחות מובילים</h3> */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Heebo', sans-serif" }}>
+            <Users style={{ width: 16, height: 16, color: "#F5885E" }} /> לקוחות מובילים
+          </h3>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              <thead className="heillo-table-header"><tr>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>לקוח</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>מספר הזמנות</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>סך רכישות</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>רווח גולמי</th>
+              </tr></thead>
+              <tbody>
+                {topCustomers.map((customer) => (
+                  <tr key={customer.id} className="heillo-table-row">
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C", fontWeight: 500 }}>{customer.name}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C" }}>{customer.orders}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#F5885E", fontWeight: 600 }}>{formatCurrency(customer.total)}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{formatCurrency(customer.profit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
     </>
