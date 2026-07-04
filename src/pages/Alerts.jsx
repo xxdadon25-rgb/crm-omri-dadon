@@ -41,56 +41,110 @@ export default function Alerts() {
     })),
   ];
 
+  /* OLD severityStyle: badge used Tailwind bg-red/yellow/blue-100, row used border-r-4 border-*-400 */
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+
   const severityStyle = {
-    critical: { badge: "bg-red-100 text-red-800", row: "border-r-4 border-red-400" },
-    warning: { badge: "bg-yellow-100 text-yellow-800", row: "border-r-4 border-yellow-400" },
-    info: { badge: "bg-blue-100 text-blue-800", row: "border-r-4 border-blue-300" },
+    critical: {
+      badgeStyle: { background: "rgba(239,68,68,0.1)", color: "#ef4444" },
+      borderStyle: { borderRight: "3px solid #F5885E" },
+      iconColor: "#F5885E",
+    },
+    warning: {
+      badgeStyle: { background: "rgba(206,185,181,0.25)", color: "#9a7b77" },
+      borderStyle: { borderRight: "3px solid #CEB9B5" },
+      iconColor: "#CEB9B5",
+    },
+    info: {
+      badgeStyle: { background: "rgba(178,176,177,0.15)", color: "#6b6a6b" },
+      borderStyle: { borderRight: "3px solid #B2B0B1" },
+      iconColor: "#B2B0B1",
+    },
   };
 
   return (
-    <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
-      <div className="sticky top-0 z-10 bg-background pb-3">
-        <PageHeader title="התראות" description={`${allAlerts.length} התראות פעילות`} />
+    /* OLD: <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
+    <div className="heillo-page" dir="rtl">
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-red-700">{allAlerts.filter((a) => a.severity === "critical").length}</p>
-          <p className="text-sm text-red-600">קריטי</p>
+      {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../> */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>התראות</h1>
+        <p style={{ fontSize: 13, color: MUTED, margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>{allAlerts.length} התראות פעילות</p>
+      </div>
+
+      {/* Summary cards */}
+      {/* OLD: <div className="grid grid-cols-1 sm:grid-cols-3 gap-4"> */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16, marginBottom: 24 }}>
+        {/* OLD: <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center"> */}
+        <div className="heillo-card" style={{ padding: 20, textAlign: "center" }}>
+          {/* OLD: <p className="text-2xl font-bold text-red-700"> */}
+          <p style={{ fontSize: 28, fontWeight: 700, color: "#ef4444", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{allAlerts.filter((a) => a.severity === "critical").length}</p>
+          {/* OLD: <p className="text-sm text-red-600">קריטי</p> */}
+          <p style={{ fontSize: 13, color: "#ef4444", margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>קריטי</p>
         </div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-yellow-700">{allAlerts.filter((a) => a.severity === "warning").length}</p>
-          <p className="text-sm text-yellow-600">אזהרה</p>
+        {/* OLD: <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center"> */}
+        <div className="heillo-card" style={{ padding: 20, textAlign: "center" }}>
+          {/* OLD: <p className="text-2xl font-bold text-yellow-700"> */}
+          <p style={{ fontSize: 28, fontWeight: 700, color: "#9a7b77", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{allAlerts.filter((a) => a.severity === "warning").length}</p>
+          {/* OLD: <p className="text-sm text-yellow-600">אזהרה</p> */}
+          <p style={{ fontSize: 13, color: "#9a7b77", margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>אזהרה</p>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-blue-700">{allAlerts.filter((a) => a.severity === "info").length}</p>
-          <p className="text-sm text-blue-600">מידע</p>
+        {/* OLD: <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center"> */}
+        <div className="heillo-card" style={{ padding: 20, textAlign: "center" }}>
+          {/* OLD: <p className="text-2xl font-bold text-blue-700"> */}
+          <p style={{ fontSize: 28, fontWeight: 700, color: MUTED, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{allAlerts.filter((a) => a.severity === "info").length}</p>
+          {/* OLD: <p className="text-sm text-blue-600">מידע</p> */}
+          <p style={{ fontSize: 13, color: MUTED, margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>מידע</p>
         </div>
       </div>
-      </div>{/* end sticky bar */}
 
-      <div className="pt-4">
       {allAlerts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="p-4 rounded-full bg-green-50 mb-4">
-            <CheckCircle className="w-8 h-8 text-green-500" />
+        /* OLD: <div className="flex flex-col items-center justify-center py-16 text-center"> */
+        <div className="heillo-card" style={{ padding: 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          {/* OLD: <div className="p-4 rounded-full bg-green-50 mb-4"> */}
+          <div style={{ padding: 16, borderRadius: "50%", background: "rgba(22,163,74,0.08)", marginBottom: 16 }}>
+            <CheckCircle style={{ width: 32, height: 32, color: "#16a34a" }} />
           </div>
-          <h3 className="text-lg font-semibold">הכל תקין!</h3>
-          <p className="text-sm text-muted-foreground mt-1">אין התראות פעילות</p>
+          {/* OLD: <h3 className="text-lg font-semibold">הכל תקין!</h3> */}
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>הכל תקין!</h3>
+          {/* OLD: <p className="text-sm text-muted-foreground mt-1">אין התראות פעילות</p> */}
+          <p style={{ fontSize: 13, color: MUTED, margin: "6px 0 0", fontFamily: "'Heebo', sans-serif" }}>אין התראות פעילות</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {allAlerts.map((alert) => (
-            <div key={alert.id} className={`bg-card border border-border rounded-xl p-4 flex items-center gap-4 ${severityStyle[alert.severity].row}`}>
-              <alert.icon className="w-5 h-5 shrink-0 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{alert.message}</p>
+        /* OLD: <div className="space-y-2"> wrapping individual bg-card rows */
+        <div className="heillo-card" style={{ overflow: "hidden", padding: 0 }}>
+          {allAlerts.map((alert, idx) => (
+            <div
+              key={alert.id}
+              /* OLD: className={`bg-card border border-border rounded-xl p-4 flex items-center gap-4 ${severityStyle[alert.severity].row}`} */
+              style={{
+                padding: "14px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                borderBottom: idx < allAlerts.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                ...severityStyle[alert.severity].borderStyle,
+                transition: "background 0.15s ease",
+                fontFamily: "'Heebo', sans-serif",
+                cursor: "default",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(245,136,94,0.04)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              {/* OLD: <alert.icon className="w-5 h-5 shrink-0 text-muted-foreground" /> */}
+              <alert.icon style={{ width: 18, height: 18, flexShrink: 0, color: severityStyle[alert.severity].iconColor }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* OLD: <p className="text-sm font-medium truncate">{alert.message}</p> */}
+                <p style={{ fontSize: 13, fontWeight: 500, color: DARK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alert.message}</p>
               </div>
-              <Badge className={severityStyle[alert.severity].badge}>{alert.type}</Badge>
+              {/* OLD: <Badge className={severityStyle[alert.severity].badge}>{alert.type}</Badge> */}
+              <span className="heillo-badge" style={severityStyle[alert.severity].badgeStyle}>{alert.type}</span>
             </div>
           ))}
         </div>
       )}
-      </div>
     </div>
   );
 }
