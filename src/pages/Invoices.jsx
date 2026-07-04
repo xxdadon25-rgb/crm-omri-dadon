@@ -206,143 +206,163 @@ export default function Invoices() {
     queryClient.invalidateQueries({ queryKey: ["invoices"] });
   };
 
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const selectStyle = { background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif" };
+
   return (
-    <div>
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
+    <div className="heillo-page" dir="rtl">
 
-        {/* Sticky top bar: page header + search + status filter */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
-          <PageHeader title="חשבוניות" description={`${invoices.length} חשבוניות`} />
-          <div className="flex flex-col sm:flex-row gap-3 mt-1">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">כל הסטטוסים</SelectItem>
-                <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
-                <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
-                <SelectItem value="שולם">שולם</SelectItem>
-                <SelectItem value="באיחור">באיחור</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* ── Top bar ── */}
+      {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../><div className="flex flex-col sm:flex-row gap-3 mt-1">...</div></div> */}
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>חשבוניות</h1>
+        <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{invoices.length} חשבוניות</p>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+          {/* OLD: <Input placeholder="חיפוש..." className="pr-9" /> */}
+          <input placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)}
+            className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 40 }} />
         </div>
+        {/* OLD: <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-[180px]"> */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger style={{ ...selectStyle, width: 180 }}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">כל הסטטוסים</SelectItem>
+            <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
+            <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
+            <SelectItem value="שולם">שולם</SelectItem>
+            <SelectItem value="באיחור">באיחור</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {selectedCount > 0 && (
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-medium">נבחרו {selectedCount} חשבוניות</span>
-            <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-              <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-            </Button>
-          </div>
-        )}
+      {/* Bulk bar — top */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
+      {selectedCount > 0 && (
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCount} חשבוניות</span>
+          <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={Receipt} title="אין חשבוניות" description="חשבוניות נוצרות מהצעות מחיר" />
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right w-12">
-                    <div className="flex items-center justify-center">
-                      <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-right">מספר</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">תאריך</TableHead>
-                  <TableHead className="text-right">סה״כ</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right min-w-[120px]">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(inv => {
+        /* OLD: <div className="bg-card rounded-xl border border-border overflow-hidden"> */
+        <div className="heillo-card">
+          <div style={{ overflowX: "auto" }}>
+            {/* OLD: <Table><TableHeader><TableRow className="bg-muted/50"> */}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              <thead className="heillo-table-header">
+                <tr>
+                  <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                  </th>
+                  {["מספר", "לקוח", "תאריך", "סה״כ", "סטטוס", "פעולות"].map(col => (
+                    <th key={col} style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap" }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              {/* OLD: <TableBody>{filtered.map(inv => <TableRow className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}> */}
+              <tbody>
+                {filtered.map((inv, i) => {
                   const isSelected = selectedInvoices.has(inv.id);
                   return (
-                  <TableRow key={inv.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
-                    <TableCell>
-                      <div className="flex items-center justify-center">
+                    <tr key={inv.id} className="heillo-table-row"
+                      style={{ background: isSelected ? "rgba(245,136,94,0.04)" : undefined, borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
+                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
                         <Checkbox checked={isSelected} onCheckedChange={() => handleSelectInvoice(inv.id)} />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">#{inv.invoice_number}</TableCell>
-                    <TableCell>{inv.customer_name}</TableCell>
-                    <TableCell>{formatDate(inv.date)}</TableCell>
-                    <TableCell className="font-medium">₪{(inv.total || 0).toLocaleString()}</TableCell>
-                    <TableCell>
-                      {inv.credited_at ? (
-                        <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge>
-                      ) : (
-                        <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
-                          <SelectTrigger className="h-7 w-fit border-0 p-0">
-                            <Badge className={getPaymentStatusColor(inv.payment_status)}>{inv.payment_status}</Badge>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
-                            <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
-                            <SelectItem value="שולם">שולם</SelectItem>
-                            <SelectItem value="באיחור">באיחור</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </TableCell>
-                    <TableCell className="min-w-[120px]">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" onClick={() => setViewInvoice(inv)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {!inv.credited_at && (
-                          <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0 text-destructive" onClick={() => setDeleteId(inv.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                      </td>
+                      {/* OLD: <TableCell className="font-medium">#{inv.invoice_number}</TableCell> */}
+                      <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{inv.invoice_number}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{inv.customer_name}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{formatDate(inv.date)}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 600, color: DARK }}>₪{(inv.total || 0).toLocaleString()}</td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: {inv.credited_at ? <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge> : <Select><SelectTrigger className="h-7 w-fit border-0 p-0"><Badge .../></SelectTrigger>...</Select>} */}
+                        {inv.credited_at ? (
+                          <span className={`heillo-badge ${getPaymentStatusColor("זוכה")}`}>זוכה</span>
+                        ) : (
+                          <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
+                            <SelectTrigger style={{ height: "auto", width: "fit-content", border: "none", padding: 0, background: "transparent", boxShadow: "none" }}>
+                              <span className={`heillo-badge ${getPaymentStatusColor(inv.payment_status)}`}>{inv.payment_status}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ממתין לתשלום">ממתין לתשלום</SelectItem>
+                              <SelectItem value="שולם חלקית">שולם חלקית</SelectItem>
+                              <SelectItem value="שולם">שולם</SelectItem>
+                              <SelectItem value="באיחור">באיחור</SelectItem>
+                            </SelectContent>
+                          </Select>
                         )}
-                        {inv.credited_at && inv.credit_note_id && (
-                          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-purple-600" title="הפק PDF זיכוי"
-                            onClick={() => window.open(`/credit-note-pdf/${inv.credit_note_id}`, "_blank")}>
-                            <FileText className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                        {!inv.credited_at && <CreditNoteButton invoice={inv} />}
-                        {settings[0]?.api_url && (
-                          <div className="shrink-0">
-                            <ExternalInvoiceButton
-                              invoice={inv}
-                              customer={getCustomer(inv.customer_id)}
-                              settings={settings[0]}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </td>
+                      <td style={{ padding: "14px 20px", minWidth: 120 }}>
+                        {/* OLD: <div className="flex items-center gap-1 flex-wrap"><Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" .../> */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                          <button title="צפייה" className="heillo-icon-btn" onClick={() => setViewInvoice(inv)}>
+                            <Eye size={17} strokeWidth={1.8} />
+                          </button>
+                          {!inv.credited_at && (
+                            /* OLD: <Button variant="ghost" size="icon" className="... text-destructive" onClick={() => setDeleteId(inv.id)}> */
+                            <button title="מחיקה" className="heillo-icon-btn" style={{ color: "#ef4444" }} onClick={() => setDeleteId(inv.id)}
+                              onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.08)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                              <Trash2 size={17} strokeWidth={1.8} />
+                            </button>
+                          )}
+                          {inv.credited_at && inv.credit_note_id && (
+                            /* OLD: <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-purple-600" title="הפק PDF זיכוי" ...> */
+                            <button title="הפק PDF זיכוי" className="heillo-icon-btn" style={{ color: "#7c3aed" }}
+                              onClick={() => window.open(`/credit-note-pdf/${inv.credit_note_id}`, "_blank")}
+                              onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.08)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                              <FileText size={17} strokeWidth={1.8} />
+                            </button>
+                          )}
+                          {!inv.credited_at && <CreditNoteButton invoice={inv} />}
+                          {settings[0]?.api_url && (
+                            <div style={{ flexShrink: 0 }}>
+                              <ExternalInvoiceButton
+                                invoice={inv}
+                                customer={getCustomer(inv.customer_id)}
+                                settings={settings[0]}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
+      {/* Bulk bar — bottom */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 ..."> */}
       {selectedCount > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selectedCount} חשבוניות</span>
-          <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCount} חשבוניות</span>
+          <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
         </div>
       )}
-
-      </div>{/* end scrollable region */}
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent dir="rtl">
@@ -417,9 +437,8 @@ export default function Invoices() {
                   customerPhone={getCustomer(viewInvoice.customer_id)?.mobile || getCustomer(viewInvoice.customer_id)?.phone}
                   customerEmail={getCustomer(viewInvoice.customer_id)?.email}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
+                {/* OLD: <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50"> */}
+                <button
                   onClick={() => {
                     const customer = getCustomer(viewInvoice.customer_id);
                     const phone = customer?.mobile || customer?.phone || "";
@@ -430,10 +449,12 @@ export default function Invoices() {
                     const msg = `שלום ${viewInvoice.customer_name},\n\nחשבונית מספר #${viewInvoice.invoice_number} ממיני סטוק\nסה"כ לתשלום: ${total}₪\n\nלצפייה בחשבונית: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
                     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
                   }}
-                  className="text-green-600 border-green-200 hover:bg-green-50"
+                  style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "var(--heillo-accent)", fontSize: 13, fontWeight: 500, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(245,136,94,0.06)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
                 >
-                  <Link2 className="w-4 h-4 ml-1" /> קישור WhatsApp לחשבונית
-                </Button>
+                  <Link2 style={{ width: 15, height: 15 }} /> קישור WhatsApp לחשבונית
+                </button>
                 {settings[0]?.api_url && (
                   <ExternalInvoiceButton
                     invoice={viewInvoice}
