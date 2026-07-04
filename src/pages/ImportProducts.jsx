@@ -241,23 +241,45 @@ export default function ImportProducts() {
   };
 
   return (
-    <div>
-      <PageHeader title="ייבוא מוצרים" description="ייבוא ועדכון מוצרים מ-WooCommerce CSV">
-        <Button variant="outline" size="sm" onClick={downloadTemplate}>
-          <Download className="w-4 h-4 ml-1" /> הורד תבנית
-        </Button>
-        {step !== "upload" && (
-          <Button variant="ghost" size="sm" onClick={reset}>
-            <RotateCcw className="w-4 h-4 ml-1" /> התחל מחדש
-          </Button>
-        )}
-      </PageHeader>
+    /* OLD: <div> */
+    <div className="heillo-page" dir="rtl">
 
-      <div className="space-y-6 max-w-4xl">
+      {/* ── Top bar ── */}
+      {/* OLD: <PageHeader title="ייבוא מוצרים" ...><Button>הורד תבנית</Button>...</PageHeader> */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, gap: 12, flexWrap: "wrap", fontFamily: "'Heebo', sans-serif" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0 }}>ייבוא מוצרים</h1>
+          <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0" }}>ייבוא ועדכון מוצרים מ-WooCommerce CSV</p>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={downloadTemplate}
+            style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+          >
+            <Download style={{ width: 15, height: 15 }} /> הורד תבנית
+          </button>
+          {step !== "upload" && (
+            <button
+              onClick={reset}
+              style={{ background: "transparent", color: "var(--heillo-text-muted)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              <RotateCcw style={{ width: 15, height: 15 }} /> התחל מחדש
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* OLD: <div className="space-y-6 max-w-4xl"> */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900 }}>
 
         {/* Step 1: Upload */}
         {step === "upload" && (
-          <div className="bg-card border border-border rounded-xl p-6">
+          /* OLD: <div className="bg-card border border-border rounded-xl p-6"> */
+          <div className="heillo-card" style={{ padding: 32 }}>
             <UploadZone onFile={handleFile} />
           </div>
         )}
@@ -267,11 +289,12 @@ export default function ImportProducts() {
           <>
             <CsvPreview headers={csvData.headers} rows={csvData.rows} />
             <ColumnMapper headers={csvData.headers} mapping={mapping} onChange={setMapping} />
-            <div className="flex justify-end">
-              <Button onClick={runImport} size="lg">
-                <Play className="w-4 h-4 ml-2" />
+            {/* OLD: <div className="flex justify-end"><Button onClick={runImport} size="lg">...</Button></div> */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={runImport} className="heillo-btn-primary" style={{ fontSize: 14, padding: "10px 24px", display: "flex", alignItems: "center", gap: 8 }}>
+                <Play style={{ width: 16, height: 16 }} />
                 התחל ייבוא ({csvData.rows.length} מוצרים)
-              </Button>
+              </button>
             </div>
           </>
         )}
@@ -281,13 +304,19 @@ export default function ImportProducts() {
           <>
             <ImportProgress progress={progress} stats={stats} />
             {step === "done" && (
-              <div className="flex gap-3 justify-end">
-                <Button variant="outline" onClick={reset}>
-                  <RotateCcw className="w-4 h-4 ml-1" /> ייבוא נוסף
-                </Button>
-                <Button onClick={() => window.location.href = "/inventory"}>
+              /* OLD: <div className="flex gap-3 justify-end"> */
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  onClick={reset}
+                  style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "8px 18px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+                >
+                  <RotateCcw style={{ width: 15, height: 15 }} /> ייבוא נוסף
+                </button>
+                <button className="heillo-btn-primary" onClick={() => window.location.href = "/inventory"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   צפה במלאי
-                </Button>
+                </button>
               </div>
             )}
           </>
