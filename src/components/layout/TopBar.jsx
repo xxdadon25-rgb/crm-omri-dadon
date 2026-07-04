@@ -44,7 +44,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
         )}
         style={{
           background: "transparent",
-          borderBottom: "1px solid rgba(0,0,0,0.04)",
+
           height: 64,
           paddingTop: "env(safe-area-inset-top)",
           fontFamily: "'Heebo', sans-serif",
