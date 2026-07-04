@@ -319,68 +319,93 @@ export default function SalesCatalog() {
     return <CustomerSelector onConfirm={handleCustomerConfirm} onBack={() => navigate("/quotes")} />;
   }
 
+  // OLD: return (<div className={`flex flex-col bg-background ${fullscreen ? ...}`} style={...}>
   return (
-    <div className={`flex flex-col bg-background ${fullscreen ? "fixed inset-0 z-40" : "flex-1 min-h-0 h-full"}`} style={fullscreen ? {} : { height: "calc(100vh - 56px)" }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border shrink-0 gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="sm" onClick={() => setStep("customer")} className="shrink-0">
+    <div
+      className={`flex flex-col ${fullscreen ? "fixed inset-0 z-40" : "flex-1 min-h-0 h-full"}`}
+      style={{ ...(fullscreen ? {} : { height: "calc(100vh - 56px)" }), background: "var(--heillo-bg-gradient)", fontFamily: "'Heebo', sans-serif" }}
+      dir="rtl"
+    >
+      {/* ── Top bar ── */}
+      {/* OLD: <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border shrink-0 gap-3"> */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)", flexShrink: 0, gap: 12, fontFamily: "'Heebo', sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <Button variant="ghost" size="sm" onClick={() => setStep("customer")} style={{ flexShrink: 0 }}>
             <ArrowRight className="w-4 h-4 ml-1" /> <span className="hidden sm:inline">החלף לקוח</span>
           </Button>
-          <div className="h-5 w-px bg-border hidden sm:block" />
-          <div className="text-sm min-w-0">
-            <span className="text-muted-foreground hidden sm:inline">לקוח: </span>
-            <span className="font-semibold truncate">{selectedCustomer?.name}</span>
+          <div className="hidden sm:block" style={{ height: 20, width: 1, background: "rgba(0,0,0,0.08)" }} />
+          {/* OLD: <div className="text-sm min-w-0"><span className="text-muted-foreground ...">לקוח: </span><span className="font-semibold truncate">...</span> */}
+          <div style={{ fontSize: 13, minWidth: 0 }}>
+            <span className="hidden sm:inline" style={{ color: "var(--heillo-text-muted)" }}>לקוח: </span>
+            <span style={{ fontWeight: 700, color: "var(--heillo-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedCustomer?.name}</span>
             {selectedCustomer?.discount_percent > 0 && (
-              <span className="mr-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+              /* OLD: <span className="mr-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded"> */
+              <span style={{ marginRight: 8, fontSize: 11, fontWeight: 600, background: "var(--heillo-accent-light)", color: "var(--heillo-accent)", padding: "2px 8px", borderRadius: 99 }}>
                 הנחה {selectedCustomer.discount_percent}%
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {/* Favorites toggle */}
+          {/* OLD: <button className={`p-2 rounded-lg border transition-all ${showFavoritesOnly ? "bg-red-50 border-red-200 text-red-600" : "border-border text-muted-foreground ...}`}> */}
           <button
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`p-2 rounded-lg border transition-all ${showFavoritesOnly ? "bg-red-50 border-red-200 text-red-600" : "border-border text-muted-foreground hover:text-foreground"}`}
             title="מועדפים"
+            style={{
+              padding: 8, borderRadius: 10, border: "1px solid", transition: "all 0.2s ease", cursor: "pointer", display: "flex", alignItems: "center",
+              background: showFavoritesOnly ? "rgba(239,68,68,0.06)" : "transparent",
+              borderColor: showFavoritesOnly ? "rgba(239,68,68,0.3)" : "rgba(0,0,0,0.08)",
+              color: showFavoritesOnly ? "#dc2626" : "var(--heillo-text-muted)",
+            }}
           >
-            <Star className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
+            <Star style={{ width: 16, height: 16, fill: showFavoritesOnly ? "currentColor" : "none" }} />
           </button>
 
           {/* Fullscreen */}
+          {/* OLD: <button className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-all hidden md:block"> */}
           <button
             onClick={() => setFullscreen(!fullscreen)}
-            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-all hidden md:block"
             title="מסך מלא"
+            className="hidden md:flex"
+            style={{ padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.08)", background: "transparent", cursor: "pointer", color: "var(--heillo-text-muted)", alignItems: "center", transition: "all 0.2s ease" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.04)"; e.currentTarget.style.color = "var(--heillo-text-primary)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--heillo-text-muted)"; }}
           >
-            {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {fullscreen ? <Minimize2 style={{ width: 16, height: 16 }} /> : <Maximize2 style={{ width: 16, height: 16 }} />}
           </button>
 
-          <span className="text-xs text-muted-foreground hidden sm:block">{filteredProducts.length} מוצרים</span>
+          <span className="hidden sm:block" style={{ fontSize: 12, color: "var(--heillo-text-muted)" }}>{filteredProducts.length} מוצרים</span>
 
-          <Button
-            variant={cartItems.length > 0 ? "default" : "outline"}
-            size="sm"
+          {/* Cart button */}
+          {/* OLD: <Button variant={cartItems.length > 0 ? "default" : "outline"} size="sm" ... className="relative"> */}
+          <button
             onClick={() => {
               if (cartItems.length === 0) { toast.info("הסל ריק – הוסף מוצרים"); return; }
               setCartOpen(true);
             }}
-            className="relative"
+            style={{
+              position: "relative", display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 14px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+              border: "none", cursor: "pointer", fontFamily: "'Heebo', sans-serif",
+              background: cartItems.length > 0 ? "var(--heillo-accent)" : "rgba(0,0,0,0.06)",
+              color: cartItems.length > 0 ? "#FFFFFF" : "var(--heillo-text-primary)",
+              transition: "all 0.2s ease",
+            }}
           >
-            <ShoppingCart className="w-4 h-4 ml-1" />
+            <ShoppingCart style={{ width: 16, height: 16 }} />
             <span className="hidden sm:inline">סל</span>
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -left-1.5 bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+              <span style={{ position: "absolute", top: -6, left: -6, background: "#ef4444", color: "#fff", fontSize: 10, width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             )}
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters (unchanged) */}
       <CatalogFilters
         search={search}
         onSearch={setSearch}
@@ -390,9 +415,10 @@ export default function SalesCatalog() {
       />
 
       {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* OLD: <div className="flex-1 overflow-y-auto p-4"> */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           <ProductGrid
             products={filteredProducts}
             cartItems={cartItems}
@@ -406,7 +432,8 @@ export default function SalesCatalog() {
         </div>
 
         {/* Desktop cart panel */}
-        <div className="hidden xl:flex w-96 border-r border-border bg-card overflow-hidden flex-col shrink-0">
+        {/* OLD: <div className="hidden xl:flex w-96 border-r border-border bg-card overflow-hidden flex-col shrink-0"> */}
+        <div className="hidden xl:flex" style={{ width: 384, borderRight: "1px solid rgba(0,0,0,0.05)", background: "#FFFFFF", overflow: "hidden", flexDirection: "column", flexShrink: 0 }}>
           <QuoteCart
             items={cartItems}
             customer={selectedCustomer}
@@ -424,12 +451,14 @@ export default function SalesCatalog() {
 
       {/* Mobile cart drawer */}
       {cartOpen && (
-        <div className="xl:hidden fixed inset-0 z-50 flex flex-col bg-background">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="font-bold text-lg">סל הזמנה</h2>
+        /* OLD: <div className="xl:hidden fixed inset-0 z-50 flex flex-col bg-background"> */
+        <div className="xl:hidden" style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", background: "var(--heillo-bg-gradient)", fontFamily: "'Heebo', sans-serif" }}>
+          {/* OLD: <div className="flex items-center justify-between p-4 border-b border-border"> */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+            <h2 style={{ fontWeight: 700, fontSize: 16, color: "var(--heillo-text-primary)", margin: 0 }}>סל הזמנה</h2>
             <Button variant="ghost" size="sm" onClick={() => setCartOpen(false)}>סגור</Button>
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div style={{ flex: 1, overflow: "hidden" }}>
             <QuoteCart
               items={cartItems}
               customer={selectedCustomer}
