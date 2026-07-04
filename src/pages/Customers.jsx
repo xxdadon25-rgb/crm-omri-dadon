@@ -153,242 +153,241 @@ export default function Customers() {
     setDeleting(false);
   };
 
+  // ── Heillo design tokens (inline where CSS vars not available) ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const selectStyle = { background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif" };
+
   return (
-    <div>
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper, restore PageHeader + filters as direct children */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
+    <div className="heillo-page" dir="rtl">
 
-        {/* Sticky top bar: title, view toggles, new customer button, search + filters */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
-          <PageHeader title="לקוחות" description={`${customers.length} לקוחות`}>
-            <div className="flex items-center gap-2">
-              <Button variant={view === "dashboard" ? "default" : "outline"} size="sm" onClick={() => setView("dashboard")}>
-                <LayoutDashboard className="w-4 h-4 ml-1" /> CRM
-              </Button>
-              <Button variant={view === "list" ? "default" : "outline"} size="sm" onClick={() => setView("list")}>
-                <List className="w-4 h-4 ml-1" /> רשימה
-              </Button>
-              <Button size="sm" onClick={() => { setEditCustomer(null); setDialogOpen(true); }}>
-                <Plus className="w-4 h-4 ml-1" /> לקוח חדש
-              </Button>
-            </div>
-          </PageHeader>
+      {/* ── Top bar ── */}
+      {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../> ... </div> */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>לקוחות</h1>
+          <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{customers.length} לקוחות</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* OLD: <Button variant={view==="dashboard"?...}>CRM</Button><Button variant={view==="list"?...}>רשימה</Button> */}
+          {[{ key: "dashboard", label: "CRM", icon: LayoutDashboard }, { key: "list", label: "רשימה", icon: List }].map(({ key, label, icon: Icon }) => (
+            <button key={key} onClick={() => setView(key)}
+              style={{ background: view === key ? ACCENT : "#FFFFFF", color: view === key ? "#FFFFFF" : DARK, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s ease" }}>
+              <Icon style={{ width: 15, height: 15 }} /> {label}
+            </button>
+          ))}
+          {/* OLD: <Button size="sm" onClick={...}><Plus .../> לקוח חדש</Button> */}
+          <button className="heillo-btn-primary" onClick={() => { setEditCustomer(null); setDialogOpen(true); }} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus style={{ width: 16, height: 16 }} /> לקוח חדש
+          </button>
+        </div>
+      </div>
 
-          {view === "list" && (
-            <div className="flex flex-wrap gap-3 mt-1">
-              <div className="relative flex-1 min-w-48">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="חיפוש לקוחות..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="סטטוס CRM" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CRM_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="סוג לקוח" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="הכל">הכל</SelectItem>
-                  <SelectItem value="פרטי">👤 פרטי</SelectItem>
-                  <SelectItem value="עסקי">🏢 עסקי</SelectItem>
-                </SelectContent>
-              </Select>
-              {(statusFilter !== "הכל" || typeFilter !== "הכל") && (
-                <Button variant="ghost" size="sm" onClick={() => { setStatusFilter("הכל"); setTypeFilter("הכל"); }}>נקה פילטרים</Button>
-              )}
-            </div>
+      {/* ── Search + filters (list view only) ── */}
+      {/* OLD: <div className="flex flex-wrap gap-3 mt-1"><div className="relative flex-1 min-w-48"><Search .../><Input className="pr-9" /></div><Select .../><Select .../></div> */}
+      {view === "list" && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+            <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+            <input placeholder="חיפוש לקוחות..." value={search} onChange={(e) => setSearch(e.target.value)}
+              className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 40 }} />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            {/* OLD: <SelectTrigger className="w-48"> */}
+            <SelectTrigger style={{ ...selectStyle, width: 192 }}><SelectValue placeholder="סטטוס CRM" /></SelectTrigger>
+            <SelectContent>{CRM_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            {/* OLD: <SelectTrigger className="w-36"> */}
+            <SelectTrigger style={{ ...selectStyle, width: 144 }}><SelectValue placeholder="סוג לקוח" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="הכל">הכל</SelectItem>
+              <SelectItem value="פרטי">👤 פרטי</SelectItem>
+              <SelectItem value="עסקי">🏢 עסקי</SelectItem>
+            </SelectContent>
+          </Select>
+          {(statusFilter !== "הכל" || typeFilter !== "הכל") && (
+            <button onClick={() => { setStatusFilter("הכל"); setTypeFilter("הכל"); }}
+              style={{ background: "transparent", color: MUTED, border: "none", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", padding: "0 8px" }}>
+              נקה פילטרים
+            </button>
           )}
         </div>
+      )}
 
-        {view === "dashboard" && (
-          <div className="mb-6">
-            <CrmDashboard onSelectStatus={(status) => { setStatusFilter(status); setView("list"); }} />
-          </div>
-        )}
+      {/* ── CRM Dashboard view ── */}
+      {view === "dashboard" && (
+        <div style={{ marginBottom: 24 }}>
+          <CrmDashboard onSelectStatus={(status) => { setStatusFilter(status); setView("list"); }} />
+        </div>
+      )}
 
-        {view === "list" && (
-          <>
-            {selectedCustomers.size > 0 && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-              <span className="text-sm font-medium">נבחרו {selectedCustomers.size} לקוחות</span>
-              <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-                <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-              </Button>
+      {/* ── List view ── */}
+      {view === "list" && (
+        <>
+          {/* Bulk selection bar */}
+          {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
+          {selectedCustomers.size > 0 && (
+            <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCustomers.size} לקוחות</span>
+              <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+                <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+              </button>
             </div>
           )}
 
           {isLoading ? (
-            <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+            <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+            </div>
           ) : filtered.length === 0 ? (
             <EmptyState icon={Users} title="אין לקוחות" description="הוסף לקוח ראשון" />
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden lg:block bg-card rounded-xl border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="w-10 text-right">
-                          <div className="flex items-center justify-center">
-                            <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
-                          </div>
-                        </TableHead>
-                        <TableHead className="text-right">שם</TableHead>
-                        <TableHead className="text-right">סטטוס CRM</TableHead>
-                        <TableHead className="text-right">סוג</TableHead>
-                        <TableHead className="text-right">טלפון</TableHead>
-                        <TableHead className="text-right">הזמנות</TableHead>
-                        <TableHead className="text-right">סה״כ רכישות</TableHead>
-                        <TableHead className="text-right">הזמנה אחרונה</TableHead>
-                        <TableHead className="text-right">משימות</TableHead>
-                        <TableHead className="text-right w-24">פעולות</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filtered.map(c => {
+              {/* ── Desktop table ── */}
+              {/* OLD: <div className="hidden lg:block bg-card rounded-xl border border-border overflow-hidden"> */}
+              <div className="hidden lg:block heillo-card">
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+                    {/* OLD: <TableHeader><TableRow className="bg-muted/50"> */}
+                    <thead className="heillo-table-header">
+                      <tr>
+                        <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                          <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
+                        </th>
+                        {["שם","סטטוס CRM","סוג","טלפון","הזמנות","סה״כ רכישות","הזמנה אחרונה","משימות","פעולות"].map(col => (
+                          <th key={col} style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap" }}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    {/* OLD: <TableBody>{filtered.map(c => <TableRow className={`hover:bg-muted/30 ${...}`}> */}
+                    <tbody>
+                      {filtered.map((c, i) => {
                         const stats = getStats(c.id);
+                        const isSelected = selectedCustomers.has(c.id);
                         return (
-                          <TableRow key={c.id} className={`hover:bg-muted/30 ${selectedCustomers.has(c.id) ? "bg-primary/5" : ""}`}>
-                            <TableCell><div className="flex items-center justify-center"><Checkbox checked={selectedCustomers.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} /></div></TableCell>
-                            <TableCell>
-                              <button onClick={() => navigate(`/customers/${c.id}`)} className="font-medium hover:text-primary transition-colors text-right">
+                          <tr key={c.id} className="heillo-table-row"
+                            style={{ background: isSelected ? "rgba(245,136,94,0.04)" : undefined, borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
+                            <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                              <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(c.id)} />
+                            </td>
+                            <td style={{ padding: "14px 20px" }}>
+                              {/* OLD: <button className="font-medium hover:text-primary transition-colors text-right"> */}
+                              <button onClick={() => navigate(`/customers/${c.id}`)} style={{ fontWeight: 600, fontSize: 13, color: DARK, background: "none", border: "none", cursor: "pointer", fontFamily: "'Heebo', sans-serif", transition: "color 0.15s ease" }}
+                                onMouseEnter={e => e.currentTarget.style.color = ACCENT}
+                                onMouseLeave={e => e.currentTarget.style.color = DARK}>
                                 {c.name}
                               </button>
-                            </TableCell>
-                            <TableCell><CustomerStatusBadge status={c.crm_status} /></TableCell>
-                            <TableCell>
-                              <Badge variant={c.customer_type === "עסקי" ? "default" : "secondary"} className="text-xs">
+                            </td>
+                            <td style={{ padding: "14px 20px" }}><CustomerStatusBadge status={c.crm_status} /></td>
+                            <td style={{ padding: "14px 20px" }}>
+                              {/* OLD: <Badge variant={...} className="text-xs"> */}
+                              <span className="heillo-badge" style={{ background: c.customer_type === "עסקי" ? "rgba(99,102,241,0.1)" : "rgba(0,0,0,0.05)", color: c.customer_type === "עסקי" ? "#4f46e5" : DARK }}>
                                 {c.customer_type === "עסקי" ? "🏢 עסקי" : "👤 פרטי"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm">{c.mobile || c.phone || "-"}</TableCell>
-                            <TableCell className="text-center"><Badge variant="secondary">{stats.orders}</Badge></TableCell>
-                            <TableCell className="font-medium">₪{stats.total.toLocaleString()}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{formatDate(stats.lastOrder) || "-"}</TableCell>
-                            <TableCell>
+                              </span>
+                            </td>
+                            <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{c.mobile || c.phone || "—"}</td>
+                            <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                              {/* OLD: <Badge variant="secondary">{stats.orders}</Badge> */}
+                              <span className="heillo-badge" style={{ background: "rgba(0,0,0,0.05)", color: DARK }}>{stats.orders}</span>
+                            </td>
+                            <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: DARK }}>₪{stats.total.toLocaleString()}</td>
+                            <td style={{ padding: "14px 20px", fontSize: 12, color: MUTED }}>{formatDate(stats.lastOrder) || "—"}</td>
+                            <td style={{ padding: "14px 20px" }}>
                               {stats.openTasks > 0 ? (
-                                <Badge className="bg-yellow-100 text-yellow-800 text-xs">{stats.openTasks} פתוחות</Badge>
-                              ) : "-"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                {/* // <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/customers/${c.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
-                                // <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                                // <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="נווט בוויז" asChild><a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"><Navigation className="w-3.5 h-3.5" /></a></Button>
-                                // <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}><MapPin className="w-3.5 h-3.5" /></Button>
-                                // <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button> */}
-                                <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
-                                  <Eye size={19} strokeWidth={1.6} className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200" />
+                                /* OLD: <Badge className="bg-yellow-100 text-yellow-800 text-xs"> */
+                                <span className="heillo-badge" style={{ background: "rgba(234,179,8,0.12)", color: "#854d0e" }}>{stats.openTasks} פתוחות</span>
+                              ) : "—"}
+                            </td>
+                            <td style={{ padding: "14px 20px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <button title="צפייה" className="heillo-icon-btn" onClick={() => navigate(`/customers/${c.id}`)}>
+                                  <Eye size={18} strokeWidth={1.8} />
                                 </button>
-                                <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
-                                  <Pencil size={19} strokeWidth={1.6} className="text-amber-400 hover:text-amber-600 transition-colors duration-200" />
+                                <button title="עריכה" className="heillo-icon-btn" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
+                                  <Pencil size={18} strokeWidth={1.8} />
                                 </button>
                                 {c.location_lat && c.location_lng ? (
                                   <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
-                                    <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }}>
-                                      <Navigation size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
-                                    </button>
+                                    <button title="נווט בוויז" className="heillo-icon-btn"><Navigation size={18} strokeWidth={1.8} /></button>
                                   </a>
                                 ) : (
-                                  <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
-                                    <MapPin size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
+                                  <button title="שמור מיקום" className="heillo-icon-btn" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
+                                    <MapPin size={18} strokeWidth={1.8} />
                                   </button>
                                 )}
-                                <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
-                                  <Trash2 size={19} strokeWidth={1.6} className="text-rose-400 hover:text-rose-600 transition-colors duration-200" />
+                                <button title="מחיקה" className="heillo-icon-btn" style={{ color: "#ef4444" }} onClick={() => setDeleteId(c.id)}
+                                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.color = "#ef4444"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#ef4444"; }}>
+                                  <Trash2 size={18} strokeWidth={1.8} />
                                 </button>
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         );
                       })}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              {/* Tablet/mobile card list */}
-              <div className="lg:hidden space-y-2">
-                <div className="flex items-center gap-2 px-1 pb-1 border-b border-border">
+              {/* ── Mobile card list ── */}
+              {/* OLD: <div className="lg:hidden space-y-2"> */}
+              <div className="lg:hidden" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 8px", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                   <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
-                  <span className="text-xs text-muted-foreground">בחר הכל</span>
+                  <span style={{ fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>בחר הכל</span>
                 </div>
                 {filtered.map(c => {
                   const stats = getStats(c.id);
                   const isSelected = selectedCustomers.has(c.id);
                   return (
-                    <div
-                      key={c.id}
-                      className={`bg-card rounded-xl border border-border p-4 ${isSelected ? "border-primary/50 bg-primary/5" : ""}`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className="pt-0.5">
-                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(c.id)} />
-                          </div>
-                          <div className="min-w-0">
-                            <button onClick={() => navigate(`/customers/${c.id}`)} className="font-semibold text-base hover:text-primary transition-colors text-right block truncate">
+                    /* OLD: <div className={`bg-card rounded-xl border border-border p-4 ${isSelected ? "border-primary/50 bg-primary/5" : ""}`}> */
+                    <div key={c.id} className="heillo-card" style={{ padding: 16, borderColor: isSelected ? "rgba(245,136,94,0.3)" : undefined, background: isSelected ? "rgba(245,136,94,0.04)" : "#FFFFFF" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+                          <div style={{ paddingTop: 2 }}><Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(c.id)} /></div>
+                          <div style={{ minWidth: 0 }}>
+                            <button onClick={() => navigate(`/customers/${c.id}`)} style={{ fontWeight: 600, fontSize: 14, color: DARK, background: "none", border: "none", cursor: "pointer", fontFamily: "'Heebo', sans-serif", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {c.name}
                             </button>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 4 }}>
                               <CustomerStatusBadge status={c.crm_status} />
-                              <Badge variant={c.customer_type === "עסקי" ? "default" : "secondary"} className="text-xs">
+                              <span className="heillo-badge" style={{ background: c.customer_type === "עסקי" ? "rgba(99,102,241,0.1)" : "rgba(0,0,0,0.05)", color: c.customer_type === "עסקי" ? "#4f46e5" : DARK }}>
                                 {c.customer_type === "עסקי" ? "🏢 עסקי" : "👤 פרטי"}
-                              </Badge>
+                              </span>
                               {stats.openTasks > 0 && (
-                                <Badge className="bg-yellow-100 text-yellow-800 text-xs">{stats.openTasks} משימות</Badge>
+                                <span className="heillo-badge" style={{ background: "rgba(234,179,8,0.12)", color: "#854d0e" }}>{stats.openTasks} משימות</span>
                               )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {/* // <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate(`/customers/${c.id}`)}><Eye className="w-4 h-4" /></Button>
-                          // <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}><Pencil className="w-4 h-4" /></Button>
-                          // <Button variant="ghost" size="icon" className="h-9 w-9 text-green-600" title="נווט בוויז" asChild><a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"><Navigation className="w-4 h-4" /></a></Button>
-                          // <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" title="שמור מיקום" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}><MapPin className="w-4 h-4" /></Button>
-                          // <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4" /></Button> */}
-                          <button title="צפייה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-indigo-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => navigate(`/customers/${c.id}`)}>
-                            <Eye size={19} strokeWidth={1.6} className="text-indigo-400 hover:text-indigo-600 transition-colors duration-200" />
-                          </button>
-                          <button title="עריכה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-amber-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => { setEditCustomer(c); setDialogOpen(true); }}>
-                            <Pencil size={19} strokeWidth={1.6} className="text-amber-400 hover:text-amber-600 transition-colors duration-200" />
-                          </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                          <button title="צפייה" className="heillo-icon-btn" onClick={() => navigate(`/customers/${c.id}`)}><Eye size={18} strokeWidth={1.8} /></button>
+                          <button title="עריכה" className="heillo-icon-btn" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}><Pencil size={18} strokeWidth={1.8} /></button>
                           {c.location_lat && c.location_lng ? (
                             <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
-                              <button title="נווט בוויז" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }}>
-                                <Navigation size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
-                              </button>
+                              <button title="נווט בוויז" className="heillo-icon-btn"><Navigation size={18} strokeWidth={1.8} /></button>
                             </a>
                           ) : (
-                            <button title="שמור מיקום" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-emerald-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}>
-                              <MapPin size={19} strokeWidth={1.6} className="text-emerald-400 hover:text-emerald-600 transition-colors duration-200" />
-                            </button>
+                            <button title="שמור מיקום" className="heillo-icon-btn" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)}><MapPin size={18} strokeWidth={1.8} /></button>
                           )}
-                          <button title="מחיקה" className="relative p-2 rounded-xl transition-all duration-200 ease-out hover:scale-110 active:scale-95 hover:shadow-md shadow-sm hover:bg-rose-50" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(0,0,0,0.06)" }} onClick={() => setDeleteId(c.id)}>
-                            <Trash2 size={19} strokeWidth={1.6} className="text-rose-400 hover:text-rose-600 transition-colors duration-200" />
+                          <button title="מחיקה" className="heillo-icon-btn" style={{ color: "#ef4444" }} onClick={() => setDeleteId(c.id)}
+                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                            <Trash2 size={18} strokeWidth={1.8} />
                           </button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">טלפון</p>
-                          <p className="font-medium">{c.mobile || c.phone || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">הזמנות</p>
-                          <p className="font-medium">{stats.orders}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">סה״כ רכישות</p>
-                          <p className="font-medium">₪{stats.total.toLocaleString()}</p>
-                        </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(0,0,0,0.05)", fontSize: 13 }}>
+                        {[["טלפון", c.mobile || c.phone || "—"], ["הזמנות", stats.orders], ["סה״כ רכישות", `₪${stats.total.toLocaleString()}`]].map(([label, val]) => (
+                          <div key={label}>
+                            <p style={{ fontSize: 11, color: MUTED, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{label}</p>
+                            <p style={{ fontWeight: 500, color: DARK, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{val}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -397,18 +396,17 @@ export default function Customers() {
             </>
           )}
 
+          {/* Bottom bulk bar */}
           {selectedCustomers.size > 0 && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium">נבחרו {selectedCustomers.size} לקוחות</span>
-              <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-                <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-              </Button>
+            <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCustomers.size} לקוחות</span>
+              <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+                <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+              </button>
             </div>
           )}
-          </>
-        )}
-
-      </div>{/* end scrollable region */}
+        </>
+      )}
 
       <CustomerDialog
         open={dialogOpen}
