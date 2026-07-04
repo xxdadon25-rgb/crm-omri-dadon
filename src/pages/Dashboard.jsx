@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getOrderStatusColor, getPaymentStatusColor } from "@/utils/statusColors";
 
-const COLORS = ["hsl(48, 96%, 53%)", "hsl(200, 60%, 50%)", "hsl(150, 50%, 45%)", "hsl(280, 60%, 55%)", "hsl(20, 80%, 55%)"];
+const COLORS = ["#F5885E", "#CEB9B5", "#60515B", "#B06056", "#4C3034", "#B2B0B1"];
 
 // ─── Heillo design tokens ─────────────────────────────────────────────────────
 const ACCENT   = "#F5885E";
