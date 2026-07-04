@@ -880,8 +880,11 @@ export default function QualityControl() {
     /* OLD: <div dir="rtl"> */
     <div className="heillo-page" dir="rtl">
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* OLD: <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3"> ... <PageHeader .../> */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 0 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>מרכז בקרה</h1>
           <p style={{ fontSize: 13, color: MUTED, margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>בדיקות תקינות מערכת</p>
@@ -897,6 +900,7 @@ export default function QualityControl() {
           </button>
         </div>
       </div>
+      </div>{/* end sticky top section */}
 
       {/* OLD: <div className="p-4 space-y-4"> */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

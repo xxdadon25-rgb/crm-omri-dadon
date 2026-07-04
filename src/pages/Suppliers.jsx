@@ -355,6 +355,9 @@ export default function Suppliers() {
     /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
     <div className="heillo-page" dir="rtl">
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* ── Top bar ── */}
       {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../><div className="relative mt-1"><Search /><Input className="pr-9 max-w-md" /></div></div> */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
@@ -374,6 +377,7 @@ export default function Suppliers() {
         <input placeholder="חיפוש ספקים..." value={search} onChange={(e) => setSearch(e.target.value)}
           className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 40 }} />
       </div>
+      </div>{/* end sticky top section */}
 
       {/* Bulk bar — top */}
       {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}

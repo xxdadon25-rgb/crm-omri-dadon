@@ -328,7 +328,7 @@ export default function SalesCatalog() {
     >
       {/* ── Top bar ── */}
       {/* OLD: <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border shrink-0 gap-3"> */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,0.05)", flexShrink: 0, gap: 12, fontFamily: "'Heebo', sans-serif" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", flexShrink: 0, gap: 12, fontFamily: "'Heebo', sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <Button variant="ghost" size="sm" onClick={() => setStep("customer")} style={{ flexShrink: 0 }}>
             <ArrowRight className="w-4 h-4 ml-1" /> <span className="hidden sm:inline">החלף לקוח</span>

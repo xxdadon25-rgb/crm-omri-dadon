@@ -229,6 +229,9 @@ export default function DocumentCenter() {
     /* OLD: <div dir="rtl"><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
     <div className="heillo-page" dir="rtl">
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* ── Top bar ── */}
       {/* OLD: <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3"><PageHeader .../><div className="bg-card border border-border rounded-xl p-4 mt-1"> */}
       <div style={{ marginBottom: 16 }}>
@@ -280,6 +283,7 @@ export default function DocumentCenter() {
         </div>
 
       </div>
+      </div>{/* end sticky top section */}
 
       {/* ── Content ── */}
       {loading ? (

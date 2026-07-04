@@ -524,8 +524,10 @@ export default function Reports() {
       {/* OLD: <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> + <div className="sticky top-0 ..."><PageHeader .../> */}
       <div className="heillo-page" dir="rtl">
 
+        {/* ── Sticky top section ── */}
+        <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
         {/* Inline title */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 0 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>דוחות</h1>
             <p style={{ fontSize: 13, color: "#B2B0B1", margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>סקירה עסקית ונתונים סטטיסטיים</p>
@@ -550,6 +552,7 @@ export default function Reports() {
             </button>
           </div>
         </div>
+        </div>{/* end sticky top section */}
 
         {/* Filter card */}
         {/* OLD: <div className="bg-card border border-border rounded-xl p-4 mt-1"> */}

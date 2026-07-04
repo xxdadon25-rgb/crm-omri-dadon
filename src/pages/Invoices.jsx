@@ -216,6 +216,9 @@ export default function Invoices() {
     /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
     <div className="heillo-page" dir="rtl">
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* ── Top bar ── */}
       {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../><div className="flex flex-col sm:flex-row gap-3 mt-1">...</div></div> */}
       <div style={{ marginBottom: 16 }}>
@@ -242,6 +245,7 @@ export default function Invoices() {
           </SelectContent>
         </Select>
       </div>
+      </div>{/* end sticky top section */}
 
       {/* Bulk bar — top */}
       {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}

@@ -163,6 +163,9 @@ export default function Customers() {
     /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
     <div className="heillo-page" dir="rtl">
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* ── Top bar ── */}
       {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../> ... </div> */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
@@ -216,6 +219,7 @@ export default function Customers() {
           )}
         </div>
       )}
+      </div>{/* end sticky top section */}
 
       {/* ── CRM Dashboard view ── */}
       {view === "dashboard" && (

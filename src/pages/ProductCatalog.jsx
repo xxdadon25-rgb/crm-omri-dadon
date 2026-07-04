@@ -46,8 +46,11 @@ export default function ProductCatalog() {
   return (
     <div className="heillo-page" dir="rtl"> {/* OLD: <div> */}
 
+      {/* ── Sticky top section ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+
       {/* ── Top bar ── */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>קטלוג מוצרים</h1>
         <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{products.length} מוצרים</p>
       </div>
@@ -86,6 +89,7 @@ export default function ProductCatalog() {
           style={{ width: "100%", boxSizing: "border-box", paddingRight: 44, height: 44, fontSize: 14 }}
         />
       </div>
+      </div>{/* end sticky top section */}
 
       {/* ── Desktop: sidebar + grid ── */}
       {/* OLD: <div className="flex flex-row gap-6 items-start"> */}

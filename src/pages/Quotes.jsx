@@ -219,7 +219,8 @@ export default function Quotes() {
         <div className="relative mt-1"><Search .../><Input .../></div>
       </div>
       */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "transparent", paddingBottom: "16px", borderRadius: "0 0 16px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 0, gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0 }}>הצעות מחיר</h1>
           <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{quotes.length} הצעות</p>
@@ -252,6 +253,7 @@ export default function Quotes() {
           </button>
         </div>
       </div>
+      </div>{/* end sticky top section */}
 
       {/* ── Bulk selection bar ───────────────────────────────────────────── */}
       {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
