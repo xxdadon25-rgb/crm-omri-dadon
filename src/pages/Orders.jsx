@@ -417,119 +417,209 @@ export default function Orders() {
     }
   };
 
+  // ── Heillo design tokens ──
+  const ACCENT  = "#F5885E";
+  const DARK    = "#120F1C";
+  const MUTED   = "#B2B0B1";
+  const CARD_STYLE = {
+    background: "#FFFFFF",
+    borderRadius: 22,
+    border: "1px solid rgba(0,0,0,0.03)",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+    overflow: "hidden",
+    fontFamily: "'Heebo', sans-serif",
+  };
+
   return (
-    <div>
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before modals */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
 
-        {/* Sticky top bar: page header + search */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
-          <PageHeader title="הזמנות" description="ניהול הזמנות לקוחות">
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4 ml-1" /> הזמנה חדשה
-            </Button>
-          </PageHeader>
-          <div className="relative max-w-sm mt-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="חיפוש הזמנה..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
-          </div>
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      {/* OLD:
+      <div className="sticky top-0 z-10 bg-background pb-3">
+        <PageHeader ... /><div className="relative max-w-sm mt-1">...</div>
+      </div>
+      */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0 }}>הזמנות</h1>
+          <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>ניהול הזמנות לקוחות</p>
         </div>
-
-        {selected.size > 0 && (
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-            <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
-              <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-            </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative" }}>
+            <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+            <input
+              placeholder="חיפוש הזמנה..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid rgba(0,0,0,0.08)",
+                borderRadius: 14,
+                height: 40,
+                padding: "0 40px 0 14px",
+                fontSize: 13,
+                color: DARK,
+                fontFamily: "'Heebo', sans-serif",
+                outline: "none",
+                width: 220,
+              }}
+            />
           </div>
-        )}
+          <button
+            onClick={() => setCreateOpen(true)}
+            style={{
+              background: ACCENT,
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 12,
+              fontWeight: 600,
+              padding: "8px 18px",
+              fontSize: 13,
+              fontFamily: "'Heebo', sans-serif",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+              transition: "opacity 0.2s ease",
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            <Plus style={{ width: 16, height: 16 }} /> הזמנה חדשה
+          </button>
+        </div>
+      </div>
 
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {/* ── Bulk selection bar ───────────────────────────────────────────── */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
+      {selected.size > 0 && (
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selected.size} הזמנות</span>
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            disabled={deleting}
+            style={{
+              background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10,
+              color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              fontFamily: "'Heebo', sans-serif",
+            }}
+          >
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
+        </div>
+      )}
+
+      {/* ── Main card ────────────────────────────────────────────────────── */}
+      {/* OLD: <div className="bg-card rounded-xl border border-border overflow-hidden"> */}
+      <div style={CARD_STYLE}>
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+            <Loader2 style={{ width: 28, height: 28, color: MUTED, animation: "spin 1s linear infinite" }} />
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState icon={ShoppingCart} title="אין הזמנות" description="לא נמצאו הזמנות במערכת" />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12 text-right">
-                  <div className="flex items-center justify-center">
-                    <Checkbox
-                      checked={selected.size === filtered.length && filtered.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </div>
-                </TableHead>
-                <TableHead className="text-right">מס׳ הזמנה</TableHead>
-                <TableHead className="text-right">לקוח</TableHead>
-                <TableHead className="text-right">תאריך</TableHead>
-                <TableHead className="text-right">סכום</TableHead>
-                <TableHead className="text-right">סוכן</TableHead>
-                <TableHead className="text-right">סופק</TableHead>
-                <TableHead className="text-right">סטטוס</TableHead>
-                <TableHead className="text-right w-28">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((order) => (
-                <TableRow key={order.id} className={`hover:bg-muted/30 ${selected.has(order.id) ? "bg-primary/5" : ""}`}>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={selected.has(order.id)}
-                        onCheckedChange={() => toggleSelect(order.id)}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium text-right">#{order.order_number || "---"}</TableCell>
-                  <TableCell className="text-right">{order.customer_name}</TableCell>
-                  <TableCell className="text-right">{formatDate(order.date)}</TableCell>
-                  <TableCell className="text-right">₪{order.total?.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-sm text-muted-foreground">{order.agent || "—"}</TableCell>
-                  <TableCell className="text-right">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+            {/* OLD: <TableHeader><TableRow className="bg-muted/50">...</TableRow></TableHeader> */}
+            <thead>
+              <tr style={{ background: "#FAFAFA", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                  <Checkbox checked={selected.size === filtered.length && filtered.length > 0} onCheckedChange={toggleSelectAll} />
+                </th>
+                {["מס׳ הזמנה","לקוח","תאריך","סכום","סוכן","סופק","סטטוס","פעולות"].map(col => (
+                  <th key={col} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 500, fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            {/* OLD: <TableBody>{filtered.map(...}</TableBody> */}
+            <tbody>
+              {filtered.map((order, i) => (
+                <tr
+                  key={order.id}
+                  style={{
+                    borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
+                    background: selected.has(order.id) ? "rgba(245,136,94,0.04)" : "transparent",
+                    transition: "background 0.15s ease",
+                  }}
+                  onMouseEnter={e => { if (!selected.has(order.id)) e.currentTarget.style.background = "rgba(245,136,94,0.04)"; }}
+                  onMouseLeave={e => { if (!selected.has(order.id)) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={selected.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
+                  </td>
+                  <td style={{ padding: "14px 20px", fontWeight: 500, fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>
+                    #{order.order_number || "---"}
+                  </td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{order.customer_name}</td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED, whiteSpace: "nowrap" }}>{formatDate(order.date)}</td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: DARK, whiteSpace: "nowrap" }}>₪{order.total?.toLocaleString()}</td>
+                  <td style={{ padding: "14px 20px", fontSize: 12, color: MUTED }}>{order.agent || "—"}</td>
+                  <td style={{ padding: "14px 20px" }}>
+                    {/* OLD: <Badge className="bg-teal-100 text-teal-700"> */}
                     {order.fulfilled
-                      ? <Badge className="bg-teal-100 text-teal-700">✓ סופקה סחורה</Badge>
-                      : <Badge className="bg-orange-100 text-orange-700">✗ טרם סופקה</Badge>}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge className={getOrderStatusColor(order.status)}>
+                      ? <span style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", background: "#CCFBF1", color: "#0F766E", display: "inline-block" }}>✓ סופקה סחורה</span>
+                      : <span style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", background: "#FFEDD5", color: "#C2410C", display: "inline-block" }}>✗ טרם סופקה</span>}
+                  </td>
+                  <td style={{ padding: "14px 20px" }}>
+                    {/* OLD: <Badge className={getOrderStatusColor(order.status)}> */}
+                    <span className={getOrderStatusColor(order.status)} style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", display: "inline-block" }}>
                       {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9" onClick={() => setViewOrder(order)} title="צפיה">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9" onClick={() => setEditOrder(order)} title="עריכה">
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 text-destructive" onClick={() => setDeleteId(order.id)} title="מחיקה">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                    </span>
+                  </td>
+                  <td style={{ padding: "14px 20px" }}>
+                    {/* OLD: <Button variant="ghost" size="icon" ... > */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                      {[
+                        { icon: Eye, action: () => setViewOrder(order), title: "צפיה" },
+                        { icon: Pencil, action: () => setEditOrder(order), title: "עריכה" },
+                        { icon: Trash2, action: () => setDeleteId(order.id), title: "מחיקה", danger: true },
+                      ].map(({ icon: Icon, action, title, danger }) => (
+                        <button
+                          key={title}
+                          onClick={action}
+                          title={title}
+                          style={{
+                            background: "transparent", border: "none", borderRadius: 8,
+                            padding: 6, cursor: "pointer", color: danger ? "#ef4444" : MUTED,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = danger ? "rgba(239,68,68,0.08)" : "rgba(0,0,0,0.04)";
+                            e.currentTarget.style.color = danger ? "#ef4444" : DARK;
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = danger ? "#ef4444" : MUTED;
+                          }}
+                        >
+                          <Icon style={{ width: 18, height: 18, strokeWidth: 1.8 }} />
+                        </button>
+                      ))}
                     </div>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         )}
 
-         {selected.size > 0 && (
-           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-             <span className="text-sm font-medium">נבחרו {selected.size} הזמנות</span>
-             <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)} disabled={deleting}>
-               <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-             </Button>
-           </div>
-         )}
-        </div>{/* end bg-card */}
-
-      </div>{/* end scrollable region */}
+        {/* Bottom bulk-delete bar (duplicate of top, kept for UX parity) */}
+        {selected.size > 0 && (
+          <div style={{ borderTop: "1px solid rgba(0,0,0,0.04)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selected.size} הזמנות</span>
+            <button
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={deleting}
+              style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
+            >
+              <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+            </button>
+          </div>
+        )}
+      </div>{/* end main card */}
 
         <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
            <AlertDialogContent dir="rtl">
