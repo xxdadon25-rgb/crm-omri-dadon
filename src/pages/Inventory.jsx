@@ -147,34 +147,86 @@ export default function Inventory() {
     toast.error("ייבוא קבצים אינו זמין כרגע");
   };
 
-  return (
-    <div>
-      <PageHeader title="ניהול מלאי" description={`${products.length} מוצרים`}>
-        <Button variant="outline" size="sm" onClick={() => navigate("/inventory-dashboard")}>
-          <BarChart3 className="w-4 h-4 ml-1" /> לוח בקרה
-        </Button>
-        <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-muted transition-colors text-sm">
-          <Upload className="w-4 h-4" /> ייבוא
-          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImport} />
-        </label>
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="w-4 h-4 ml-1" /> ייצוא
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowProfit(v => !v)}>
-          {showProfit ? "הסתר רווח" : "הצג רווח"}
-        </Button>
-        <Button size="sm" onClick={() => {setEditProduct(null);setDialogOpen(true);}}>
-          <Plus className="w-4 h-4 ml-1" /> מוצר חדש
-        </Button>
-      </PageHeader>
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+  const CARD_STYLE = {
+    background: "#FFFFFF",
+    borderRadius: 22,
+    border: "1px solid rgba(0,0,0,0.03)",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+    overflow: "hidden",
+    fontFamily: "'Heebo', sans-serif",
+  };
+  const outlineBtn = {
+    background: "#FFFFFF", color: DARK, border: "1px solid rgba(0,0,0,0.08)",
+    borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13,
+    fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex",
+    alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "background 0.2s ease",
+  };
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="חיפוש לפי שם, מק״ט או ברקוד..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+  return (
+    <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
+
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      {/* OLD:
+      <PageHeader title="ניהול מלאי" ...><Button>לוח בקרה</Button><label>ייבוא</label><Button>ייצוא</Button><Button>הצג רווח</Button><Button>מוצר חדש</Button></PageHeader>
+      <div className="flex flex-col sm:flex-row gap-3 mb-4"><Input .../><Select .../></div>
+      */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0 }}>ניהול מלאי</h1>
+          <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{products.length} מוצרים</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button style={outlineBtn} onClick={() => navigate("/inventory-dashboard")}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+            <BarChart3 style={{ width: 15, height: 15 }} /> לוח בקרה
+          </button>
+          <label style={{ ...outlineBtn, cursor: "pointer" }}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+            <Upload style={{ width: 15, height: 15 }} /> ייבוא
+            <input type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={handleImport} />
+          </label>
+          <button style={outlineBtn} onClick={handleExport}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+            <Download style={{ width: 15, height: 15 }} /> ייצוא
+          </button>
+          <button style={outlineBtn} onClick={() => setShowProfit(v => !v)}
+            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+            {showProfit ? "הסתר רווח" : "הצג רווח"}
+          </button>
+          <button
+            onClick={() => { setEditProduct(null); setDialogOpen(true); }}
+            style={{ background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12, fontWeight: 600, padding: "8px 18px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "opacity 0.2s ease" }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+            <Plus style={{ width: 16, height: 16 }} /> מוצר חדש
+          </button>
+        </div>
+      </div>
+
+      {/* ── Search + filter bar ──────────────────────────────────────────── */}
+      {/* OLD: <div className="flex flex-col sm:flex-row gap-3 mb-4"><Input /><Select /></div> */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+          <input
+            placeholder="חיפוש לפי שם, מק״ט או ברקוד..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, padding: "0 40px 0 14px", fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }}
+          />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="קטגוריה" /></SelectTrigger>
+          <SelectTrigger style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, height: 40, fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", minWidth: 160 }}>
+            <SelectValue placeholder="קטגוריה" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">כל הקטגוריות</SelectItem>
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -182,181 +234,176 @@ export default function Inventory() {
         </Select>
       </div>
 
+      {/* ── Bulk selection bar ───────────────────────────────────────────── */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
       {selectedCount > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selectedCount} מוצרים</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm"
-            onClick={() => setBulkDeleteOpen(true)}
-          >
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selectedCount} מוצרים</span>
+          <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
         </div>
       )}
 
-      {isLoading ?
-      <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div> :
-      filtered.length === 0 ?
-      <EmptyState icon={search ? Search : null} title={search ? "לא נמצאו תוצאות" : "אין מוצרים"} description={search ? "נסה חיפוש אחר" : "הוסף מוצר ראשון למלאי"} /> :
-
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
-            <Table>
-              {/* OLD - can restore: <TableHeader> (without className below) */}
-              {/* <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right w-12">
-                    <div className="flex items-center justify-center"><Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} /></div>
-                  </TableHead>
-                  <TableHead className="text-right">מוצר</TableHead>
-                  <TableHead className="text-right">מק״ט</TableHead>
-                  <TableHead className="text-right">קטגוריה</TableHead>
-                  <TableHead className="text-right">מחיר קנייה</TableHead>
-                  <TableHead className="text-right">מחיר מכירה</TableHead>
-                  <TableHead className="text-right">כמות</TableHead>
-                  {showProfit && <TableHead className="text-right">רווח</TableHead>}
-                  <TableHead className="text-right min-w-[90px]">פעולות</TableHead>
-                </TableRow>
-              </TableHeader> */}
-              <TableHeader className="sticky top-0 z-10 bg-white shadow-sm">
-                <TableRow className="bg-muted/50 border-b-2 border-gray-200">
-                  <TableHead className="text-right w-12">
-                    <div className="flex items-center justify-center"><Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} /></div>
-                  </TableHead>
-                  <TableHead className="text-right">מוצר</TableHead>
-                  <TableHead className="text-right">מק״ט</TableHead>
-                  <TableHead className="text-right">קטגוריה</TableHead>
-                  <TableHead className="text-right">מחיר קנייה</TableHead>
-                  <TableHead className="text-right">מחיר מכירה</TableHead>
-                  <TableHead className="text-right">כמות</TableHead>
-                  {showProfit && <TableHead className="text-right">רווח</TableHead>}
-                  <TableHead className="text-right min-w-[90px]">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((p) => {
-                const isLow = p.quantity > 0 && p.quantity <= (p.min_quantity || 0);
-                const isOutOfStock = p.quantity === 0;
-                const profit = ((p.sell_price || 0) - (p.buy_price || 0)).toFixed(2);
-                const isSelected = selectedProducts.has(p.id);
-                return (
-                  <TableRow key={p.id} className={`hover:bg-muted/30 ${isOutOfStock ? "bg-red-50" : isLow ? "bg-orange-50" : ""} ${isSelected ? "bg-primary/5" : ""}`}>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-center">
-                          <Checkbox checked={isSelected} onCheckedChange={() => handleSelectProduct(p.id)} />
+      {/* ── Main card ────────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={search ? Search : null} title={search ? "לא נמצאו תוצאות" : "אין מוצרים"} description={search ? "נסה חיפוש אחר" : "הוסף מוצר ראשון למלאי"} />
+      ) : (
+        /* OLD: <div className="bg-card rounded-xl border border-border overflow-hidden"><div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]"> */
+        <div style={CARD_STYLE}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              {/* OLD: <TableHeader className="sticky top-0 z-10 bg-white shadow-sm"><TableRow className="bg-muted/50 border-b-2 border-gray-200"> */}
+              <thead>
+                <tr style={{ background: "#FAFAFA", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                  <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                  </th>
+                  {["מוצר","מק״ט","קטגוריה","מחיר קנייה","מחיר מכירה","כמות", ...(showProfit ? ["רווח"] : []), "פעולות"].map(col => (
+                    <th key={col} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 500, fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              {/* OLD: <TableBody>{filtered.map(p => <TableRow ...> */}
+              <tbody>
+                {filtered.map((p, i) => {
+                  const isLow = p.quantity > 0 && p.quantity <= (p.min_quantity || 0);
+                  const isOutOfStock = p.quantity === 0;
+                  const profit = ((p.sell_price || 0) - (p.buy_price || 0)).toFixed(2);
+                  const isSelected = selectedProducts.has(p.id);
+                  const rowBg = isSelected ? "rgba(245,136,94,0.06)" : isOutOfStock ? "rgba(239,68,68,0.04)" : isLow ? "rgba(234,88,12,0.04)" : "transparent";
+                  return (
+                    <tr
+                      key={p.id}
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", background: rowBg, transition: "background 0.15s ease" }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(245,136,94,0.04)"; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = rowBg; }}
+                    >
+                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectProduct(p.id)} />
+                      </td>
+                      {/* OLD: <TableCell><div className="flex items-center gap-2">{p.image_url && <img .../>}<span className="font-medium">{p.name}</span></div></TableCell> */}
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {p.image_url && <img src={p.image_url} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />}
+                          <span style={{ fontWeight: 500, fontSize: 13, color: DARK }}>{p.name}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
-                          <span className="font-medium">{p.name}</span>
+                      </td>
+                      <td style={{ padding: "14px 20px", fontSize: 12, color: MUTED }}>{p.sku || "—"}</td>
+                      {/* OLD: <TableCell>{p.category && <Badge variant="secondary">{p.category}</Badge>}</TableCell> */}
+                      <td style={{ padding: "14px 20px" }}>
+                        {p.category && (
+                          <span style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", background: "rgba(0,0,0,0.05)", color: DARK, display: "inline-block" }}>{p.category}</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{formatCurrency(p.buy_price)}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: DARK }}>{formatCurrency(p.sell_price)}</td>
+                      {/* OLD: <TableCell><div ...>{isOutOfStock && ...}{isLow && ...}<span ...>{p.quantity}</span></div></TableCell> */}
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {isOutOfStock && <span style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", background: "rgba(239,68,68,0.1)", color: "#dc2626", display: "inline-block" }}>אזל</span>}
+                          {isLow && !isOutOfStock && <AlertTriangle style={{ width: 14, height: 14, color: "#ea580c" }} />}
+                          <span style={{ fontSize: 13, fontWeight: isOutOfStock || isLow ? 600 : 400, color: isOutOfStock ? "#dc2626" : isLow ? "#ea580c" : DARK }}>{p.quantity}</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{p.sku || "-"}</TableCell>
-                      <TableCell>{p.category && <Badge variant="secondary">{p.category}</Badge>}</TableCell>
-                      {/* <TableCell>₪{(p.buy_price || 0).toFixed(2)}</TableCell> */}
-                      <TableCell>{formatCurrency(p.buy_price)}</TableCell>
-                      {/* <TableCell className="font-medium">₪{(p.sell_price || 0).toFixed(2)}</TableCell> */}
-                      <TableCell className="font-medium">{formatCurrency(p.sell_price)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {isOutOfStock && <span className="text-xs font-bold text-red-600">אזל</span>}
-                          {isLow && !isOutOfStock && <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />}
-                          <span className={isOutOfStock ? "text-red-600 font-bold" : isLow ? "text-orange-600 font-medium" : ""}>{p.quantity}</span>
-                        </div>
-                      </TableCell>
+                      </td>
                       {showProfit && (
-                        <TableCell className={Number(profit) >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                          {/* {Math.abs(Number(profit)).toFixed(2)}₪{Number(profit) < 0 ? "-" : ""} */}
-                          {formatCurrency(Math.abs(Number(profit)))}{Number(profit) < 0 ? "-" : ""}
-                        </TableCell>
+                        <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: Number(profit) >= 0 ? "#16a34a" : "#dc2626" }}>
+                          {formatCurrency(Math.abs(Number(profit)))}{Number(profit) < 0 ? " -" : ""}
+                        </td>
                       )}
-                      <TableCell className="min-w-[90px]">
-                        <div className="flex items-center gap-1 flex-nowrap">
-                          <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0" onClick={() => {setEditProduct(p);setDialogOpen(true);}}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9 shrink-0 text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(p.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                      {/* OLD: <TableCell><div ...><Button variant="ghost" ...><Pencil/></Button><Button variant="ghost" ...><Trash2/></Button></div></TableCell> */}
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {[
+                            { icon: Pencil, action: () => { setEditProduct(p); setDialogOpen(true); }, title: "עריכה" },
+                            { icon: Trash2, action: () => setDeleteId(p.id), title: "מחיקה", danger: true },
+                          ].map(({ icon: Icon, action, title, danger }) => (
+                            <button key={title} onClick={action} title={title}
+                              style={{ background: "transparent", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: danger ? "#ef4444" : MUTED, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = danger ? "rgba(239,68,68,0.08)" : "rgba(0,0,0,0.04)"; e.currentTarget.style.color = danger ? "#ef4444" : DARK; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = danger ? "#ef4444" : MUTED; }}
+                            >
+                              <Icon style={{ width: 18, height: 18, strokeWidth: 1.8 }} />
+                            </button>
+                          ))}
                         </div>
-                      </TableCell>
-                    </TableRow>);
-
-               })}
-              </TableBody>
-            </Table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
-      }
 
-      {selectedCount > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selectedCount} מוצרים</span>
-          <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 shadow-sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
+          {/* Bottom bulk bar */}
+          {selectedCount > 0 && (
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.04)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>נבחרו {selectedCount} מוצרים</span>
+              <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+                <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+              </button>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ── ProductDialog + AlertDialogs (logic unchanged) ───────────────── */}
       <ProductDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         product={editProduct}
         onSaved={(savedProduct) => {
           if (editProduct?.id) {
-            // Update cache directly.
             queryClient.setQueryData(["products"], (old = []) =>
               old.map(p => p.id === savedProduct.id ? savedProduct : p)
             );
-            // Store in sessionStorage so refresh #1 doesn't revert to stale backend data
             const existingUpdates = JSON.parse(sessionStorage.getItem("pendingProductUpdates") || "[]");
             const filtered = existingUpdates.filter(p => p.id !== savedProduct.id);
             filtered.unshift({ ...savedProduct, _confirmCount: 0, _savedAt: Date.now() });
             sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
           } else {
-            // Prepend new product to cache immediately.
             queryClient.setQueryData(["products"], (old = []) => [savedProduct, ...(Array.isArray(old) ? old : [])]);
-            // Store in sessionStorage so refresh #1 doesn't lose it
             const existing = JSON.parse(sessionStorage.getItem("pendingProducts") || "[]");
             existing.unshift({ ...savedProduct, _confirmCount: 0 });
             sessionStorage.setItem("pendingProducts", JSON.stringify(existing));
-
           }
         }}
         categories={categories}
-        suppliers={supplierNames} />
-      
+        suppliers={supplierNames}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-         <AlertDialogContent dir="rtl">
-           <AlertDialogHeader>
-             <AlertDialogTitle>מחיקת מוצר</AlertDialogTitle>
-             <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את המוצר?</AlertDialogDescription>
-           </AlertDialogHeader>
-           <AlertDialogFooter className="flex-row-reverse gap-2">
-             <AlertDialogCancel>ביטול</AlertDialogCancel>
-             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">מחק מוצר</AlertDialogAction>
-           </AlertDialogFooter>
-         </AlertDialogContent>
-       </AlertDialog>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת מוצר</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את המוצר?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">מחק מוצר</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-         <AlertDialogContent dir="rtl">
-           <AlertDialogHeader>
-             <AlertDialogTitle>מחיקת מוצרים</AlertDialogTitle>
-             <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את {selectedCount} המוצרים שנבחרו?</AlertDialogDescription>
-           </AlertDialogHeader>
-           <AlertDialogFooter className="flex-row-reverse gap-2">
-             <AlertDialogCancel disabled={deleting}>ביטול</AlertDialogCancel>
-             <AlertDialogAction onClick={handleBulkDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
-               {deleting ? "מוחק..." : "מחק מוצרים"}
-             </AlertDialogAction>
-           </AlertDialogFooter>
-         </AlertDialogContent>
-       </AlertDialog>
-    </div>);
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת מוצרים</AlertDialogTitle>
+            <AlertDialogDescription>האם אתה בטוח שברצונך למחוק את {selectedCount} המוצרים שנבחרו?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={deleting}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+              {deleting ? "מוחק..." : "מחק מוצרים"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
+    </div>
+  );
 }
