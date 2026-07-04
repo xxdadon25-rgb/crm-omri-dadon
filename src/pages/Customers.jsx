@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List, MapPin, Navigation } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List, MapPin, Navigation, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/api/supabaseClient";
 import { formatDate } from "@/lib/dateUtils";
@@ -68,6 +68,22 @@ export default function Customers() {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
+
+  const handleClearLocation = async (customer) => {
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ location_lat: null, location_lng: null })
+        .eq("id", customer.id);
+      if (error) throw error;
+      queryClient.setQueryData(["customers"], (old = []) =>
+        old.map(c => c.id === customer.id ? { ...c, location_lat: null, location_lng: null } : c)
+      );
+      toast.success("מיקום נמחק");
+    } catch (err) {
+      toast.error("שגיאה במחיקת המיקום: " + err.message);
+    }
   };
 
   const { data: customers = [], isLoading } = useQuery({
@@ -314,9 +330,12 @@ export default function Customers() {
                                   <Pencil size={18} strokeWidth={1.8} />
                                 </button>
                                 {c.location_lat && c.location_lng ? (
+                                  <>
                                   <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
                                     <button title="נווט בוויז" className="heillo-icon-btn" style={{ color: "#16a34a" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(22,163,74,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Navigation size={18} strokeWidth={1.8} /></button>
                                   </a>
+                                  <button title="מחק מיקום" onClick={() => handleClearLocation(c)} style={{ color: "#dc2626", background: "transparent", border: "none", padding: 4, borderRadius: 6, cursor: "pointer", display: "inline-flex", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(220,38,38,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><X size={14} /></button>
+                                  </>
                                 ) : (
                                   <button title="שמור מיקום" className="heillo-icon-btn" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)} style={{ color: "#2563eb" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(37,99,235,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                                     <MapPin size={18} strokeWidth={1.8} />
@@ -372,9 +391,12 @@ export default function Customers() {
                           <button title="צפייה" className="heillo-icon-btn" onClick={() => navigate(`/customers/${c.id}`)}><Eye size={18} strokeWidth={1.8} /></button>
                           <button title="עריכה" className="heillo-icon-btn" onClick={() => { setEditCustomer(c); setDialogOpen(true); }}><Pencil size={18} strokeWidth={1.8} /></button>
                           {c.location_lat && c.location_lng ? (
+                            <>
                             <a href={`https://waze.com/ul?ll=${c.location_lat},${c.location_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
                               <button title="נווט בוויז" className="heillo-icon-btn" style={{ color: "#16a34a" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(22,163,74,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Navigation size={18} strokeWidth={1.8} /></button>
                             </a>
+                            <button title="מחק מיקום" onClick={() => handleClearLocation(c)} style={{ color: "#dc2626", background: "transparent", border: "none", padding: 4, borderRadius: 6, cursor: "pointer", display: "inline-flex", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(220,38,38,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><X size={14} /></button>
+                            </>
                           ) : (
                             <button title="שמור מיקום" className="heillo-icon-btn" disabled={savingLocationId === c.id} onClick={() => handleSaveLocation(c)} style={{ color: "#2563eb" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(37,99,235,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><MapPin size={18} strokeWidth={1.8} /></button>
                           )}
