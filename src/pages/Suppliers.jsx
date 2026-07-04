@@ -338,107 +338,143 @@ export default function Suppliers() {
     setDeleting(false);
   };
 
+  // ── Heillo design tokens ──
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+
+  // Outline action button style reused for the 4 supplier action buttons
+  const actionBtn = (color) => ({
+    background: "#FFFFFF", border: `1px solid ${color}22`, borderRadius: 10,
+    color, fontSize: 12, fontWeight: 500, padding: "5px 10px", cursor: "pointer",
+    display: "inline-flex", alignItems: "center", gap: 5,
+    fontFamily: "'Heebo', sans-serif", transition: "background 0.15s ease",
+  });
+
   return (
-    <div>
-      {/* Self-contained scrollable region — sticky works within this container */}
-      {/* OLD - can restore: remove outer overflow wrapper and its closing tag before dialogs */}
-      <div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]">
+    /* OLD: <div><div className="overflow-y-auto thin-scrollbar max-h-[calc(100vh-4rem)]"> */
+    <div className="heillo-page" dir="rtl">
 
-        {/* Sticky top bar: page header + search */}
-        <div className="sticky top-0 z-10 bg-background pb-3">
-          <PageHeader title="ספקים" description={`${suppliers.length} ספקים`}>
-            <Button size="sm" onClick={() => openDialog(null)}><Plus className="w-4 h-4 ml-1" /> ספק חדש</Button>
-          </PageHeader>
-          <div className="relative mt-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="חיפוש ספקים..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 max-w-md" />
-          </div>
+      {/* ── Top bar ── */}
+      {/* OLD: <div className="sticky top-0 z-10 bg-background pb-3"><PageHeader .../><div className="relative mt-1"><Search /><Input className="pr-9 max-w-md" /></div></div> */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>ספקים</h1>
+          <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{suppliers.length} ספקים</p>
         </div>
+        <button className="heillo-btn-primary" onClick={() => openDialog(null)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Plus style={{ width: 16, height: 16 }} /> ספק חדש
+        </button>
+      </div>
 
-       {selectedCount > 0 && (
-         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-           <span className="text-sm font-medium">נבחרו {selectedCount} ספקים</span>
-           <Button
-             variant="destructive"
-             size="sm"
-             onClick={() => setBulkDeleteOpen(true)}
-           >
-             <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-           </Button>
-         </div>
-       )}
+      {/* Search */}
+      <div style={{ position: "relative", marginBottom: 16, maxWidth: 400 }}>
+        <Search style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+        {/* OLD: <Input placeholder="חיפוש ספקים..." className="pr-9 max-w-md" /> */}
+        <input placeholder="חיפוש ספקים..." value={search} onChange={(e) => setSearch(e.target.value)}
+          className="heillo-input" style={{ width: "100%", boxSizing: "border-box", paddingRight: 40 }} />
+      </div>
 
-       {isLoading ? (
-        <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" /></div>
+      {/* Bulk bar — top */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
+      {selectedCount > 0 && (
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCount} ספקים</span>
+          <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={Truck} title="אין ספקים" description="הוסף ספק ראשון" />
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right w-12">
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-right">שם</TableHead>
-                  <TableHead className="text-right">טלפון</TableHead>
-                  <TableHead className="text-right">אימייל</TableHead>
-                  <TableHead className="text-right">ח.פ</TableHead>
-                  <TableHead className="text-right w-24">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(s => {
+        /* OLD: <div className="bg-card rounded-xl border border-border overflow-hidden"> */
+        <div className="heillo-card">
+          <div style={{ overflowX: "auto" }}>
+            {/* OLD: <Table><TableHeader><TableRow className="bg-muted/50"> */}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+              <thead className="heillo-table-header">
+                <tr>
+                  <th style={{ width: 44, padding: "14px 20px", textAlign: "center" }}>
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
+                  </th>
+                  {["שם", "טלפון", "אימייל", "ח.פ", "פעולות"].map(col => (
+                    <th key={col} style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap" }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              {/* OLD: <TableBody>{filtered.map(s => <TableRow className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}> */}
+              <tbody>
+                {filtered.map((s, i) => {
                   const isSelected = selectedSuppliers.has(s.id);
                   return (
-                  <TableRow key={s.id} className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => handleSelectSupplier(s.id)}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{s.name}</TableCell>
-                    <TableCell>{s.phone || "-"}</TableCell>
-                    <TableCell>{s.email || "-"}</TableCell>
-                    <TableCell>{s.tax_id || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 gap-1" onClick={() => openOrderModal(s)}><ShoppingCart className="w-3.5 h-3.5" /> הזמנה מספק</Button>
-                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-1" onClick={() => setDeliverySupplier(s)}><PackagePlus className="w-3.5 h-3.5" /> קבלת סחורה</Button>
-                        <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50 gap-1" onClick={() => openDocsModal(s)}><FolderOpen className="w-3.5 h-3.5" /> קבצי סחורה</Button>
-                        <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50 gap-1" onClick={() => openHistoryModal(s)}><History className="w-3.5 h-3.5" /> היסטוריית הזמנות</Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                    <tr key={s.id} className="heillo-table-row"
+                      style={{ background: isSelected ? "rgba(245,136,94,0.04)" : undefined, borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
+                      <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                        <Checkbox checked={isSelected} onCheckedChange={() => handleSelectSupplier(s.id)} />
+                      </td>
+                      {/* OLD: <TableCell className="font-medium">{s.name}</TableCell> */}
+                      <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>{s.name}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{s.phone || "—"}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{s.email || "—"}</td>
+                      <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{s.tax_id || "—"}</td>
+                      <td style={{ padding: "14px 20px" }}>
+                        {/* OLD: <div className="flex items-center gap-1"><Button variant="outline" ...> x4 + <Button variant="ghost" size="icon"> x2 */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <button style={actionBtn("#16a34a")} onClick={() => openOrderModal(s)}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(22,163,74,0.06)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+                            <ShoppingCart style={{ width: 13, height: 13 }} /> הזמנה מספק
+                          </button>
+                          <button style={actionBtn("#2563eb")} onClick={() => setDeliverySupplier(s)}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(37,99,235,0.06)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+                            <PackagePlus style={{ width: 13, height: 13 }} /> קבלת סחורה
+                          </button>
+                          <button style={actionBtn("#7c3aed")} onClick={() => openDocsModal(s)}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.06)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+                            <FolderOpen style={{ width: 13, height: 13 }} /> קבצי סחורה
+                          </button>
+                          <button style={actionBtn("#ea580c")} onClick={() => openHistoryModal(s)}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(234,88,12,0.06)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
+                            <History style={{ width: 13, height: 13 }} /> היסטוריית הזמנות
+                          </button>
+                          <button title="עריכה" className="heillo-icon-btn" onClick={() => openDialog(s)}>
+                            <Pencil size={17} strokeWidth={1.8} />
+                          </button>
+                          <button title="מחיקה" className="heillo-icon-btn" style={{ color: "#ef4444" }} onClick={() => setDeleteId(s.id)}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.08)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <Trash2 size={17} strokeWidth={1.8} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   );
-                  })}
-                  </TableBody>
-            </Table>
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
+      {/* Bulk bar — bottom */}
+      {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 ..."> */}
       {selectedCount > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between">
-          <span className="text-sm font-medium">נבחרו {selectedCount} ספקים</span>
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="w-4 h-4 ml-1" /> מחק נבחרים
-          </Button>
+        <div style={{ background: "rgba(245,136,94,0.07)", border: "1px solid rgba(245,136,94,0.2)", borderRadius: 14, padding: "10px 16px", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: DARK, fontFamily: "'Heebo', sans-serif" }}>נבחרו {selectedCount} ספקים</span>
+          <button onClick={() => setBulkDeleteOpen(true)} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#ef4444", fontSize: 12, fontWeight: 500, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}>
+            <Trash2 style={{ width: 14, height: 14 }} /> מחק נבחרים
+          </button>
         </div>
       )}
-
-      </div>{/* end scrollable region */}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
