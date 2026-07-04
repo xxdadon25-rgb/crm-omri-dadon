@@ -169,6 +169,9 @@ export default function Inventory() {
   return (
     <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
 
+      {/* ── Sticky top section ──────────────────────────────────────────── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--heillo-bg-gradient)", paddingBottom: 16 }}>
+
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       {/* OLD:
       <PageHeader title="ניהול מלאי" ...><Button>לוח בקרה</Button><label>ייבוא</label><Button>ייצוא</Button><Button>הצג רווח</Button><Button>מוצר חדש</Button></PageHeader>
@@ -233,6 +236,8 @@ export default function Inventory() {
           </SelectContent>
         </Select>
       </div>
+
+      </div>{/* end sticky top section */}
 
       {/* ── Bulk selection bar ───────────────────────────────────────────── */}
       {/* OLD: <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 ..."> */}
