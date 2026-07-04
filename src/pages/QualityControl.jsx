@@ -667,6 +667,11 @@ async function pingProductsFetch() {
   return { status: "ok", ms };
 }
 
+// ─── Heillo design tokens (module-level for sub-components) ─────────────────
+const _DARK  = "#120F1C";
+const _MUTED = "#B2B0B1";
+const _ACCENT = "#F5885E";
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function CheckCard({ title, description, isLoading, error, issues, children }) {
@@ -674,41 +679,51 @@ function CheckCard({ title, description, isLoading, error, issues, children }) {
   const ok = !error && count === 0;
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 flex items-start justify-between gap-3 border-b border-border">
+    /* OLD: <div className="bg-card border border-border rounded-xl overflow-hidden"> */
+    <div className="heillo-card" style={{ overflow: "hidden" }}>
+      {/* OLD: <div className="px-5 py-4 flex items-start justify-between gap-3 border-b border-border"> */}
+      <div style={{ padding: "16px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <div>
-          <h3 className="font-semibold text-base">{title}</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+          {/* OLD: <h3 className="font-semibold text-base">{title}</h3> */}
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: _DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{title}</h3>
+          {/* OLD: <p className="text-sm text-muted-foreground mt-0.5">{description}</p> */}
+          <p style={{ fontSize: 13, color: _MUTED, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{description}</p>
         </div>
-        <div className="shrink-0 mt-0.5">
+        <div style={{ flexShrink: 0, marginTop: 2 }}>
           {isLoading ? (
-            <Badge className="bg-gray-100 text-gray-500">בודק...</Badge>
+            /* OLD: <Badge className="bg-gray-100 text-gray-500">בודק...</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(0,0,0,0.05)", color: _MUTED }}>בודק...</span>
           ) : error ? (
-            <Badge className="bg-red-100 text-red-700">שגיאה</Badge>
+            /* OLD: <Badge className="bg-red-100 text-red-700">שגיאה</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>שגיאה</span>
           ) : ok ? (
-            <Badge className="bg-green-100 text-green-700 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> תקין
-            </Badge>
+            /* OLD: <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 .../> תקין</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <CheckCircle2 style={{ width: 13, height: 13 }} /> תקין
+            </span>
           ) : (
-            <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5" /> {count} בעיות
-            </Badge>
+            /* OLD: <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1"><AlertTriangle .../> {count} בעיות</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(245,136,94,0.12)", color: _ACCENT, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <AlertTriangle style={{ width: 13, height: 13 }} /> {count} בעיות
+            </span>
           )}
         </div>
       </div>
 
       {!isLoading && !error && count > 0 && (
-        <div className="overflow-x-auto">{children}</div>
+        <div style={{ overflowX: "auto" }}>{children}</div>
       )}
 
       {!isLoading && !error && ok && (
-        <div className="px-5 py-4 text-sm text-green-600 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" /> לא נמצאו בעיות
+        /* OLD: <div className="px-5 py-4 text-sm text-green-600 flex items-center gap-2"> */
+        <div style={{ padding: "14px 20px", fontSize: 13, color: "#16a34a", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Heebo', sans-serif" }}>
+          <CheckCircle2 style={{ width: 15, height: 15 }} /> לא נמצאו בעיות
         </div>
       )}
 
       {error && (
-        <div className="px-5 py-4 text-sm text-red-600">
+        /* OLD: <div className="px-5 py-4 text-sm text-red-600"> */
+        <div style={{ padding: "14px 20px", fontSize: 13, color: "#ef4444", fontFamily: "'Heebo', sans-serif" }}>
           שגיאה בטעינה: {error.message}
         </div>
       )}
@@ -718,18 +733,23 @@ function CheckCard({ title, description, isLoading, error, issues, children }) {
 
 function TechCheckCard({ title, description, loading, badge, detail }) {
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 flex items-start justify-between gap-3">
+    /* OLD: <div className="bg-card border border-border rounded-xl overflow-hidden"> */
+    <div className="heillo-card" style={{ padding: 16 }}>
+      {/* OLD: <div className="px-5 py-4 flex items-start justify-between gap-3"> */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <h3 className="font-semibold text-base">{title}</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
-          {!loading && detail && <p className="text-sm mt-1 font-medium">{detail}</p>}
+          {/* OLD: <h3 className="font-semibold text-base">{title}</h3> */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: _DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{title}</h3>
+          {/* OLD: <p className="text-sm text-muted-foreground mt-0.5">{description}</p> */}
+          <p style={{ fontSize: 12, color: _MUTED, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{description}</p>
+          {!loading && detail && <p style={{ fontSize: 12, fontWeight: 500, color: _DARK, margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>{detail}</p>}
         </div>
-        <div className="shrink-0 mt-0.5">
+        <div style={{ flexShrink: 0, marginTop: 2 }}>
           {loading ? (
-            <Badge className="bg-gray-100 text-gray-500 flex items-center gap-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> בודק...
-            </Badge>
+            /* OLD: <Badge className="bg-gray-100 text-gray-500 flex items-center gap-1"><Loader2 .../> בודק...</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(0,0,0,0.05)", color: _MUTED, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} /> בודק...
+            </span>
           ) : badge}
         </div>
       </div>
@@ -842,307 +862,309 @@ export default function QualityControl() {
     fulfilledNoDeduct.length + staleSupplierOrders.length + convertedQuotes.length +
     missingProducts.length + dupeDocs.length + buyGtSell.length;
 
+  const ACCENT = "#F5885E";
+  const DARK   = "#120F1C";
+  const MUTED  = "#B2B0B1";
+
+  const tblStyle = { width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" };
+  const thStyle  = { padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" };
+  const tdBase   = { padding: "12px 20px", fontSize: 13, textAlign: "right", color: DARK };
+  const tdMuted  = { ...tdBase, color: MUTED };
+  const tdBold   = { ...tdBase, fontWeight: 700 };
+  const tdRed    = { ...tdBase, fontWeight: 700, color: "#ef4444" };
+  const tdAmber  = { ...tdBase, fontWeight: 700, color: "#b45309" };
+  const rowRed   = { background: "rgba(239,68,68,0.025)" };
+  const rowAmber = { background: "rgba(234,88,12,0.025)" };
+
   return (
-    <div dir="rtl">
+    /* OLD: <div dir="rtl"> */
+    <div className="heillo-page" dir="rtl">
 
-        <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3">
-          <div className="flex items-center justify-between pr-4">
-            <PageHeader title="מרכז בקרה" description="בדיקות תקינות מערכת" />
-            <div className="flex items-center gap-3 ml-4">
-              {totalIssues > 0 && (
-                <Badge className="bg-amber-100 text-amber-700">{totalIssues} בעיות סה״כ</Badge>
-              )}
-              <Button variant="outline" size="sm" onClick={refresh} className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> רענן בדיקות
-              </Button>
-            </div>
-          </div>
+      {/* OLD: <div className="sticky top-0 z-10 bg-background shadow-md border-b border-gray-200 pb-3"> ... <PageHeader .../> */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>מרכז בקרה</h1>
+          <p style={{ fontSize: 13, color: MUTED, margin: "3px 0 0", fontFamily: "'Heebo', sans-serif" }}>בדיקות תקינות מערכת</p>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {totalIssues > 0 && (
+            /* OLD: <Badge className="bg-amber-100 text-amber-700">{totalIssues} בעיות סה״כ</Badge> */
+            <span className="heillo-badge" style={{ background: "rgba(245,136,94,0.12)", color: ACCENT }}>{totalIssues} בעיות סה״כ</span>
+          )}
+          {/* OLD: <Button variant="outline" size="sm" onClick={refresh} className="flex items-center gap-2"> */}
+          <button className="heillo-btn-primary" onClick={refresh} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <RefreshCw style={{ width: 14, height: 14 }} /> רענן בדיקות
+          </button>
+        </div>
+      </div>
 
-        <div className="p-4 space-y-4">
+      {/* OLD: <div className="p-4 space-y-4"> */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* CHECK 1 — Negative stock */}
-          <CheckCard
-            title="מוצרים עם מלאי שלילי"
-            description="מוצרים שכמות המלאי שלהם ירדה מתחת לאפס"
-            isLoading={l1} error={e1} issues={negStock}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">שם מוצר</TableHead>
-                  <TableHead className="text-right">מק״ט</TableHead>
-                  <TableHead className="text-right">ברקוד</TableHead>
-                  <TableHead className="text-right">כמות נוכחית</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {negStock.map(p => (
-                  <TableRow key={p.id} className="bg-red-50/50">
-                    <TableCell className="font-medium text-right">{p.name}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{p.sku || "—"}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{p.barcode || "—"}</TableCell>
-                    <TableCell className="text-right font-bold text-red-600">{p.quantity}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 1 — Negative stock */}
+        <CheckCard
+          title="מוצרים עם מלאי שלילי"
+          description="מוצרים שכמות המלאי שלהם ירדה מתחת לאפס"
+          isLoading={l1} error={e1} issues={negStock}
+        >
+          {/* OLD: <Table><TableHeader><TableRow className="bg-muted/50">...<TableBody>... */}
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>שם מוצר</th>
+              <th style={thStyle}>מק״ט</th>
+              <th style={thStyle}>ברקוד</th>
+              <th style={thStyle}>כמות נוכחית</th>
+            </tr></thead>
+            <tbody>
+              {negStock.map(p => (
+                <tr key={p.id} className="heillo-table-row" style={rowRed}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{p.name}</td>
+                  <td style={tdMuted}>{p.sku || "—"}</td>
+                  <td style={tdMuted}>{p.barcode || "—"}</td>
+                  <td style={tdRed}>{p.quantity}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 2 — Blocked customer with open orders */}
-          <CheckCard
-            title="לקוח חסום עם הזמנות פתוחות"
-            description="הזמנות פעילות ששייכות ללקוחות המסומנים כחסומים"
-            isLoading={l2} error={e2} issues={blockedOrders}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">שם לקוח</TableHead>
-                  <TableHead className="text-right">מספר הזמנה</TableHead>
-                  <TableHead className="text-right">תאריך</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {blockedOrders.map(o => (
-                  <TableRow key={o.id} className="bg-amber-50/50">
-                    <TableCell className="font-medium text-right">{o.customer_name || "—"}</TableCell>
-                    <TableCell className="text-right">#{o.order_number}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{fmtDate(o.date)}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge className="bg-amber-100 text-amber-700">{o.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 2 — Blocked customer with open orders */}
+        <CheckCard
+          title="לקוח חסום עם הזמנות פתוחות"
+          description="הזמנות פעילות ששייכות ללקוחות המסומנים כחסומים"
+          isLoading={l2} error={e2} issues={blockedOrders}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>שם לקוח</th>
+              <th style={thStyle}>מספר הזמנה</th>
+              <th style={thStyle}>תאריך</th>
+              <th style={thStyle}>סטטוס</th>
+            </tr></thead>
+            <tbody>
+              {blockedOrders.map(o => (
+                <tr key={o.id} className="heillo-table-row" style={rowAmber}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{o.customer_name || "—"}</td>
+                  <td style={tdBase}>#{o.order_number}</td>
+                  <td style={tdMuted}>{fmtDate(o.date)}</td>
+                  <td style={tdBase}>
+                    {/* OLD: <Badge className="bg-amber-100 text-amber-700">{o.status}</Badge> */}
+                    <span className="heillo-badge" style={{ background: "rgba(180,83,9,0.1)", color: "#b45309" }}>{o.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 3 — Overpaid invoices */}
-          <CheckCard
-            title="חשבונית ששולמה יותר מהסכום שלה"
-            description="חשבוניות שבהן סכום התשלום גבוה מסכום החשבונית"
-            isLoading={l3} error={e3} issues={overpaid}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">מספר חשבונית</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">סכום חשבונית</TableHead>
-                  <TableHead className="text-right">שולם</TableHead>
-                  <TableHead className="text-right">עודף</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {overpaid.map(inv => (
-                  <TableRow key={inv.id} className="bg-red-50/50">
-                    <TableCell className="font-medium text-right">#{inv.invoice_number}</TableCell>
-                    <TableCell className="text-right">{inv.customer_name || "—"}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
-                    <TableCell className="text-right text-red-600 font-medium">{formatCurrency(inv.paid_amount)}</TableCell>
-                    <TableCell className="text-right font-bold text-red-700">
-                      {formatCurrency((inv.paid_amount || 0) - (inv.total || 0))}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 3 — Overpaid invoices */}
+        <CheckCard
+          title="חשבונית ששולמה יותר מהסכום שלה"
+          description="חשבוניות שבהן סכום התשלום גבוה מסכום החשבונית"
+          isLoading={l3} error={e3} issues={overpaid}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>מספר חשבונית</th>
+              <th style={thStyle}>לקוח</th>
+              <th style={thStyle}>סכום חשבונית</th>
+              <th style={thStyle}>שולם</th>
+              <th style={thStyle}>עודף</th>
+            </tr></thead>
+            <tbody>
+              {overpaid.map(inv => (
+                <tr key={inv.id} className="heillo-table-row" style={rowRed}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>#{inv.invoice_number}</td>
+                  <td style={tdBase}>{inv.customer_name || "—"}</td>
+                  <td style={tdBase}>{formatCurrency(inv.total)}</td>
+                  <td style={{ ...tdBase, color: "#ef4444", fontWeight: 500 }}>{formatCurrency(inv.paid_amount)}</td>
+                  <td style={tdRed}>{formatCurrency((inv.paid_amount || 0) - (inv.total || 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 4 — High debt, not blocked */}
-          <CheckCard
-            title="לקוח עם חוב מעל 5,000₪ שאינו חסום"
-            description="לקוחות עם חוב מצטבר גבוה שטרם סומנו כחסומים"
-            isLoading={l4} error={e4} issues={highDebt}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">שם לקוח</TableHead>
-                  <TableHead className="text-right">חוב כולל</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {highDebt.map(c => (
-                  <TableRow key={c.id} className="bg-amber-50/50">
-                    <TableCell className="font-medium text-right">{c.name}</TableCell>
-                    <TableCell className="text-right font-bold text-amber-700">{formatCurrency(c.totalDebt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 4 — High debt, not blocked */}
+        <CheckCard
+          title="לקוח עם חוב מעל 5,000₪ שאינו חסום"
+          description="לקוחות עם חוב מצטבר גבוה שטרם סומנו כחסומים"
+          isLoading={l4} error={e4} issues={highDebt}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>שם לקוח</th>
+              <th style={thStyle}>חוב כולל</th>
+            </tr></thead>
+            <tbody>
+              {highDebt.map(c => (
+                <tr key={c.id} className="heillo-table-row" style={rowAmber}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{c.name}</td>
+                  <td style={tdAmber}>{formatCurrency(c.totalDebt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 5 — Fulfilled but inventory not deducted */}
-          <CheckCard
-            title="הזמנה סופקה אבל מלאי לא הופחת"
-            description="הזמנות שסומנו כ'סופק' אך ללא רישום ניכוי מלאי"
-            isLoading={l5} error={e5} issues={fulfilledNoDeduct}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">מספר הזמנה</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">תאריך</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fulfilledNoDeduct.map(o => (
-                  <TableRow key={o.id} className="bg-amber-50/50">
-                    <TableCell className="font-medium text-right">#{o.order_number}</TableCell>
-                    <TableCell className="text-right">{o.customer_name || "—"}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{fmtDate(o.date)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 5 — Fulfilled but inventory not deducted */}
+        <CheckCard
+          title="הזמנה סופקה אבל מלאי לא הופחת"
+          description="הזמנות שסומנו כ'סופק' אך ללא רישום ניכוי מלאי"
+          isLoading={l5} error={e5} issues={fulfilledNoDeduct}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>מספר הזמנה</th>
+              <th style={thStyle}>לקוח</th>
+              <th style={thStyle}>תאריך</th>
+            </tr></thead>
+            <tbody>
+              {fulfilledNoDeduct.map(o => (
+                <tr key={o.id} className="heillo-table-row" style={rowAmber}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>#{o.order_number}</td>
+                  <td style={tdBase}>{o.customer_name || "—"}</td>
+                  <td style={tdMuted}>{fmtDate(o.date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 6 — Stale open supplier orders (>30 days) */}
-          <CheckCard
-            title="הזמנה לספק לא נסגרה (מעל 30 יום)"
-            description="הזמנות ספק שסטטוסן לא 'הושלם' או 'בוטל' ומועד פתיחתן לפני יותר מ-30 יום"
-            isLoading={l6} error={e6} issues={staleSupplierOrders}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">ספק</TableHead>
-                  <TableHead className="text-right">תאריך הזמנה</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staleSupplierOrders.map(o => (
-                  <TableRow key={o.id} className="bg-amber-50/50">
-                    <TableCell className="font-medium text-right">{o.supplier_name}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{fmtDate(o.order_date || o.created_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge className="bg-amber-100 text-amber-700">{o.status || "—"}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 6 — Stale open supplier orders (>30 days) */}
+        <CheckCard
+          title="הזמנה לספק לא נסגרה (מעל 30 יום)"
+          description="הזמנות ספק שסטטוסן לא 'הושלם' או 'בוטל' ומועד פתיחתן לפני יותר מ-30 יום"
+          isLoading={l6} error={e6} issues={staleSupplierOrders}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>ספק</th>
+              <th style={thStyle}>תאריך הזמנה</th>
+              <th style={thStyle}>סטטוס</th>
+            </tr></thead>
+            <tbody>
+              {staleSupplierOrders.map(o => (
+                <tr key={o.id} className="heillo-table-row" style={rowAmber}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{o.supplier_name}</td>
+                  <td style={tdMuted}>{fmtDate(o.order_date || o.created_at)}</td>
+                  <td style={tdBase}>
+                    {/* OLD: <Badge className="bg-amber-100 text-amber-700">{o.status || "—"}</Badge> */}
+                    <span className="heillo-badge" style={{ background: "rgba(180,83,9,0.1)", color: "#b45309" }}>{o.status || "—"}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 7 — Converted quotes with wrong status */}
-          <CheckCard
-            title="הצעת מחיר שהומרה אבל סטטוס לא עודכן"
-            description="הצעות מחיר שיש להן הזמנה מקושרת אך סטטוסן עדיין 'טיוטה' או 'ממתין לאישור'"
-            isLoading={l7} error={e7} issues={convertedQuotes}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">מספר הצעה</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {convertedQuotes.map(q => (
-                  <TableRow key={q.id} className="bg-amber-50/50">
-                    <TableCell className="font-medium text-right">#{q.quote_number}</TableCell>
-                    <TableCell className="text-right">{q.customer_name || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge className="bg-gray-100 text-gray-600">{q.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 7 — Converted quotes with wrong status */}
+        <CheckCard
+          title="הצעת מחיר שהומרה אבל סטטוס לא עודכן"
+          description="הצעות מחיר שיש להן הזמנה מקושרת אך סטטוסן עדיין 'טיוטה' או 'ממתין לאישור'"
+          isLoading={l7} error={e7} issues={convertedQuotes}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>מספר הצעה</th>
+              <th style={thStyle}>לקוח</th>
+              <th style={thStyle}>סטטוס</th>
+            </tr></thead>
+            <tbody>
+              {convertedQuotes.map(q => (
+                <tr key={q.id} className="heillo-table-row" style={rowAmber}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>#{q.quote_number}</td>
+                  <td style={tdBase}>{q.customer_name || "—"}</td>
+                  <td style={tdBase}>
+                    {/* OLD: <Badge className="bg-gray-100 text-gray-600">{q.status}</Badge> */}
+                    <span className="heillo-badge" style={{ background: "rgba(0,0,0,0.05)", color: MUTED }}>{q.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 8 — Open orders with deleted products */}
-          <CheckCard
-            title="הזמנה עם מוצרים שלא קיימים בקטלוג"
-            description="הזמנות פתוחות שמכילות פריטים שמוצר הבסיס שלהם נמחק מהקטלוג"
-            isLoading={l8} error={e8} issues={missingProducts}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">מספר הזמנה</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">מוצר חסר</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {missingProducts.map(row => (
-                  <TableRow key={row.key} className="bg-red-50/50">
-                    <TableCell className="font-medium text-right">#{row.order_number}</TableCell>
-                    <TableCell className="text-right">{row.customer_name || "—"}</TableCell>
-                    <TableCell className="text-right text-red-600">{row.missing_name}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 8 — Open orders with deleted products */}
+        <CheckCard
+          title="הזמנה עם מוצרים שלא קיימים בקטלוג"
+          description="הזמנות פתוחות שמכילות פריטים שמוצר הבסיס שלהם נמחק מהקטלוג"
+          isLoading={l8} error={e8} issues={missingProducts}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>מספר הזמנה</th>
+              <th style={thStyle}>לקוח</th>
+              <th style={thStyle}>מוצר חסר</th>
+            </tr></thead>
+            <tbody>
+              {missingProducts.map(row => (
+                <tr key={row.key} className="heillo-table-row" style={rowRed}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>#{row.order_number}</td>
+                  <td style={tdBase}>{row.customer_name || "—"}</td>
+                  <td style={{ ...tdBase, color: "#ef4444" }}>{row.missing_name}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 9 — Duplicate document numbers */}
-          <CheckCard
-            title="מספרי מסמכים כפולים"
-            description="מספרי חשבוניות, הצעות מחיר או הזמנות שמופיעים יותר מפעם אחת במערכת"
-            isLoading={l9} error={e9} issues={dupeDocs}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">סוג מסמך</TableHead>
-                  <TableHead className="text-right">מספר</TableHead>
-                  <TableHead className="text-right">כמות כפולים</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dupeDocs.map(row => (
-                  <TableRow key={row.key} className="bg-red-50/50">
-                    <TableCell className="font-medium text-right">{row.type}</TableCell>
-                    <TableCell className="text-right">#{row.number}</TableCell>
-                    <TableCell className="text-right font-bold text-red-600">{row.count}×</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 9 — Duplicate document numbers */}
+        <CheckCard
+          title="מספרי מסמכים כפולים"
+          description="מספרי חשבוניות, הצעות מחיר או הזמנות שמופיעים יותר מפעם אחת במערכת"
+          isLoading={l9} error={e9} issues={dupeDocs}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>סוג מסמך</th>
+              <th style={thStyle}>מספר</th>
+              <th style={thStyle}>כמות כפולים</th>
+            </tr></thead>
+            <tbody>
+              {dupeDocs.map(row => (
+                <tr key={row.key} className="heillo-table-row" style={rowRed}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{row.type}</td>
+                  <td style={tdBase}>#{row.number}</td>
+                  <td style={tdRed}>{row.count}×</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* CHECK 10 — Buy price >= sell price */}
-          <CheckCard
-            title="מחיר קנייה גבוה ממחיר מכירה"
-            description="מוצרים שמחיר הקנייה שלהם שווה או גבוה ממחיר המכירה — פוטנציאל הפסד"
-            isLoading={l10} error={e10} issues={buyGtSell}
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">שם מוצר</TableHead>
-                  <TableHead className="text-right">מק״ט</TableHead>
-                  <TableHead className="text-right">מחיר קנייה</TableHead>
-                  <TableHead className="text-right">מחיר מכירה</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {buyGtSell.map(p => (
-                  <TableRow key={p.id} className="bg-red-50/50">
-                    <TableCell className="font-medium text-right">{p.name}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{p.sku || "—"}</TableCell>
-                    <TableCell className="text-right font-bold text-red-600">{formatCurrency(p.buy_price)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(p.sell_price)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CheckCard>
+        {/* CHECK 10 — Buy price >= sell price */}
+        <CheckCard
+          title="מחיר קנייה גבוה ממחיר מכירה"
+          description="מוצרים שמחיר הקנייה שלהם שווה או גבוה ממחיר המכירה — פוטנציאל הפסד"
+          isLoading={l10} error={e10} issues={buyGtSell}
+        >
+          <table style={tblStyle}>
+            <thead className="heillo-table-header"><tr>
+              <th style={thStyle}>שם מוצר</th>
+              <th style={thStyle}>מק״ט</th>
+              <th style={thStyle}>מחיר קנייה</th>
+              <th style={thStyle}>מחיר מכירה</th>
+            </tr></thead>
+            <tbody>
+              {buyGtSell.map(p => (
+                <tr key={p.id} className="heillo-table-row" style={rowRed}>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>{p.name}</td>
+                  <td style={tdMuted}>{p.sku || "—"}</td>
+                  <td style={tdRed}>{formatCurrency(p.buy_price)}</td>
+                  <td style={tdBase}>{formatCurrency(p.sell_price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CheckCard>
 
-          {/* ── Technical health checks section ── */}
-          <div className="pt-2">
-            <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות טכניות</h2>
+        {/* ── Technical health checks section ── */}
+        <div style={{ paddingTop: 8 }}>
+          {/* OLD: <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות טכניות</h2> */}
+          <h2 style={{ color: "var(--heillo-text-primary)", fontWeight: 700, fontSize: 15, margin: "0 0 16px", paddingBottom: 12, borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Heebo', sans-serif" }}>בדיקות טכניות</h2>
 
-            {/* CHECK 11 — Supabase connection */}
-            <div className="space-y-4">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <TechCheckCard
               title="חיבור לSupabase"
               description="בדיקת תקינות החיבור למסד הנתונים"
@@ -1150,16 +1172,16 @@ export default function QualityControl() {
               detail={tech11.result?.ms != null ? `זמן תגובה: ${tech11.result.ms}ms` : undefined}
               badge={
                 tech11.result?.status === "ok" ? (
-                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> תקין</Badge>
+                  /* OLD: <Badge className="bg-green-100 text-green-700 ..."> */
+                  <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}><CheckCircle2 style={{ width: 12, height: 12 }} /> תקין</span>
                 ) : tech11.result?.status === "slow" ? (
-                  <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> איטי</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(180,83,9,0.1)", color: "#b45309", display: "inline-flex", alignItems: "center", gap: 5 }}><AlertTriangle style={{ width: 12, height: 12 }} /> איטי</span>
                 ) : (
-                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> כשל</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> כשל</span>
                 )
               }
             />
 
-            {/* CHECK 12 — product-images storage */}
             <TechCheckCard
               title="Storage — תמונות מוצרים"
               description={`גישה ל-bucket: product-images`}
@@ -1167,14 +1189,13 @@ export default function QualityControl() {
               detail={tech12.result?.error || undefined}
               badge={
                 tech12.result?.status === "ok" ? (
-                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> נגיש</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}><CheckCircle2 style={{ width: 12, height: 12 }} /> נגיש</span>
                 ) : (
-                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> לא נגיש</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> לא נגיש</span>
                 )
               }
             />
 
-            {/* CHECK 13 — delivery-documents storage */}
             <TechCheckCard
               title="Storage — מסמכי משלוח"
               description={`גישה ל-bucket: delivery-documents`}
@@ -1182,14 +1203,13 @@ export default function QualityControl() {
               detail={tech13.result?.error || undefined}
               badge={
                 tech13.result?.status === "ok" ? (
-                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> נגיש</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}><CheckCircle2 style={{ width: 12, height: 12 }} /> נגיש</span>
                 ) : (
-                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> לא נגיש</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> לא נגיש</span>
                 )
               }
             />
 
-            {/* CHECK 14 — products fetch latency */}
             <TechCheckCard
               title="זמן תגובה כללי"
               description="זמן טעינת רשימת המוצרים המלאה"
@@ -1197,98 +1217,112 @@ export default function QualityControl() {
               detail={tech14.result?.ms != null ? `זמן תגובה: ${tech14.result.ms}ms` : undefined}
               badge={
                 tech14.result?.status === "ok" ? (
-                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> מהיר</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}><CheckCircle2 style={{ width: 12, height: 12 }} /> מהיר</span>
                 ) : tech14.result?.status === "slow" ? (
-                  <Badge className="bg-amber-100 text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> איטי</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(180,83,9,0.1)", color: "#b45309", display: "inline-flex", alignItems: "center", gap: 5 }}><AlertTriangle style={{ width: 12, height: 12 }} /> איטי</span>
                 ) : tech14.result?.status === "very_slow" ? (
-                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> איטי מאוד</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> איטי מאוד</span>
                 ) : (
-                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> כשל</Badge>
+                  <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> כשל</span>
                 )
               }
             />
-            </div>
           </div>
-
-          {/* ── E2E automated test suite ── */}
-          <div className="pt-2">
-            <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות מערכת מלאות</h2>
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-border">
-                <div>
-                  <h3 className="font-semibold text-base">E2E — בדיקות קצה לקצה</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">יצירה, אימות ומחיקה של נתוני בדיקה אמיתיים</p>
-                  {e2eLastRun && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      בדיקה אחרונה:{" "}
-                      {new Date(e2eLastRun).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={runE2E}
-                  disabled={e2eRunning}
-                  className="flex items-center gap-2 shrink-0"
-                >
-                  {e2eRunning
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> מריץ בדיקות...</>
-                    : <><RefreshCw className="w-4 h-4" /> הרץ בדיקות מלאות</>
-                  }
-                </Button>
-              </div>
-
-              {e2eRunning && (
-                <div className="px-5 py-6 flex items-center gap-3 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm">מריץ בדיקות מלאות — אנא המתן...</span>
-                </div>
-              )}
-
-              {!e2eRunning && e2eResults && (
-                <>
-                  <div className="divide-y divide-border">
-                    {e2eResults.map((r) => (
-                      <div key={r.key} className="px-5 py-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          {r.ok
-                            ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                            : <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                          }
-                          <span className="text-sm font-medium">{r.label}</span>
-                          {r.error && <span className="text-xs text-red-500 truncate max-w-[200px]">{r.error}</span>}
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-xs text-muted-foreground">{r.ms}ms</span>
-                          <Badge className={r.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
-                            {r.ok ? "עבר" : "נכשל"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-5 py-3 bg-muted/30 border-t border-border flex items-center justify-between">
-                    <span className="text-sm font-semibold">
-                      {e2eResults.filter(r => r.ok).length}/{E2E_TESTS.length} בדיקות עברו בהצלחה
-                    </span>
-                    {e2eResults.every(r => r.ok)
-                      ? <Badge className="bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> הכל תקין</Badge>
-                      : <Badge className="bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> יש כשלים</Badge>
-                    }
-                  </div>
-                </>
-              )}
-
-              {!e2eRunning && !e2eResults && (
-                <div className="px-5 py-6 text-sm text-muted-foreground">
-                  לחץ על "הרץ בדיקות מלאות" להפעלת הבדיקות
-                </div>
-              )}
-            </div>
-          </div>
-
         </div>
+
+        {/* ── E2E automated test suite ── */}
+        <div style={{ paddingTop: 8 }}>
+          {/* OLD: <h2 className="text-base font-bold text-muted-foreground px-1 pb-3 border-b border-border mb-4">בדיקות מערכת מלאות</h2> */}
+          <h2 style={{ color: "var(--heillo-text-primary)", fontWeight: 700, fontSize: 15, margin: "0 0 16px", paddingBottom: 12, borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Heebo', sans-serif" }}>בדיקות מערכת מלאות</h2>
+          {/* OLD: <div className="bg-card border border-border rounded-xl overflow-hidden"> */}
+          <div className="heillo-card" style={{ overflow: "hidden", padding: 0 }}>
+            {/* OLD: <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-border"> */}
+            <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+              <div>
+                {/* OLD: <h3 className="font-semibold text-base">E2E — בדיקות קצה לקצה</h3> */}
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>E2E — בדיקות קצה לקצה</h3>
+                {/* OLD: <p className="text-sm text-muted-foreground mt-0.5">... */}
+                <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>יצירה, אימות ומחיקה של נתוני בדיקה אמיתיים</p>
+                {e2eLastRun && (
+                  <p style={{ fontSize: 11, color: MUTED, margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>
+                    בדיקה אחרונה:{" "}
+                    {new Date(e2eLastRun).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+              {/* OLD: <Button variant="outline" size="sm" onClick={runE2E} disabled={e2eRunning} className="..."> */}
+              <button
+                className="heillo-btn-primary"
+                onClick={runE2E}
+                disabled={e2eRunning}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0, opacity: e2eRunning ? 0.7 : 1 }}
+              >
+                {e2eRunning
+                  ? <><Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> מריץ בדיקות...</>
+                  : <><RefreshCw style={{ width: 14, height: 14 }} /> הרץ בדיקות מלאות</>
+                }
+              </button>
+            </div>
+
+            {e2eRunning && (
+              /* OLD: <div className="px-5 py-6 flex items-center gap-3 text-muted-foreground"> */
+              <div style={{ padding: "24px 20px", display: "flex", alignItems: "center", gap: 12, color: MUTED, fontFamily: "'Heebo', sans-serif", fontSize: 13 }}>
+                <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
+                מריץ בדיקות מלאות — אנא המתן...
+              </div>
+            )}
+
+            {!e2eRunning && e2eResults && (
+              <>
+                {/* OLD: <div className="divide-y divide-border"> */}
+                <div>
+                  {e2eResults.map((r) => (
+                    /* OLD: <div key={r.key} className="px-5 py-3 flex items-center justify-between gap-3"> */
+                    <div key={r.key} style={{ padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "1px solid rgba(0,0,0,0.04)", fontFamily: "'Heebo', sans-serif" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {r.ok
+                          ? <CheckCircle2 style={{ width: 15, height: 15, color: "#16a34a", flexShrink: 0 }} />
+                          : <XCircle style={{ width: 15, height: 15, color: "#ef4444", flexShrink: 0 }} />
+                        }
+                        <span style={{ fontSize: 13, fontWeight: 500, color: DARK }}>{r.label}</span>
+                        {r.error && <span style={{ fontSize: 11, color: "#ef4444", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{r.error}</span>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: MUTED }}>{r.ms}ms</span>
+                        {/* OLD: <Badge className={r.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}> */}
+                        <span className="heillo-badge" style={r.ok
+                          ? { background: "rgba(22,163,74,0.1)", color: "#15803d" }
+                          : { background: "rgba(239,68,68,0.1)", color: "#ef4444" }
+                        }>
+                          {r.ok ? "עבר" : "נכשל"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* OLD: <div className="px-5 py-3 bg-muted/30 border-t border-border flex items-center justify-between"> */}
+                <div style={{ padding: "12px 20px", background: "rgba(0,0,0,0.02)", borderTop: "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "'Heebo', sans-serif" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: DARK }}>
+                    {e2eResults.filter(r => r.ok).length}/{E2E_TESTS.length} בדיקות עברו בהצלחה
+                  </span>
+                  {e2eResults.every(r => r.ok)
+                    ? <span className="heillo-badge" style={{ background: "rgba(22,163,74,0.1)", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 5 }}><CheckCircle2 style={{ width: 12, height: 12 }} /> הכל תקין</span>
+                    : <span className="heillo-badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: 5 }}><XCircle style={{ width: 12, height: 12 }} /> יש כשלים</span>
+                  }
+                </div>
+              </>
+            )}
+
+            {!e2eRunning && !e2eResults && (
+              /* OLD: <div className="px-5 py-6 text-sm text-muted-foreground"> */
+              <div style={{ padding: "24px 20px", fontSize: 13, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>
+                לחץ על "הרץ בדיקות מלאות" להפעלת הבדיקות
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
