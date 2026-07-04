@@ -170,7 +170,7 @@ export default function Inventory() {
     <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
 
       {/* ── Sticky top section ──────────────────────────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--heillo-bg-gradient)", paddingBottom: 16 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--heillo-bg-gradient)", paddingBottom: 16, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       {/* OLD:
