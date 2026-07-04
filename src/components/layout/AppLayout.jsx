@@ -11,7 +11,7 @@ export default function AppLayout() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{ background: "#ECEDF0" }}>
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
