@@ -304,7 +304,7 @@ export default function SalesCatalog() {
       const validLine = cartData?.validUntil ? `\nתוקף עד: ${cartData.validUntil}` : "";
       const notesLine = cartData?.customerNotes ? `\n\n${cartData.customerNotes}` : "";
       const pdfLink = `https://crm-omri-dadon.vercel.app/quote-pdf/${quote.id}`;
-      const msg = `שלום ${selectedCustomer?.name},\n\nהצעת מחיר #${counter} מ${businessName}\n${priceLabel}${validLine}${notesLine}\n\nלצפייה בהצעה: ${pdfLink}\n\nלפרטים נוספים צרו קשר.`;
+      const msg = `שלום ${selectedCustomer?.name},\n\nהצעת המחיר שלך מוכנה.\n\nמספר הצעה: ${counter}\nסך הכול לתשלום: ₪${grossTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
       const cleaned = phone.replace(/\D/g, "");
       const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
       window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

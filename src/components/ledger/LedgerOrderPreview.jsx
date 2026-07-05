@@ -26,19 +26,14 @@ export default function LedgerOrderPreview({ order, onClose, invoices, businessS
     const customerName = selectedCustomer?.name || order.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
     const msg =
-`📦 הזמנה #${order.order_number || order.id}
+`שלום ${customerName},
 
-שלום ${customerName},
+ההזמנה שלך מוכנה.
 
-מצורפים פרטי ההזמנה שלך.
+מספר הזמנה: ${order.order_number || order.id}
+סך הכול לתשלום: ₪${(order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-לצפייה במסמך:
-${url}
-
-תודה שבחרת לעבוד איתנו.
-
-בברכה,
-${companyName}`;
+תודה שבחרת בא.ד שיווק והפצה.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

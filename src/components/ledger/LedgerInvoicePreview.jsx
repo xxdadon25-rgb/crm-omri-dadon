@@ -109,16 +109,14 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
     const companyName = businessSettings?.business_name || "העסק שלי";
     const invoiceUrl = `${window.location.origin}/invoice-pdf/${invoice.id}`;
     const msg =
-`🧾 חשבונית #${invoice.invoice_number || invoice.id}
+`שלום ${customerName},
 
-שלום ${customerName},
+החשבונית שלך מוכנה.
 
-מצורפת החשבונית שלך.
+מספר חשבונית: ${invoice.invoice_number || invoice.id}
+סך הכול לתשלום: ₪${(invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-${invoiceUrl}
-
-בברכה,
-${companyName}`;
+תודה שבחרת בא.ד שיווק והפצה.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

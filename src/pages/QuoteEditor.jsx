@@ -224,7 +224,7 @@ export default function QuoteEditor() {
     if (!phone.trim()) { toast.error("ללקוח אין מספר טלפון. עדכן את פרטי הלקוח ונסה שוב."); return; }
     const businessName = businessSettings?.business_name || "ERP Pro";
     const priceLabel = `סה״כ לפני מע״מ: ₪${subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nמע״מ (${vatRate}%): ₪${vatAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nסה״כ כולל מע״מ: ₪${total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const msg = `שלום ${form.customer_name},\n\nהצעת מחיר #${form.quote_number} מ${businessName}\n\n${priceLabel}\n\nתוקף עד: ${form.valid_until || "---"}\n\n${form.customer_notes ? "הערות: " + form.customer_notes : ""}`;
+    const msg = `שלום ${form.customer_name},\n\nהצעת המחיר שלך מוכנה.\n\nמספר הצעה: ${form.quote_number}\nסך הכול לתשלום: ₪${total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

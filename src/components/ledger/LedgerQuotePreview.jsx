@@ -24,19 +24,14 @@ export default function LedgerQuotePreview({ quote, onClose, businessSettings, s
     const customerName = selectedCustomer?.name || quote.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
     const msg =
-`📄 הצעת מחיר #${quote.quote_number || quote.id}
+`שלום ${customerName},
 
-שלום ${customerName},
+הצעת המחיר שלך מוכנה.
 
-מצורפת הצעת המחיר שהוכנה עבורך.
+מספר הצעה: ${quote.quote_number || quote.id}
+סך הכול לתשלום: ₪${(quote.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-לצפייה במסמך:
-${url}
-
-לכל שאלה אנחנו זמינים.
-
-בברכה,
-${companyName}`;
+תודה שבחרת בא.ד שיווק והפצה.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

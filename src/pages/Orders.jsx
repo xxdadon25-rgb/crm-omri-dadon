@@ -405,7 +405,7 @@ export default function Orders() {
     const businessSettings = settings[0] || {};
     const businessName = businessSettings.business_name || "העסק שלי";
     const orderLink = `${window.location.origin}/order-pdf/${order.id}`;
-    const msg = `שלום ${order.customer_name},\n\nמצורפת ההזמנה מספר ${order.order_number}.\n\nלצפייה והורדת ההזמנה:\n${orderLink}\n\nבברכה,\n${businessName}`;
+    const msg = `שלום ${order.customer_name},\n\nההזמנה שלך מוכנה.\n\nמספר הזמנה: ${order.order_number}\nסך הכול לתשלום: ₪${(order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
