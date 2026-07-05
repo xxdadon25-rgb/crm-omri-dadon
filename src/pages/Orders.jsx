@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useNavigate } from "react-router-dom";
 
 // Seed from sessionStorage so module-level set is populated after page refresh
@@ -405,7 +406,7 @@ export default function Orders() {
     const businessSettings = settings[0] || {};
     const businessName = businessSettings.business_name || "העסק שלי";
     const orderLink = `${window.location.origin}/order-pdf/${order.id}`;
-    const msg = `שלום ${order.customer_name},\n\nההזמנה שלך מוכנה.\n\nמספר הזמנה: ${order.order_number}\nסך הכול לתשלום: ₪${(order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
+    const msg = formatWhatsAppMessage(businessSettings.whatsapp_template, { name: order.customer_name, number: order.order_number, amount: (order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הזמנה" });
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

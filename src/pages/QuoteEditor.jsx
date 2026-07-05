@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
@@ -224,7 +225,7 @@ export default function QuoteEditor() {
     if (!phone.trim()) { toast.error("ללקוח אין מספר טלפון. עדכן את פרטי הלקוח ונסה שוב."); return; }
     const businessName = businessSettings?.business_name || "ERP Pro";
     const priceLabel = `סה״כ לפני מע״מ: ₪${subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nמע״מ (${vatRate}%): ₪${vatAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nסה״כ כולל מע״מ: ₪${total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const msg = `שלום ${form.customer_name},\n\nהצעת המחיר שלך מוכנה.\n\nמספר הצעה: ${form.quote_number}\nסך הכול לתשלום: ₪${total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
+    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: form.customer_name, number: form.quote_number, amount: total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הצעת מחיר" });
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

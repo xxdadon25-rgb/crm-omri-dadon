@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
@@ -304,7 +305,7 @@ export default function SalesCatalog() {
       const validLine = cartData?.validUntil ? `\nתוקף עד: ${cartData.validUntil}` : "";
       const notesLine = cartData?.customerNotes ? `\n\n${cartData.customerNotes}` : "";
       const pdfLink = `https://crm-omri-dadon.vercel.app/quote-pdf/${quote.id}`;
-      const msg = `שלום ${selectedCustomer?.name},\n\nהצעת המחיר שלך מוכנה.\n\nמספר הצעה: ${counter}\nסך הכול לתשלום: ₪${grossTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
+      const msg = formatWhatsAppMessage(fresh?.whatsapp_template || businessSettings?.whatsapp_template, { name: selectedCustomer?.name, number: counter, amount: grossTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הצעת מחיר" });
       const cleaned = phone.replace(/\D/g, "");
       const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
       window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

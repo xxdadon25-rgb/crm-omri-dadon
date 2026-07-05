@@ -14,6 +14,7 @@ import { toast } from "sonner";
 //   "באיחור": "bg-red-100 text-red-700",
 // };
 import { getPaymentStatusColor } from "@/utils/statusColors";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 
 const BUCKET = "payment-attachments";
 
@@ -108,15 +109,7 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
     const customerName = selectedCustomer?.name || invoice.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
     const invoiceUrl = `${window.location.origin}/invoice-pdf/${invoice.id}`;
-    const msg =
-`שלום ${customerName},
-
-החשבונית שלך מוכנה.
-
-מספר חשבונית: ${invoice.invoice_number || invoice.id}
-סך הכול לתשלום: ₪${(invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-
-תודה שבחרת בא.ד שיווק והפצה.`;
+    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: invoice.invoice_number || invoice.id, amount: (invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "חשבונית" });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

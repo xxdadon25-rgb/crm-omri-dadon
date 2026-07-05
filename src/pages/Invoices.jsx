@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Search, Receipt, Trash2, Eye, Check, Link2, FileText } from "lucide-react";
@@ -450,7 +451,7 @@ export default function Invoices() {
                     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
                     const pdfUrl = `https://crm-omri-dadon.vercel.app/invoice-pdf/${viewInvoice.id}`;
                     const total = (viewInvoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
-                    const msg = `שלום ${viewInvoice.customer_name},\n\nהחשבונית שלך מוכנה.\n\nמספר חשבונית: ${viewInvoice.invoice_number}\nסך הכול לתשלום: ₪${total}\n\nתודה שבחרת בא.ד שיווק והפצה.`;
+                    const msg = formatWhatsAppMessage(settings[0]?.whatsapp_template, { name: viewInvoice.customer_name, number: viewInvoice.invoice_number, amount: total, docType: "חשבונית" });
                     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
                   }}
                   style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "var(--heillo-accent)", fontSize: 13, fontWeight: 500, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}

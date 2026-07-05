@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer, MessageCircle, X } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
@@ -25,15 +26,7 @@ export default function LedgerOrderPreview({ order, onClose, invoices, businessS
     const url = `${window.location.origin}/order-pdf/${order.id}`;
     const customerName = selectedCustomer?.name || order.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const msg =
-`שלום ${customerName},
-
-ההזמנה שלך מוכנה.
-
-מספר הזמנה: ${order.order_number || order.id}
-סך הכול לתשלום: ₪${(order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-
-תודה שבחרת בא.ד שיווק והפצה.`;
+    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: order.order_number || order.id, amount: (order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הזמנה" });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

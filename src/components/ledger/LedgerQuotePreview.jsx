@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer, MessageCircle, X } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 
 const statusColors = {
   "טיוטה": "bg-gray-100 text-gray-700",
@@ -23,15 +24,7 @@ export default function LedgerQuotePreview({ quote, onClose, businessSettings, s
     const url = `${window.location.origin}/quote-pdf/${quote.id}`;
     const customerName = selectedCustomer?.name || quote.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const msg =
-`שלום ${customerName},
-
-הצעת המחיר שלך מוכנה.
-
-מספר הצעה: ${quote.quote_number || quote.id}
-סך הכול לתשלום: ₪${(quote.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-
-תודה שבחרת בא.ד שיווק והפצה.`;
+    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: quote.quote_number || quote.id, amount: (quote.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הצעת מחיר" });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
