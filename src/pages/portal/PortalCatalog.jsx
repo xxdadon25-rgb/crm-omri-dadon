@@ -324,6 +324,9 @@ export default function PortalCatalog() {
         @media(max-width:768px){
           .portal-layout{flex-direction:column !important;}
           .portal-cart-col{position:static !important; width:100% !important; max-width:100% !important;}
+          .portal-cat-col{width:100% !important; align-self:auto !important;}
+          .portal-cat-col .portal-cat-sticky{position:static !important; display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; overflow-x:auto; gap:8px !important; padding:0 0 4px !important;}
+          .portal-cat-col .portal-cat-sticky button{flex-shrink:0;}
         }
       `}</style>
 
@@ -341,16 +344,29 @@ export default function PortalCatalog() {
         </button>
       </div>
 
-      {/* Two-column layout: catalog (right) + cart panel (left) */}
+      {/* Three-column layout: categories (right) + catalog (middle) + cart (left) */}
       {/* alignItems not set → children stretch to row height, needed for cart sticky to work */}
       <div className="portal-layout" style={{ maxWidth: 1260, margin: "0 auto", display: "flex", gap: 20 }}>
 
-        {/* ── Catalog column ── */}
+        {/* ── Category sidebar (right column) ── */}
+        {categories.length > 1 && (
+          <div className="portal-cat-col" style={{ width: 200, flexShrink: 0, alignSelf: "stretch" }}>
+            <div className="portal-cat-sticky" style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)}
+                  style={{ width: "100%", padding: "9px 16px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", textAlign: "right", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Catalog column (middle) ── */}
         <div style={{ flex: 1, minWidth: 0, alignSelf: "flex-start" }}>
-          {/* Sticky search + category bar */}
+          {/* Sticky search bar */}
           <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#ECEDF0", paddingBottom: 12, marginBottom: 4 }}>
-            {/* Search */}
-            <div style={{ position: "relative", marginBottom: 12 }}>
+            <div style={{ position: "relative" }}>
               <svg style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
                 viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
@@ -358,18 +374,6 @@ export default function PortalCatalog() {
               <input type="text" placeholder="חיפוש מוצר..." value={search} onChange={e => setSearch(e.target.value)}
                 style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }} />
             </div>
-
-            {/* Category pills */}
-            {categories.length > 1 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {categories.map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)}
-                    style={{ padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Discount banner */}
