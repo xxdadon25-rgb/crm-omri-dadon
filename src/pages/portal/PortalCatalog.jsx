@@ -47,26 +47,26 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
         )}
       </div>
 
-      <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.4 }}>{product.name}</p>
+      <div style={{ padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 5, flex: 1 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.3 }}>{product.name}</p>
         {product.description && (
-          <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {product.description}
           </p>
         )}
-        <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
-          {discount > 0 && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
-          <span style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
+        <div style={{ marginTop: "auto", paddingTop: 6, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
+          {discount > 0 && <span style={{ fontSize: 11, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
+          <span style={{ fontSize: 11, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
         </div>
         <button
           onClick={() => onAdd(product, discountedPrice)}
           style={{
-            marginTop: 8, height: 36,
+            marginTop: 6, height: 32,
             background: cartQty > 0 ? "rgba(245,136,94,0.12)" : ACCENT,
             color: cartQty > 0 ? ACCENT : "#FFFFFF",
             border: cartQty > 0 ? `1.5px solid ${ACCENT}` : "none",
-            borderRadius: 12, fontSize: 13, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
+            borderRadius: 10, fontSize: 12, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}
         >
@@ -321,12 +321,19 @@ export default function PortalCatalog() {
     <div dir="rtl" style={{ ...PAGE_BG, padding: "24px 16px 48px" }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
+        @media(max-width:1024px){
+          .portal-product-grid{grid-template-columns:repeat(3,1fr) !important;}
+        }
         @media(max-width:768px){
           .portal-layout{flex-direction:column !important;}
           .portal-cart-col{position:static !important; width:100% !important; max-width:100% !important;}
           .portal-cat-col{width:100% !important; align-self:auto !important;}
           .portal-cat-col .portal-cat-sticky{position:static !important; display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; overflow-x:auto; gap:8px !important; padding:0 0 4px !important;}
           .portal-cat-col .portal-cat-sticky button{flex-shrink:0;}
+          .portal-product-grid{grid-template-columns:repeat(2,1fr) !important;}
+        }
+        @media(max-width:480px){
+          .portal-product-grid{grid-template-columns:1fr !important;}
         }
       `}</style>
 
@@ -387,7 +394,7 @@ export default function PortalCatalog() {
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "64px 0", color: MUTED, fontSize: 15 }}>לא נמצאו מוצרים</div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+            <div className="portal-product-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14 }}>
               {filtered.map(product => {
                 const cartItem = cart.find(i => i.product_id === product.id);
                 return (
