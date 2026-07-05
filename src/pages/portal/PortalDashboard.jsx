@@ -103,9 +103,18 @@ export default function PortalDashboard() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: DARK, margin: "0 0 6px" }}>
             ברוך הבא{customerName ? `, ${customerName}` : ""}
           </h2>
-          <p style={{ fontSize: 14, color: MUTED, margin: 0, lineHeight: 1.6 }}>
-            כאן יופיע קטלוג המוצרים וההזמנות שלך בקרוב
-          </p>
+          <button
+            onClick={() => navigate("/portal/catalog")}
+            style={{
+              background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12,
+              padding: "9px 18px", fontSize: 14, fontWeight: 600,
+              fontFamily: "'Heebo', sans-serif", cursor: "pointer", marginTop: 4,
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            לקטלוג המוצרים ←
+          </button>
         </div>
 
         <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: 16 }}>
