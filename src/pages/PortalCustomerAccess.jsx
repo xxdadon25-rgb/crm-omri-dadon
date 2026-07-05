@@ -317,10 +317,6 @@ function OrderCard({ order, customerName, productMap, settingsData, onApproved, 
         qc.invalidateQueries({ queryKey: ["settings"] });
       }
 
-      // Deduct inventory (same logic as Orders.jsx deductInventory)
-      await deductInventory(internalItems, qc);
-      await base44.entities.Order.update(created.id, { inventory_deducted: true });
-
       // Mark portal order as approved with linked internal order id
       const { error } = await supabase
         .from("portal_orders")
