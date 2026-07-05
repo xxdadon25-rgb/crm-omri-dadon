@@ -753,7 +753,7 @@ export default function PortalCustomerAccess() {
                           )}
                         </td>
                         <td style={{ padding: "14px 20px", fontSize: 13, color: hasAccess ? DARK : MUTED }}>{access?.phone_or_email || "—"}</td>
-                        <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `${access.custom_discount_percent || 0}%` : "—"}</td>
+                        <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `${(access.custom_discount_percent > 0 ? access.custom_discount_percent : customer.discount_percent) || 0}%` : "—"}</td>
                         <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `₪${Number(access.min_order_amount || 0).toLocaleString("he-IL")}` : "—"}</td>
                         <td style={{ padding: "14px 20px", textAlign: "left" }}>
                           <button
