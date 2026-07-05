@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
-import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
+import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCENT = "#F5885E";
@@ -545,6 +545,31 @@ function PendingOrdersTab() {
   );
 }
 
+// ─── WhatsApp helper ──────────────────────────────────────────────────────────
+
+function formatIsraeliPhone(raw) {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return null;
+  // Strip leading 0 and prepend country code
+  return digits.startsWith("0") ? "972" + digits.slice(1) : digits;
+}
+
+function sendWhatsApp(customer, access) {
+  const rawPhone = customer.mobile || customer.phone || "";
+  const phone = formatIsraeliPhone(rawPhone);
+  if (!phone) {
+    toast.error("לא קיים מספר טלפון ללקוח זה");
+    return;
+  }
+  const portalUrl = `${window.location.origin}/portal/login`;
+  const email = access.phone_or_email || "";
+  const msg =
+    `היי ${customer.name}, הצטרפת לפורטל הלקוחות שלנו! ` +
+    `היכנס לכתובת ${portalUrl} עם האימייל ${email} כדי להתחיל להזמין. ` +
+    `אם זו הכניסה הראשונה שלך, תוכל לבחור סיסמה בעמוד ההרשמה.`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PortalCustomerAccess() {
@@ -557,7 +582,7 @@ export default function PortalCustomerAccess() {
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ["customers-portal-page"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name, discount_percent").order("name");
+      const { data, error } = await supabase.from("customers").select("id, name, discount_percent, mobile, phone").order("name");
       if (error) throw error;
       return data;
     },
@@ -756,20 +781,38 @@ export default function PortalCustomerAccess() {
                         <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `${(access.custom_discount_percent > 0 ? access.custom_discount_percent : customer.discount_percent) || 0}%` : "—"}</td>
                         <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `₪${Number(access.min_order_amount || 0).toLocaleString("he-IL")}` : "—"}</td>
                         <td style={{ padding: "14px 20px", textAlign: "left" }}>
-                          <button
-                            onClick={() => setEditing({ customer, access: access || null })}
-                            style={{
-                              height: 34, background: hasAccess ? "rgba(0,0,0,0.04)" : ACCENT,
-                              color: hasAccess ? DARK : "#FFFFFF",
-                              border: "none", borderRadius: 10, padding: "0 16px",
-                              fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif",
-                              cursor: "pointer", whiteSpace: "nowrap", transition: "opacity 0.15s",
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
-                            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
-                          >
-                            {hasAccess ? "ערוך" : "הפעל גישה לפורטל"}
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                            {hasAccess && access.is_active && (
+                              <button
+                                onClick={() => sendWhatsApp(customer, access)}
+                                title="שלח קישור לפורטל בוואטסאפ"
+                                style={{
+                                  height: 34, width: 34, background: "rgba(37,211,102,0.1)",
+                                  border: "none", borderRadius: 10, cursor: "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, transition: "background 0.15s",
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = "rgba(37,211,102,0.2)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = "rgba(37,211,102,0.1)"; }}
+                              >
+                                <MessageCircle style={{ width: 16, height: 16, color: "#25D366" }} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setEditing({ customer, access: access || null })}
+                              style={{
+                                height: 34, background: hasAccess ? "rgba(0,0,0,0.04)" : ACCENT,
+                                color: hasAccess ? DARK : "#FFFFFF",
+                                border: "none", borderRadius: 10, padding: "0 16px",
+                                fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif",
+                                cursor: "pointer", whiteSpace: "nowrap", transition: "opacity 0.15s",
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
+                              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+                            >
+                              {hasAccess ? "ערוך" : "הפעל גישה לפורטל"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
