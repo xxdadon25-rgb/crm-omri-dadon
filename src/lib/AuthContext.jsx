@@ -6,7 +6,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isStaff, setIsStaff] = useState(false);
+  const [isStaff, setIsStaff] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const resolveSession = async (session) => {
@@ -27,10 +27,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Initialise from existing session
-    supabase.auth.getSession().then(({ data: { session } }) => resolveSession(session));
-
-    // Keep auth state in sync across tabs / token refresh
+    // onAuthStateChange fires INITIAL_SESSION on mount — no separate getSession() needed
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       resolveSession(session);
     });
@@ -42,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     await supabase.auth.signOut();
     setUser(null);
     setIsAuthenticated(false);
-    setIsStaff(false);
+    setIsStaff(null);
     if (shouldRedirect) window.location.href = '/login';
   };
 
