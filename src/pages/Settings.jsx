@@ -33,6 +33,7 @@ export default function Settings() {
     address: "", tax_id: "", vat_rate: 17, quote_counter: 1000, invoice_counter: 1000,
     api_url: "", api_key: "", api_secret: "", api_company_id: "",
     profitability_access_code: "1234",
+    whatsapp_template: "שלום {שם},\n\n{סוג_מסמך} שלך מוכנה.\n\nמספר: {מספר}\nסך הכול לתשלום: ₪{סכום}\n\nתודה שבחרת בא.ד שיווק והפצה.",
   });
   const [saving, setSaving] = useState(false);
   const [currentCodeInput, setCurrentCodeInput] = useState("");
@@ -60,6 +61,7 @@ export default function Settings() {
         api_secret: existing.api_secret || "",
         api_company_id: existing.api_company_id || "",
         profitability_access_code: existing.profitability_access_code || "1234",
+        whatsapp_template: existing.whatsapp_template || "שלום {שם},\n\n{סוג_מסמך} שלך מוכנה.\n\nמספר: {מספר}\nסך הכול לתשלום: ₪{סכום}\n\nתודה שבחרת בא.ד שיווק והפצה.",
       });
     }
   }, [existing]);
@@ -338,6 +340,32 @@ export default function Settings() {
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
           <button className="heillo-btn-primary" onClick={handleSave} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? 0.7 : 1 }}>
             <Save style={{ width: 14, height: 14 }} /> {saving ? "שומר..." : "שמירת הגדרות API"}
+          </button>
+        </div>
+      </div>
+
+      {/* WhatsApp template card */}
+      <div className="heillo-card" style={{ padding: 24, marginTop: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "var(--heillo-text-primary)", fontFamily: "'Heebo', sans-serif" }}>תבנית הודעת וואטסאפ</span>
+        </div>
+        <p style={{ fontSize: 13, color: MUTED, margin: "0 0 14px", fontFamily: "'Heebo', sans-serif" }}>הודעה זו תישלח ללקוח בעת שליחת מסמך בוואטסאפ</p>
+        <textarea
+          value={form.whatsapp_template}
+          onChange={(e) => setForm({ ...form, whatsapp_template: e.target.value })}
+          rows={6}
+          style={{ width: "100%", boxSizing: "border-box", background: "#FAFAFA", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: DARK, fontFamily: "'Heebo', sans-serif", resize: "vertical", outline: "none", lineHeight: 1.7 }}
+        />
+        <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(245,136,94,0.06)", borderRadius: 10, fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif", lineHeight: 2 }}>
+          <strong style={{ color: DARK, display: "block", marginBottom: 4 }}>משתנים זמינים:</strong>
+          <span style={{ display: "block" }}><code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 6px", borderRadius: 4 }}>{"{שם}"}</code> — שם הלקוח</span>
+          <span style={{ display: "block" }}><code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 6px", borderRadius: 4 }}>{"{מספר}"}</code> — מספר המסמך</span>
+          <span style={{ display: "block" }}><code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 6px", borderRadius: 4 }}>{"{סכום}"}</code> — סך לתשלום</span>
+          <span style={{ display: "block" }}><code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 6px", borderRadius: 4 }}>{"{סוג_מסמך}"}</code> — הצעת מחיר / הזמנה / חשבונית</span>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <button className="heillo-btn-primary" onClick={handleSave} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? 0.7 : 1 }}>
+            <Save style={{ width: 14, height: 14 }} /> {saving ? "שומר..." : "שמירת תבנית"}
           </button>
         </div>
       </div>
