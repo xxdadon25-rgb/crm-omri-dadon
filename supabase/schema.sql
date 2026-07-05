@@ -352,7 +352,8 @@ CREATE TABLE IF NOT EXISTS business_settings (
   api_url                     TEXT,
   api_key                     TEXT,
   api_secret                  TEXT,
-  api_company_id              TEXT
+  api_company_id              TEXT,
+  whatsapp_template           TEXT
 );
 
 -- supplier_deliveries
