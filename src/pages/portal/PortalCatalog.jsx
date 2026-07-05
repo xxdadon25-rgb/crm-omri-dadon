@@ -35,7 +35,6 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
 
   return (
     <div style={{ background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      {/* Image */}
       <div style={{ width: "100%", aspectRatio: "4/3", background: "#F5F3F6", overflow: "hidden", flexShrink: 0 }}>
         {showImage ? (
           <img src={imageUrl} alt={product.name} onError={() => setImgError(true)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -48,7 +47,6 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
         )}
       </div>
 
-      {/* Info */}
       <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         <p style={{ fontSize: 14, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.4 }}>{product.name}</p>
         {product.description && (
@@ -61,13 +59,13 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
           {discount > 0 && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
           <span style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
         </div>
-
-        {/* Add to cart button */}
         <button
           onClick={() => onAdd(product, discountedPrice)}
           style={{
-            marginTop: 8, height: 36, background: cartQty > 0 ? "rgba(245,136,94,0.12)" : ACCENT,
-            color: cartQty > 0 ? ACCENT : "#FFFFFF", border: cartQty > 0 ? `1.5px solid ${ACCENT}` : "none",
+            marginTop: 8, height: 36,
+            background: cartQty > 0 ? "rgba(245,136,94,0.12)" : ACCENT,
+            color: cartQty > 0 ? ACCENT : "#FFFFFF",
+            border: cartQty > 0 ? `1.5px solid ${ACCENT}` : "none",
             borderRadius: 12, fontSize: 13, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}
@@ -79,107 +77,105 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
   );
 }
 
-// ─── Cart Drawer ──────────────────────────────────────────────────────────────
-function CartDrawer({ cart, minOrderAmount, onClose, onUpdate, onRemove, onSubmit, submitting, submitResult }) {
+// ─── Cart Panel (always-visible) ──────────────────────────────────────────────
+function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitting, submitResult, onDismissSuccess }) {
   const total = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
   const belowMin = minOrderAmount > 0 && total < minOrderAmount;
   const canSubmit = cart.length > 0 && !belowMin && !submitting;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 1000 }} />
+    <div style={{
+      background: "#FFFFFF",
+      borderRadius: 22,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+      display: "flex",
+      flexDirection: "column",
+      fontFamily: "'Heebo', sans-serif",
+      // sticky on desktop so it stays in view while scrolling the grid
+      position: "sticky",
+      top: 24,
+      maxHeight: "calc(100vh - 48px)",
+      overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", flexShrink: 0 }}>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: DARK }}>🛒 סל הקניות</h2>
+      </div>
 
-      {/* Drawer */}
-      <div style={{
-        position: "fixed", top: 0, left: 0, bottom: 0, width: "min(420px, 100vw)",
-        background: "#FFFFFF", zIndex: 1001, display: "flex", flexDirection: "column",
-        boxShadow: "4px 0 32px rgba(0,0,0,0.12)", fontFamily: "'Heebo', sans-serif",
-      }} dir="rtl">
-
-        {/* Header */}
-        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: DARK }}>סל הקניות</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: MUTED, fontSize: 22, lineHeight: 1 }}>✕</button>
+      {/* Success state */}
+      {submitResult === "success" ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, textAlign: "center", gap: 14 }}>
+          <div style={{ fontSize: 44 }}>✅</div>
+          <p style={{ fontSize: 15, fontWeight: 700, color: DARK, margin: 0 }}>ההזמנה נשלחה ומחכה לאישור</p>
+          <button onClick={onDismissSuccess}
+            style={{ marginTop: 4, background: ACCENT, color: "#FFF", border: "none", borderRadius: 12, padding: "9px 22px", fontSize: 14, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: "pointer" }}>
+            המשך קנייה
+          </button>
         </div>
+      ) : (
+        <>
+          {/* Items — scrollable */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+            {cart.length === 0 ? (
+              <p style={{ color: MUTED, textAlign: "center", marginTop: 32, fontSize: 13 }}>הסל ריק</p>
+            ) : cart.map(item => (
+              <div key={item.product_id} style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 12, marginBottom: 12, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: DARK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: MUTED }}>₪{fmt(item.unit_price)} ליחידה</p>
+                </div>
 
-        {/* Success state */}
-        {submitResult === "success" ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center", gap: 16 }}>
-            <div style={{ fontSize: 48 }}>✅</div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: DARK, margin: 0 }}>ההזמנה נשלחה ומחכה לאישור</p>
-            <button onClick={onClose} style={{ marginTop: 8, background: ACCENT, color: "#FFF", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: "pointer" }}>
-              סגור
+                {/* Qty stepper */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => onUpdate(item.product_id, item.quantity - 1)}
+                    style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid rgba(0,0,0,0.1)", background: "#F5F3F6", cursor: "pointer", fontSize: 15, fontWeight: 700, color: DARK, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: DARK, minWidth: 18, textAlign: "center" }}>{item.quantity}</span>
+                  <button onClick={() => onUpdate(item.product_id, item.quantity + 1)}
+                    style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid rgba(0,0,0,0.1)", background: "#F5F3F6", cursor: "pointer", fontSize: 15, fontWeight: 700, color: DARK, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                </div>
+
+                {/* Line total */}
+                <span style={{ fontSize: 12, fontWeight: 700, color: ACCENT, flexShrink: 0, minWidth: 54, textAlign: "left" }}>₪{fmt(item.unit_price * item.quantity)}</span>
+
+                {/* Remove */}
+                <button onClick={() => onRemove(item.product_id)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: 15, padding: 2, flexShrink: 0, lineHeight: 1 }}>✕</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: "14px 16px 18px", borderTop: "1px solid rgba(0,0,0,0.06)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>סה״כ</span>
+              <span style={{ fontSize: 17, fontWeight: 800, color: ACCENT }}>₪{fmt(total)}</span>
+            </div>
+
+            {belowMin && (
+              <p style={{ margin: 0, fontSize: 12, color: "#dc2626", fontWeight: 600 }}>
+                סכום מינימלי: ₪{fmt(minOrderAmount)}
+              </p>
+            )}
+
+            {submitResult === "error" && (
+              <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>אירעה שגיאה. נסה שוב.</p>
+            )}
+
+            <button onClick={onSubmit} disabled={!canSubmit}
+              style={{
+                height: 44, background: canSubmit ? ACCENT : "#E0E0E0", color: canSubmit ? "#FFFFFF" : MUTED,
+                border: "none", borderRadius: 13, fontSize: 14, fontWeight: 700,
+                fontFamily: "'Heebo', sans-serif", cursor: canSubmit ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+              {submitting ? (
+                <><span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />שולח...</>
+              ) : "שלח הזמנה"}
             </button>
           </div>
-        ) : (
-          <>
-            {/* Items */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px" }}>
-              {cart.length === 0 ? (
-                <p style={{ color: MUTED, textAlign: "center", marginTop: 40, fontSize: 14 }}>הסל ריק</p>
-              ) : cart.map(item => (
-                <div key={item.product_id} style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: DARK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: MUTED }}>₪{fmt(item.unit_price)} ליחידה</p>
-                  </div>
-
-                  {/* Qty stepper */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => onUpdate(item.product_id, item.quantity - 1)}
-                      style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#F5F3F6", cursor: "pointer", fontSize: 16, fontWeight: 700, color: DARK, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: DARK, minWidth: 20, textAlign: "center" }}>{item.quantity}</span>
-                    <button onClick={() => onUpdate(item.product_id, item.quantity + 1)}
-                      style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#F5F3F6", cursor: "pointer", fontSize: 16, fontWeight: 700, color: DARK, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                  </div>
-
-                  {/* Line total */}
-                  <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT, flexShrink: 0, minWidth: 60, textAlign: "left" }}>₪{fmt(item.unit_price * item.quantity)}</span>
-
-                  {/* Remove */}
-                  <button onClick={() => onRemove(item.product_id)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: 16, padding: 2, flexShrink: 0 }}>✕</button>
-                </div>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: "16px 20px 24px", borderTop: "1px solid rgba(0,0,0,0.06)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: DARK }}>סה״כ</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(total)}</span>
-              </div>
-
-              {belowMin && (
-                <p style={{ margin: 0, fontSize: 13, color: "#dc2626", fontWeight: 600 }}>
-                  סכום ההזמנה המינימלי הוא ₪{fmt(minOrderAmount)}
-                </p>
-              )}
-
-              {submitResult === "error" && (
-                <p style={{ margin: 0, fontSize: 13, color: "#dc2626" }}>אירעה שגיאה בשליחת ההזמנה. נסה שוב.</p>
-              )}
-
-              <button
-                onClick={onSubmit}
-                disabled={!canSubmit}
-                style={{
-                  height: 46, background: canSubmit ? ACCENT : "#E0E0E0", color: canSubmit ? "#FFFFFF" : MUTED,
-                  border: "none", borderRadius: 14, fontSize: 15, fontWeight: 700,
-                  fontFamily: "'Heebo', sans-serif", cursor: canSubmit ? "pointer" : "not-allowed",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                }}
-              >
-                {submitting ? (
-                  <><span style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />שולח...</>
-                ) : "שלח הזמנה"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -194,7 +190,6 @@ export default function PortalCatalog() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("הכל");
   const [cart, setCart] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // null | "success" | "error"
 
@@ -320,16 +315,20 @@ export default function PortalCatalog() {
     return list;
   }, [products, activeCategory, search]);
 
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
-
   if (status === "loading") return <Spinner />;
 
   return (
-    <div dir="rtl" style={{ ...PAGE_BG, padding: "24px 16px 96px" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div dir="rtl" style={{ ...PAGE_BG, padding: "24px 16px 48px" }}>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @media(max-width:768px){
+          .portal-layout{flex-direction:column !important;}
+          .portal-cart-col{position:static !important; width:100% !important; max-width:100% !important;}
+        }
+      `}</style>
 
-      {/* Header */}
-      <div style={{ maxWidth: 1100, margin: "0 auto 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      {/* Page header */}
+      <div style={{ maxWidth: 1260, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>א.ד שיווק והפצה</h1>
           <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>קטלוג מוצרים</p>
@@ -342,81 +341,71 @@ export default function PortalCatalog() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {/* Search */}
-        <div style={{ position: "relative", marginBottom: 16 }}>
-          <svg style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }} viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-          </svg>
-          <input type="text" placeholder="חיפוש מוצר..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }} />
+      {/* Two-column layout: catalog (right) + cart panel (left) */}
+      <div className="portal-layout" style={{ maxWidth: 1260, margin: "0 auto", display: "flex", gap: 20, alignItems: "flex-start" }}>
+
+        {/* ── Catalog column ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Search */}
+          <div style={{ position: "relative", marginBottom: 16 }}>
+            <svg style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
+              viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input type="text" placeholder="חיפוש מוצר..." value={search} onChange={e => setSearch(e.target.value)}
+              style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }} />
+          </div>
+
+          {/* Category pills */}
+          {categories.length > 1 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)}
+                  style={{ padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Discount banner */}
+          {discount > 0 && (
+            <div style={{ background: "rgba(245,136,94,0.1)", border: "1px solid rgba(245,136,94,0.25)", borderRadius: 14, padding: "10px 16px", marginBottom: 20, fontSize: 13, color: ACCENT, fontWeight: 600 }}>
+              ✓ ההנחה שלך ({discount}%) מחושבת אוטומטית על כל המחירים
+            </div>
+          )}
+
+          {/* Product grid */}
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "64px 0", color: MUTED, fontSize: 15 }}>לא נמצאו מוצרים</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+              {filtered.map(product => {
+                const cartItem = cart.find(i => i.product_id === product.id);
+                return (
+                  <ProductCard key={product.id} product={product} discount={discount}
+                    cartQty={cartItem?.quantity || 0} onAdd={addToCart} />
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Category pills */}
-        {categories.length > 1 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)}
-                style={{ padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* ── Cart panel column ── */}
+        <div className="portal-cart-col" style={{ width: 300, flexShrink: 0 }}>
+          <CartPanel
+            cart={cart}
+            minOrderAmount={minOrderAmount}
+            onUpdate={updateQty}
+            onRemove={removeItem}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+            submitResult={submitResult}
+            onDismissSuccess={() => setSubmitResult(null)}
+          />
+        </div>
 
-        {/* Discount banner */}
-        {discount > 0 && (
-          <div style={{ background: "rgba(245,136,94,0.1)", border: "1px solid rgba(245,136,94,0.25)", borderRadius: 14, padding: "10px 16px", marginBottom: 20, fontSize: 13, color: ACCENT, fontWeight: 600 }}>
-            ✓ ההנחה שלך ({discount}%) מחושבת אוטומטית על כל המחירים
-          </div>
-        )}
-
-        {/* Grid */}
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "64px 0", color: MUTED, fontSize: 15 }}>לא נמצאו מוצרים</div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-            {filtered.map(product => {
-              const cartItem = cart.find(i => i.product_id === product.id);
-              return (
-                <ProductCard key={product.id} product={product} discount={discount}
-                  cartQty={cartItem?.quantity || 0} onAdd={addToCart} />
-              );
-            })}
-          </div>
-        )}
       </div>
-
-      {/* Floating cart button */}
-      {cartCount > 0 && (
-        <button onClick={() => { setSubmitResult(null); setDrawerOpen(true); }}
-          style={{
-            position: "fixed", bottom: 24, left: 24, zIndex: 900,
-            background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 99,
-            padding: "14px 22px", fontSize: 15, fontWeight: 800, fontFamily: "'Heebo', sans-serif",
-            cursor: "pointer", boxShadow: "0 4px 20px rgba(245,136,94,0.45)",
-            display: "flex", alignItems: "center", gap: 10,
-          }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" />
-          </svg>
-          סל ({cartCount})
-        </button>
-      )}
-
-      {/* Cart drawer */}
-      {drawerOpen && (
-        <CartDrawer
-          cart={cart}
-          minOrderAmount={minOrderAmount}
-          onClose={() => { setDrawerOpen(false); if (submitResult === "success") clearCart(); }}
-          onUpdate={updateQty}
-          onRemove={removeItem}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitResult={submitResult}
-        />
-      )}
     </div>
   );
 }
