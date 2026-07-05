@@ -342,31 +342,35 @@ export default function PortalCatalog() {
       </div>
 
       {/* Two-column layout: catalog (right) + cart panel (left) */}
-      <div className="portal-layout" style={{ maxWidth: 1260, margin: "0 auto", display: "flex", gap: 20, alignItems: "flex-start" }}>
+      {/* alignItems not set → children stretch to row height, needed for cart sticky to work */}
+      <div className="portal-layout" style={{ maxWidth: 1260, margin: "0 auto", display: "flex", gap: 20 }}>
 
         {/* ── Catalog column ── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Search */}
-          <div style={{ position: "relative", marginBottom: 16 }}>
-            <svg style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
-              viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-            </svg>
-            <input type="text" placeholder="חיפוש מוצר..." value={search} onChange={e => setSearch(e.target.value)}
-              style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }} />
-          </div>
-
-          {/* Category pills */}
-          {categories.length > 1 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-              {categories.map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)}
-                  style={{ padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
-                  {cat}
-                </button>
-              ))}
+        <div style={{ flex: 1, minWidth: 0, alignSelf: "flex-start" }}>
+          {/* Sticky search + category bar */}
+          <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#ECEDF0", paddingBottom: 12, marginBottom: 4 }}>
+            {/* Search */}
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <svg style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
+                viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input type="text" placeholder="חיפוש מוצר..." value={search} onChange={e => setSearch(e.target.value)}
+                style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }} />
             </div>
-          )}
+
+            {/* Category pills */}
+            {categories.length > 1 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => setActiveCategory(cat)}
+                    style={{ padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif", background: activeCategory === cat ? ACCENT : "#FFFFFF", color: activeCategory === cat ? "#FFFFFF" : DARK, boxShadow: activeCategory === cat ? "0 2px 8px rgba(245,136,94,0.3)" : "0 1px 4px rgba(0,0,0,0.06)", transition: "background 0.15s, color 0.15s" }}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Discount banner */}
           {discount > 0 && (
@@ -391,8 +395,8 @@ export default function PortalCatalog() {
           )}
         </div>
 
-        {/* ── Cart panel column ── */}
-        <div className="portal-cart-col" style={{ width: 380, flexShrink: 0 }}>
+        {/* ── Cart panel column — stretches to row height so sticky works ── */}
+        <div className="portal-cart-col" style={{ width: 380, flexShrink: 0, alignSelf: "stretch" }}>
           <CartPanel
             cart={cart}
             minOrderAmount={minOrderAmount}
