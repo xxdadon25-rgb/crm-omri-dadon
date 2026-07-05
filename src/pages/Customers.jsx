@@ -358,7 +358,7 @@ export default function Customers() {
 
               {/* ── Mobile card list ── */}
               {/* OLD: <div className="lg:hidden space-y-2"> */}
-              <div className="lg:hidden" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="lg:hidden" style={{ flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 8px", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                   <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} />
                   <span style={{ fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>בחר הכל</span>
