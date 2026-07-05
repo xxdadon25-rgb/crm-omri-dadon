@@ -119,9 +119,9 @@ function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitt
             {cart.length === 0 ? (
               <p style={{ color: MUTED, textAlign: "center", marginTop: 32, fontSize: 13 }}>הסל ריק</p>
             ) : cart.map(item => (
-              <div key={item.product_id} style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 12, marginBottom: 12, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+              <div key={item.product_id} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: DARK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
+                  <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 700, color: DARK, lineHeight: 1.4 }}>{item.name}</p>
                   <p style={{ margin: 0, fontSize: 11, color: MUTED }}>₪{fmt(item.unit_price)} ליחידה</p>
                 </div>
 
@@ -392,7 +392,7 @@ export default function PortalCatalog() {
         </div>
 
         {/* ── Cart panel column ── */}
-        <div className="portal-cart-col" style={{ width: 300, flexShrink: 0 }}>
+        <div className="portal-cart-col" style={{ width: 380, flexShrink: 0 }}>
           <CartPanel
             cart={cart}
             minOrderAmount={minOrderAmount}
