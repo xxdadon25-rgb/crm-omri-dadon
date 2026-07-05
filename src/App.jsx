@@ -47,6 +47,7 @@ import DebtSummary from "@/pages/DebtSummary";
 import CreditNotePDFPreview from "@/pages/CreditNotePDFPreview";
 import DocumentCenter from "@/pages/DocumentCenter";
 import QualityControl from "@/pages/QualityControl";
+import PortalCustomerAccess from "@/pages/PortalCustomerAccess";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -102,6 +103,7 @@ const AuthenticatedApp = () => {
           <Route path="/debt-summary" element={<DebtSummary />} />
           <Route path="/documents" element={<DocumentCenter />} />
           <Route path="/quality-control" element={<QualityControl />} />
+          <Route path="/portal-access" element={<PortalCustomerAccess />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

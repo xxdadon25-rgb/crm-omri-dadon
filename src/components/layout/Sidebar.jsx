@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Settings, Truck, ChevronLeft, ChevronRight, X, ScrollText,
   Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser,
-  Landmark, FolderOpen, Shield
+  Landmark, FolderOpen, Shield, Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -28,6 +28,7 @@ const navGroups = [
     items: [
       { path: "/sales-catalog", label: "מכירה + קטלוג", icon: Store },
       { path: "/customers", label: "לקוחות", icon: Users },
+      { path: "/portal-access", label: "פורטל לקוחות", icon: Globe },
       { path: "/suppliers", label: "ספקים", icon: Truck },
       { path: "/quotes", label: "הצעות מחיר", icon: FileText },
       { path: "/orders", label: "הזמנות", icon: ShoppingCart },
