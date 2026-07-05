@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/api/supabaseClient";
 
 const navGroups = [
   {
@@ -57,6 +59,17 @@ const navGroups = [
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
   const { user } = useAuth();
+
+  const { data: pendingPortalOrders = [] } = useQuery({
+    queryKey: ["portal-orders-pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("portal_orders").select("id").eq("status", "pending");
+      if (error) return [];
+      return data;
+    },
+    refetchInterval: 60_000,
+  });
+  const pendingCount = pendingPortalOrders.length;
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "משתמש";
   const initials = displayName.charAt(0).toUpperCase();
@@ -192,7 +205,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                           strokeWidth: 1.8,
                         }}
                       />
-                      {!collapsed && <span>{item.label}</span>}
+                      {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                      {item.path === "/portal-access" && pendingCount > 0 && (
+                        <span style={{
+                          background: "#dc2626", color: "#FFFFFF", borderRadius: 99,
+                          minWidth: 18, height: 18, display: "inline-flex", alignItems: "center",
+                          justifyContent: "center", fontSize: 11, fontWeight: 700, padding: "0 5px",
+                          flexShrink: 0,
+                        }}>
+                          {pendingCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

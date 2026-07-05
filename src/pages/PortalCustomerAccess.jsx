@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
-import { Search, X, Globe, ChevronDown, ChevronUp } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCENT = "#F5885E";
@@ -9,7 +10,8 @@ const DARK = "#120F1C";
 const MUTED = "#B2B0B1";
 const CARD = { background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" };
 
-// ─── Toggle Switch ────────────────────────────────────────────────────────────
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -31,7 +33,6 @@ function Toggle({ checked, onChange, disabled }) {
   );
 }
 
-// ─── Input ────────────────────────────────────────────────────────────────────
 function Field({ label, type = "text", value, onChange, placeholder, min, step }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -49,7 +50,8 @@ function Field({ label, type = "text", value, onChange, placeholder, min, step }
   );
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
+// ─── Access modal (tab 1) ─────────────────────────────────────────────────────
+
 function AccessModal({ customer, access, products, blockedProductIds, onClose, onSaved }) {
   const isNew = !access;
   const [form, setForm] = useState({
@@ -106,7 +108,6 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
         if (error) throw error;
       }
 
-      // Sync blocked products
       const prev = new Set(blockedProductIds);
       const toAdd = [...blocked].filter(id => !prev.has(id));
       const toRemove = [...prev].filter(id => !blocked.has(id));
@@ -141,7 +142,6 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ ...CARD, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", padding: "28px 28px 24px", fontFamily: "'Heebo', sans-serif" }} dir="rtl">
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 800, color: DARK, margin: 0 }}>
@@ -154,7 +154,6 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
           </button>
         </div>
 
-        {/* Form fields */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Field label="כתובת אימייל" type="email" value={form.phone_or_email}
             onChange={v => setForm(f => ({ ...f, phone_or_email: v }))} placeholder="email@example.com" />
@@ -166,7 +165,6 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
           </div>
         </div>
 
-        {/* Blocked products section */}
         <div style={{ marginTop: 20, borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 16 }}>
           <button
             onClick={() => setShowProducts(p => !p)}
@@ -178,10 +176,7 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
                 {blocked.size}
               </span>
             )}
-            {showProducts
-              ? <ChevronUp style={{ width: 15, height: 15, color: MUTED }} />
-              : <ChevronDown style={{ width: 15, height: 15, color: MUTED }} />
-            }
+            {showProducts ? <ChevronUp style={{ width: 15, height: 15, color: MUTED }} /> : <ChevronDown style={{ width: 15, height: 15, color: MUTED }} />}
           </button>
 
           {showProducts && (
@@ -196,7 +191,8 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
               </div>
               <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
                 {filteredProducts.map(p => (
-                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 10, cursor: "pointer", background: blocked.has(p.id) ? "rgba(245,136,94,0.06)" : "transparent" }}
+                  <label key={p.id}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 10, cursor: "pointer", background: blocked.has(p.id) ? "rgba(245,136,94,0.06)" : "transparent" }}
                     onMouseEnter={e => { if (!blocked.has(p.id)) e.currentTarget.style.background = "rgba(0,0,0,0.03)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = blocked.has(p.id) ? "rgba(245,136,94,0.06)" : "transparent"; }}
                   >
@@ -216,7 +212,6 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
           )}
         </div>
 
-        {/* Actions */}
         <div style={{ display: "flex", gap: 10, marginTop: 24, justifyContent: "flex-start" }}>
           <button
             onClick={handleSave} disabled={saving}
@@ -234,12 +229,322 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
   );
 }
 
+// ─── Pending order card (tab 2) ───────────────────────────────────────────────
+
+const fmt = n => (n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = iso => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
+// Mirrors the deductInventory logic from Orders.jsx — fetch product quantity, subtract, update
+async function deductInventory(items, qc) {
+  for (const item of items) {
+    const productId = item.product_id || item.id;
+    if (!productId) continue;
+    const { data: product } = await supabase.from("products").select("id,quantity").eq("id", productId).single();
+    if (!product) continue;
+    const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
+    await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
+  }
+  qc.removeQueries({ queryKey: ["products"] });
+  qc.invalidateQueries({ queryKey: ["products"] });
+}
+
+function OrderCard({ order, customerName, productMap, settingsData, onApproved, onRejected }) {
+  const [expanded, setExpanded] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const qc = useQueryClient();
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      // Build internal order items in the format used by the orders system
+      const internalItems = (order.items || []).map(item => ({
+        product_id: item.product_id,
+        name: productMap[item.product_id] || "מוצר",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total: item.quantity * item.unit_price,
+        discount_percent: 0,
+      }));
+
+      const subtotal = internalItems.reduce((s, i) => s + i.total, 0);
+      const vatRate = settingsData?.vat_rate || 17;
+      const vatAmount = subtotal * (vatRate / 100);
+      const total = subtotal + vatAmount;
+
+      // Fetch current order counter
+      const settings = settingsData;
+      const counter = (settings?.order_counter || 1000) + 1;
+
+      const orderData = {
+        order_number: counter,
+        customer_id: order.customer_id,
+        customer_name: customerName,
+        customer_tax_id: "",
+        date: new Date().toISOString().split("T")[0],
+        items: internalItems,
+        subtotal,
+        gross_total: subtotal,
+        discount_amount: 0,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
+        total,
+        notes: order.notes || "",
+        status: "אושר",
+        fulfilled: false,
+        inventory_deducted: false,
+        agent: "פורטל לקוחות",
+      };
+
+      // Create the internal order (reusing the same entity method used across the app)
+      const created = await base44.entities.Order.create(orderData);
+
+      // Increment counter in business settings
+      if (settings?.id) {
+        await base44.entities.BusinessSettings.update(settings.id, { order_counter: counter });
+        qc.invalidateQueries({ queryKey: ["settings"] });
+      }
+
+      // Deduct inventory (same logic as Orders.jsx deductInventory)
+      await deductInventory(internalItems, qc);
+      await base44.entities.Order.update(created.id, { inventory_deducted: true });
+
+      // Mark portal order as approved with linked internal order id
+      const { error } = await supabase
+        .from("portal_orders")
+        .update({ status: "approved", approved_at: new Date().toISOString(), linked_order_id: created.id })
+        .eq("id", order.id);
+      if (error) throw error;
+
+      toast.success(`הזמנה #${counter} אושרה ונוצרה בהצלחה`);
+      onApproved(order.id);
+    } catch (err) {
+      toast.error("שגיאה באישור ההזמנה: " + err.message);
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!window.confirm(`לדחות את ההזמנה של ${customerName}?`)) return;
+    setRejecting(true);
+    try {
+      const { error } = await supabase
+        .from("portal_orders")
+        .update({ status: "rejected" })
+        .eq("id", order.id);
+      if (error) throw error;
+      toast.success("ההזמנה נדחתה");
+      onRejected(order.id);
+    } catch (err) {
+      toast.error("שגיאה בדחיית ההזמנה: " + err.message);
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  return (
+    <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+      {/* Card header */}
+      <div style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: DARK }}>{customerName}</p>
+          <p style={{ margin: "3px 0 0", fontSize: 12, color: MUTED }}>{fmtDate(order.created_at)}</p>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontSize: 19, fontWeight: 800, color: ACCENT }}>₪{fmt(order.total_amount)}</p>
+          <p style={{ margin: 0, fontSize: 11, color: MUTED }}>{order.items?.length || 0} פריטים</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={handleApprove} disabled={approving || rejecting}
+            style={{ height: 36, background: approving ? "#ccc" : ACCENT, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "0 16px", fontSize: 13, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: approving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+          >
+            {approving && <span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />}
+            אשר הזמנה
+          </button>
+          <button
+            onClick={handleReject} disabled={approving || rejecting}
+            style={{ height: 36, background: "transparent", color: "#dc2626", border: "1.5px solid rgba(220,38,38,0.35)", borderRadius: 10, padding: "0 14px", fontSize: 13, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: rejecting ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: rejecting ? 0.6 : 1 }}
+          >
+            דחה הזמנה
+          </button>
+          <button
+            onClick={() => setExpanded(e => !e)}
+            style={{ height: 36, width: 36, background: "rgba(0,0,0,0.04)", border: "none", borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          >
+            {expanded
+              ? <ChevronUp style={{ width: 16, height: 16, color: MUTED }} />
+              : <ChevronDown style={{ width: 16, height: 16, color: MUTED }} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Notes row */}
+      {order.notes && (
+        <div style={{ borderTop: "1px solid rgba(0,0,0,0.05)", padding: "10px 20px", fontSize: 13, color: MUTED }}>
+          הערות: {order.notes}
+        </div>
+      )}
+
+      {/* Expanded line items */}
+      {expanded && (
+        <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+            <thead>
+              <tr style={{ background: "#FAFAFA" }}>
+                {["מוצר", "כמות", "מחיר יחידה", "סה״כ"].map((h, i) => (
+                  <th key={i} style={{ padding: "10px 20px", textAlign: "right", fontSize: 11, fontWeight: 600, color: MUTED }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(order.items || []).map((item, i) => (
+                <tr key={i} style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                  <td style={{ padding: "10px 20px", fontSize: 13, color: DARK }}>{productMap[item.product_id] || item.product_id}</td>
+                  <td style={{ padding: "10px 20px", fontSize: 13, color: DARK }}>{item.quantity}</td>
+                  <td style={{ padding: "10px 20px", fontSize: 13, color: DARK }}>₪{fmt(item.unit_price)}</td>
+                  <td style={{ padding: "10px 20px", fontSize: 13, fontWeight: 700, color: DARK }}>₪{fmt(item.quantity * item.unit_price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab 2: Pending Orders ────────────────────────────────────────────────────
+
+function PendingOrdersTab() {
+  const qc = useQueryClient();
+  // Local list for optimistic removal after approve/reject
+  const [removedIds, setRemovedIds] = useState(new Set());
+
+  const { data: rawOrders = [], isLoading } = useQuery({
+    queryKey: ["portal-orders-pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("portal_orders")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers-portal-page"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customers").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: orderItems = [] } = useQuery({
+    queryKey: ["portal-order-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("portal_order_items").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["products-portal-page"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("id, name, sell_price").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: settingsList = [] } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => base44.entities.BusinessSettings.list(),
+    staleTime: 60_000,
+  });
+  const settingsData = settingsList[0];
+
+  const customerMap = useMemo(() => {
+    const m = {};
+    customers.forEach(c => { m[c.id] = c.name; });
+    return m;
+  }, [customers]);
+
+  const productMap = useMemo(() => {
+    const m = {};
+    products.forEach(p => { m[p.id] = p.name; });
+    return m;
+  }, [products]);
+
+  // Attach items to each order
+  const orders = useMemo(() => {
+    const itemsByOrder = {};
+    orderItems.forEach(item => {
+      if (!itemsByOrder[item.portal_order_id]) itemsByOrder[item.portal_order_id] = [];
+      itemsByOrder[item.portal_order_id].push(item);
+    });
+    return rawOrders
+      .filter(o => !removedIds.has(o.id))
+      .map(o => ({ ...o, items: itemsByOrder[o.id] || [] }));
+  }, [rawOrders, orderItems, removedIds]);
+
+  const handleRemove = (id) => {
+    setRemovedIds(prev => new Set([...prev, id]));
+    qc.invalidateQueries({ queryKey: ["portal-orders-pending"] });
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
+        <div style={{ width: 32, height: 32, border: "3px solid rgba(245,136,94,0.2)", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div style={{ ...CARD, padding: "64px 0", textAlign: "center" }}>
+        <Globe style={{ width: 40, height: 40, color: MUTED, margin: "0 auto 12px" }} />
+        <p style={{ fontSize: 15, color: MUTED, margin: 0, fontFamily: "'Heebo', sans-serif" }}>אין הזמנות ממתינות</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {orders.map(order => (
+        <OrderCard
+          key={order.id}
+          order={order}
+          customerName={customerMap[order.customer_id] || "לקוח לא ידוע"}
+          productMap={productMap}
+          settingsData={settingsData}
+          onApproved={handleRemove}
+          onRejected={handleRemove}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function PortalCustomerAccess() {
   const qc = useQueryClient();
+  const [tab, setTab] = useState("access"); // "access" | "orders"
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState(null); // { customer, access | null }
+  const [editing, setEditing] = useState(null);
 
+  // Tab 1 data
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ["customers-portal-page"],
     queryFn: async () => {
@@ -276,7 +581,20 @@ export default function PortalCustomerAccess() {
     },
   });
 
-  // Maps for O(1) lookup
+  // Pending orders count for tab badge
+  const { data: pendingOrders = [] } = useQuery({
+    queryKey: ["portal-orders-pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("portal_orders")
+        .select("id")
+        .eq("status", "pending");
+      if (error) throw error;
+      return data;
+    },
+  });
+  const pendingCount = pendingOrders.length;
+
   const accessByCustomer = useMemo(() => {
     const m = {};
     accessRows.forEach(row => { m[row.customer_id] = row; });
@@ -319,6 +637,11 @@ export default function PortalCustomerAccess() {
 
   const activeCount = accessRows.filter(r => r.is_active).length;
 
+  const TABS = [
+    { key: "access", label: "ניהול גישת לקוחות" },
+    { key: "orders", label: "הזמנות ממתינות", badge: pendingCount },
+  ];
+
   return (
     <div className="heillo-page" dir="rtl">
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -334,114 +657,125 @@ export default function PortalCustomerAccess() {
           </div>
         </div>
 
-        {/* Search */}
-        <div style={{ position: "relative", maxWidth: 360 }}>
-          <Search style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
-          <input
-            type="text" placeholder="חיפוש לקוח..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-              <X style={{ width: 14, height: 14, color: MUTED }} />
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, background: "#FFFFFF", borderRadius: 16, padding: 4, width: "fit-content", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{
+                height: 36, padding: "0 18px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "'Heebo', sans-serif",
+                fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 7, transition: "all 0.15s",
+                background: tab === t.key ? ACCENT : "transparent",
+                color: tab === t.key ? "#FFFFFF" : MUTED,
+              }}
+            >
+              {t.label}
+              {t.badge > 0 && (
+                <span style={{
+                  background: tab === t.key ? "rgba(255,255,255,0.28)" : "#dc2626",
+                  color: "#FFFFFF", borderRadius: 99, minWidth: 18, height: 18,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 700, padding: "0 5px",
+                }}>
+                  {t.badge}
+                </span>
+              )}
             </button>
-          )}
+          ))}
         </div>
-      </div>
 
-      {/* Table card */}
-      <div style={{ ...CARD, overflow: "hidden" }}>
-        {loadingCustomers ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
-            <div style={{ width: 32, height: 32, border: "3px solid rgba(245,136,94,0.2)", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                  {["שם לקוח", "סטטוס גישה", "אימייל פורטל", "הנחה", "הזמנה מינימלית", ""].map((h, i) => (
-                    <th key={i} style={{ padding: "14px 20px", textAlign: "right", fontSize: 12, fontWeight: 600, color: MUTED, whiteSpace: "nowrap", background: "#FAFAFA" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center", padding: "48px 0", color: MUTED, fontSize: 14 }}>לא נמצאו לקוחות</td>
-                  </tr>
-                )}
-                {filtered.map((customer, idx) => {
-                  const access = accessByCustomer[customer.id];
-                  const hasAccess = !!access;
-                  return (
-                    <tr key={customer.id}
-                      style={{ borderBottom: idx < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", transition: "background 0.15s" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.015)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      {/* Name */}
-                      <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: DARK, whiteSpace: "nowrap" }}>
-                        {customer.name}
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: "14px 20px" }}>
-                        {hasAccess ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <Toggle checked={access.is_active} onChange={() => handleToggleActive(customer.id, access.is_active)} />
-                            <span style={{ fontSize: 13, color: access.is_active ? "#16a34a" : MUTED }}>
-                              {access.is_active ? "פעיל" : "מושבת"}
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 13, color: MUTED }}>אין גישה</span>
-                        )}
-                      </td>
-
-                      {/* Email */}
-                      <td style={{ padding: "14px 20px", fontSize: 13, color: hasAccess ? DARK : MUTED }}>
-                        {access?.phone_or_email || "—"}
-                      </td>
-
-                      {/* Discount */}
-                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>
-                        {hasAccess ? `${access.custom_discount_percent || 0}%` : "—"}
-                      </td>
-
-                      {/* Min order */}
-                      <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>
-                        {hasAccess ? `₪${Number(access.min_order_amount || 0).toLocaleString("he-IL")}` : "—"}
-                      </td>
-
-                      {/* Action */}
-                      <td style={{ padding: "14px 20px", textAlign: "left" }}>
-                        <button
-                          onClick={() => setEditing({ customer, access: access || null })}
-                          style={{
-                            height: 34, background: hasAccess ? "rgba(0,0,0,0.04)" : ACCENT,
-                            color: hasAccess ? DARK : "#FFFFFF",
-                            border: "none", borderRadius: 10, padding: "0 16px",
-                            fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif",
-                            cursor: "pointer", whiteSpace: "nowrap",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
-                        >
-                          {hasAccess ? "ערוך" : "הפעל גישה לפורטל"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {/* Search — only shown in access tab */}
+        {tab === "access" && (
+          <div style={{ position: "relative", maxWidth: 360, marginTop: 14 }}>
+            <Search style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: MUTED, pointerEvents: "none" }} />
+            <input
+              type="text" placeholder="חיפוש לקוח..." value={search} onChange={e => setSearch(e.target.value)}
+              style={{ width: "100%", height: 44, background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: "0 44px 0 14px", fontSize: 14, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box" }}
+            />
+            {search && (
+              <button onClick={() => setSearch("")} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+                <X style={{ width: 14, height: 14, color: MUTED }} />
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Tab 1: Customer access table */}
+      {tab === "access" && (
+        <div style={{ ...CARD, overflow: "hidden" }}>
+          {loadingCustomers ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
+              <div style={{ width: 32, height: 32, border: "3px solid rgba(245,136,94,0.2)", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    {["שם לקוח", "סטטוס גישה", "אימייל פורטל", "הנחה", "הזמנה מינימלית", ""].map((h, i) => (
+                      <th key={i} style={{ padding: "14px 20px", textAlign: "right", fontSize: 12, fontWeight: 600, color: MUTED, whiteSpace: "nowrap", background: "#FAFAFA" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={6} style={{ textAlign: "center", padding: "48px 0", color: MUTED, fontSize: 14 }}>לא נמצאו לקוחות</td></tr>
+                  )}
+                  {filtered.map((customer, idx) => {
+                    const access = accessByCustomer[customer.id];
+                    const hasAccess = !!access;
+                    return (
+                      <tr key={customer.id}
+                        style={{ borderBottom: idx < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", transition: "background 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.015)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: DARK, whiteSpace: "nowrap" }}>{customer.name}</td>
+                        <td style={{ padding: "14px 20px" }}>
+                          {hasAccess ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <Toggle checked={access.is_active} onChange={() => handleToggleActive(customer.id, access.is_active)} />
+                              <span style={{ fontSize: 13, color: access.is_active ? "#16a34a" : MUTED }}>
+                                {access.is_active ? "פעיל" : "מושבת"}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 13, color: MUTED }}>אין גישה</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "14px 20px", fontSize: 13, color: hasAccess ? DARK : MUTED }}>{access?.phone_or_email || "—"}</td>
+                        <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `${access.custom_discount_percent || 0}%` : "—"}</td>
+                        <td style={{ padding: "14px 20px", fontSize: 13, color: DARK, whiteSpace: "nowrap" }}>{hasAccess ? `₪${Number(access.min_order_amount || 0).toLocaleString("he-IL")}` : "—"}</td>
+                        <td style={{ padding: "14px 20px", textAlign: "left" }}>
+                          <button
+                            onClick={() => setEditing({ customer, access: access || null })}
+                            style={{
+                              height: 34, background: hasAccess ? "rgba(0,0,0,0.04)" : ACCENT,
+                              color: hasAccess ? DARK : "#FFFFFF",
+                              border: "none", borderRadius: 10, padding: "0 16px",
+                              fontSize: 13, fontWeight: 600, fontFamily: "'Heebo', sans-serif",
+                              cursor: "pointer", whiteSpace: "nowrap", transition: "opacity 0.15s",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+                          >
+                            {hasAccess ? "ערוך" : "הפעל גישה לפורטל"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 2: Pending orders */}
+      {tab === "orders" && <PendingOrdersTab />}
+
+      {/* Edit modal */}
       {editing && (
         <AccessModal
           customer={editing.customer}
