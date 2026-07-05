@@ -103,18 +103,32 @@ export default function PortalDashboard() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: DARK, margin: "0 0 6px" }}>
             ברוך הבא{customerName ? `, ${customerName}` : ""}
           </h2>
-          <button
-            onClick={() => navigate("/portal/catalog")}
-            style={{
-              background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12,
-              padding: "9px 18px", fontSize: 14, fontWeight: 600,
-              fontFamily: "'Heebo', sans-serif", cursor: "pointer", marginTop: 4,
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-          >
-            לקטלוג המוצרים ←
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            <button
+              onClick={() => navigate("/portal/catalog")}
+              style={{
+                background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12,
+                padding: "9px 18px", fontSize: 14, fontWeight: 600,
+                fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              לקטלוג המוצרים ←
+            </button>
+            <button
+              onClick={() => navigate("/portal/orders")}
+              style={{
+                background: "transparent", color: DARK, border: "1px solid rgba(0,0,0,0.1)",
+                borderRadius: 12, padding: "9px 18px", fontSize: 14, fontWeight: 600,
+                fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              היסטוריית הזמנות ←
+            </button>
+          </div>
         </div>
 
         <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: 16 }}>
