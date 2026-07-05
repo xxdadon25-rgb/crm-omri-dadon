@@ -15,6 +15,7 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import QuotePDFPreview from "@/pages/QuotePDFPreview";
 import PortalLogin from "@/pages/portal/PortalLogin";
+import PortalDashboard from "@/pages/portal/PortalDashboard";
 import OrderPDFPreview from "@/pages/OrderPDFPreview";
 import InvoicePDFPreview from "@/pages/InvoicePDFPreview";
 
@@ -114,6 +115,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/portal/login" element={<PortalLogin />} />
+            <Route path="/portal/dashboard" element={<PortalDashboard />} />
             <Route path="/quote-pdf/:quoteId" element={<QuotePDFPreview />} />
             <Route path="/order-pdf/:orderId" element={<OrderPDFPreview />} />
             <Route path="/invoice-pdf/:invoiceId" element={<InvoicePDFPreview />} />
