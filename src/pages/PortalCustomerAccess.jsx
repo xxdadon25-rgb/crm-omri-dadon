@@ -57,8 +57,8 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
   const regularDiscount = customer.discount_percent ?? 0;
   const [form, setForm] = useState({
     phone_or_email: access?.phone_or_email || "",
-    // Pre-fill with customer's regular discount when creating new access (no existing custom override)
-    custom_discount_percent: access?.custom_discount_percent ?? regularDiscount,
+    // Use custom discount only if explicitly set > 0; otherwise fall back to customer's regular discount
+    custom_discount_percent: (access?.custom_discount_percent > 0) ? access.custom_discount_percent : regularDiscount,
     min_order_amount: access?.min_order_amount ?? 0,
   });
   const [blocked, setBlocked] = useState(new Set(blockedProductIds));
@@ -165,7 +165,7 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
                 onChange={v => setForm(f => ({ ...f, custom_discount_percent: v }))} min="0" step="0.1" placeholder="0" />
               <p style={{ margin: 0, fontSize: 11, color: MUTED, lineHeight: 1.4 }}>
                 הנחה קבועה של הלקוח: <strong>{regularDiscount}%</strong>
-                {isNew && regularDiscount > 0 && " (הוזנה כברירת מחדל)"}
+                {regularDiscount > 0 && !(access?.custom_discount_percent > 0) && " (הוזנה כברירת מחדל)"}
               </p>
             </div>
             <Field label="הזמנה מינימלית (₪)" type="number" value={form.min_order_amount}
