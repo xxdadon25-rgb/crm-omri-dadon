@@ -158,13 +158,13 @@ export default function PortalCatalog() {
   }, [navigate]);
 
   const categories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+    const cats = [...new Set(products.map(p => p.category?.trim()).filter(Boolean))].sort();
     return ["הכל", ...cats];
   }, [products]);
 
   const filtered = useMemo(() => {
     let list = products;
-    if (activeCategory !== "הכל") list = list.filter(p => p.category === activeCategory);
+    if (activeCategory !== "הכל") list = list.filter(p => p.category?.trim() === activeCategory);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(p => p.name?.toLowerCase().includes(q));
