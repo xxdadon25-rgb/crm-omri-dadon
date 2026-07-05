@@ -47,26 +47,26 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
         )}
       </div>
 
-      <div style={{ padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 5, flex: 1 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.3 }}>{product.name}</p>
+      <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.4 }}>{product.name}</p>
         {product.description && (
-          <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {product.description}
           </p>
         )}
-        <div style={{ marginTop: "auto", paddingTop: 6, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
-          {discount > 0 && <span style={{ fontSize: 11, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
-          <span style={{ fontSize: 11, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
+        <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
+          {discount > 0 && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
+          <span style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
         </div>
         <button
           onClick={() => onAdd(product, discountedPrice)}
           style={{
-            marginTop: 6, height: 32,
+            marginTop: 8, height: 36,
             background: cartQty > 0 ? "rgba(245,136,94,0.12)" : ACCENT,
             color: cartQty > 0 ? ACCENT : "#FFFFFF",
             border: cartQty > 0 ? `1.5px solid ${ACCENT}` : "none",
-            borderRadius: 10, fontSize: 12, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
+            borderRadius: 12, fontSize: 13, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}
         >
@@ -338,7 +338,7 @@ export default function PortalCatalog() {
       `}</style>
 
       {/* Page header */}
-      <div style={{ maxWidth: 1260, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ maxWidth: 1600, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>א.ד שיווק והפצה</h1>
           <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>קטלוג מוצרים</p>
@@ -353,11 +353,11 @@ export default function PortalCatalog() {
 
       {/* Three-column layout: categories (right) + catalog (middle) + cart (left) */}
       {/* alignItems not set → children stretch to row height, needed for cart sticky to work */}
-      <div className="portal-layout" style={{ maxWidth: 1260, margin: "0 auto", display: "flex", gap: 20 }}>
+      <div className="portal-layout" style={{ maxWidth: 1600, margin: "0 auto", display: "flex", gap: 20 }}>
 
         {/* ── Category sidebar (right column) ── */}
         {categories.length > 1 && (
-          <div className="portal-cat-col" style={{ width: 200, flexShrink: 0, alignSelf: "stretch" }}>
+          <div className="portal-cat-col" style={{ width: 160, flexShrink: 0, alignSelf: "stretch" }}>
             <div className="portal-cat-sticky" style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
               {categories.map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -407,7 +407,7 @@ export default function PortalCatalog() {
         </div>
 
         {/* ── Cart panel column — stretches to row height so sticky works ── */}
-        <div className="portal-cart-col" style={{ width: 380, flexShrink: 0, alignSelf: "stretch" }}>
+        <div className="portal-cart-col" style={{ width: 320, flexShrink: 0, alignSelf: "stretch" }}>
           <CartPanel
             cart={cart}
             minOrderAmount={minOrderAmount}
