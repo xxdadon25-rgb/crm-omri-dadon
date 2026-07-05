@@ -13,6 +13,7 @@ const TABLES = [
   { table: 'customer_tasks', queryKey: 'customer_tasks' },
   { table: 'supplier_orders', queryKey: 'supplier_orders' },
   { table: 'payments', queryKey: 'payments' },
+  { table: 'portal_orders', queryKey: 'portal-orders-pending-count' },
 ];
 
 export const useRealtimeSync = () => {
