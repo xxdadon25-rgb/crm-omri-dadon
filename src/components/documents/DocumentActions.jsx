@@ -3,6 +3,7 @@ import { Printer, FileText, MessageCircle, Mail, Loader2, Link2, Share2, Downloa
 import { Button } from "@/components/ui/button";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
+import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 
 // Detect whether the device supports native file sharing (Web Share API Level 2)
 // This is true on Android Chrome 89+, iOS Safari 15+, iPadOS 15+
@@ -84,11 +85,13 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
 
   // ─── DESKTOP: WHATSAPP TEXT LINK ─────────────────────────────────────────
   const handleWhatsAppText = () => {
-    console.log('template:', businessSettings?.whatsapp_template);
     const { title, num } = getDocLabel();
-    const validLine = doc.valid_until ? `\nתוקף עד: ${doc.valid_until}` : "";
-    const notesLine = doc.customer_notes ? `\n\n${doc.customer_notes}` : "";
-    const text = `שלום ${doc.customer_name},\n\n${title} מספר ${num} מ${businessSettings?.business_name || "ERP Pro"}\nסה״כ לתשלום: ₪${(doc.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 })}${validLine}${notesLine}`;
+    const text = formatWhatsAppMessage(businessSettings?.whatsapp_template, {
+      name: doc.customer_name,
+      number: num,
+      amount: (doc.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      docType: title,
+    });
     const phone = customerPhone?.replace(/[-\s]/g, "").replace(/^0/, "972");
     window.open(`https://wa.me/${phone || ""}?text=${encodeURIComponent(text)}`, "_blank");
   };
