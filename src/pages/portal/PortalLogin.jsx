@@ -39,6 +39,17 @@ export default function PortalLogin() {
     setLoading(true);
     try {
       if (tab === "signup") {
+        // Pre-check: only allow signup if email is approved in customer_portal_access
+        const { data: accessRow } = await supabase
+          .from("customer_portal_access")
+          .select("id")
+          .ilike("phone_or_email", email.trim())
+          .eq("is_active", true)
+          .maybeSingle();
+        if (!accessRow) {
+          setError("כתובת האימייל הזו לא מאושרת להרשמה לפורטל. פנה אלינו לקבלת גישה.");
+          return;
+        }
         const { error: err } = await supabase.auth.signUp({ email, password });
         if (err) { setError(translateError(err.message)); return; }
         setSignupSuccess(true);

@@ -54,9 +54,11 @@ function Field({ label, type = "text", value, onChange, placeholder, min, step }
 
 function AccessModal({ customer, access, products, blockedProductIds, onClose, onSaved }) {
   const isNew = !access;
+  const regularDiscount = customer.discount_percent ?? 0;
   const [form, setForm] = useState({
     phone_or_email: access?.phone_or_email || "",
-    custom_discount_percent: access?.custom_discount_percent ?? 0,
+    // Pre-fill with customer's regular discount when creating new access (no existing custom override)
+    custom_discount_percent: access?.custom_discount_percent ?? regularDiscount,
     min_order_amount: access?.min_order_amount ?? 0,
   });
   const [blocked, setBlocked] = useState(new Set(blockedProductIds));
@@ -158,8 +160,14 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
           <Field label="כתובת אימייל" type="email" value={form.phone_or_email}
             onChange={v => setForm(f => ({ ...f, phone_or_email: v }))} placeholder="email@example.com" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="הנחה (%)" type="number" value={form.custom_discount_percent}
-              onChange={v => setForm(f => ({ ...f, custom_discount_percent: v }))} min="0" step="0.1" placeholder="0" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <Field label="הנחה (%)" type="number" value={form.custom_discount_percent}
+                onChange={v => setForm(f => ({ ...f, custom_discount_percent: v }))} min="0" step="0.1" placeholder="0" />
+              <p style={{ margin: 0, fontSize: 11, color: MUTED, lineHeight: 1.4 }}>
+                הנחה קבועה של הלקוח: <strong>{regularDiscount}%</strong>
+                {isNew && regularDiscount > 0 && " (הוזנה כברירת מחדל)"}
+              </p>
+            </div>
             <Field label="הזמנה מינימלית (₪)" type="number" value={form.min_order_amount}
               onChange={v => setForm(f => ({ ...f, min_order_amount: v }))} min="0" step="1" placeholder="0" />
           </div>
@@ -442,7 +450,7 @@ function PendingOrdersTab() {
   const { data: customers = [] } = useQuery({
     queryKey: ["customers-portal-page"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name").order("name");
+      const { data, error } = await supabase.from("customers").select("id, name, discount_percent").order("name");
       if (error) throw error;
       return data;
     },
@@ -549,7 +557,7 @@ export default function PortalCustomerAccess() {
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ["customers-portal-page"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name").order("name");
+      const { data, error } = await supabase.from("customers").select("id, name, discount_percent").order("name");
       if (error) throw error;
       return data;
     },
