@@ -329,6 +329,26 @@ function OrderCard({ order, customerName, productMap, settingsData, onApproved, 
       if (error) throw error;
 
       toast.success(`הזמנה #${counter} אושרה ונוצרה בהצלחה`);
+
+      // WhatsApp notification — fetch customer phone and open wa.me link silently
+      try {
+        const { data: cust } = await supabase
+          .from("customers")
+          .select("mobile, phone, name")
+          .eq("id", order.customer_id)
+          .maybeSingle();
+        const phone = formatIsraeliPhone((cust?.mobile || cust?.phone) ?? "");
+        if (phone) {
+          const name = cust?.name || customerName;
+          const msg =
+            `היי ${name}, ההזמנה שלך (מספר ${counter}, סה״כ ₪${fmt(order.total_amount)}) אושרה ונמצאת בטיפול! ` +
+            `תודה שהזמנת מאיתנו.`;
+          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+        }
+      } catch {
+        // Missing phone or network error — skip silently, approval already succeeded
+      }
+
       onApproved(order.id);
     } catch (err) {
       toast.error("שגיאה באישור ההזמנה: " + err.message);
