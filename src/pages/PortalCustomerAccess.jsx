@@ -500,6 +500,7 @@ function PendingOrdersTab() {
   const handleRemove = (id) => {
     setRemovedIds(prev => new Set([...prev, id]));
     qc.invalidateQueries({ queryKey: ["portal-orders-pending"] });
+    qc.invalidateQueries({ queryKey: ["portal-orders-pending-count"] });
   };
 
   if (isLoading) {
@@ -581,15 +582,15 @@ export default function PortalCustomerAccess() {
     },
   });
 
-  // Pending orders count for tab badge
+  // Pending orders count for tab badge — separate key from the full-data query used by PendingOrdersTab
   const { data: pendingOrders = [] } = useQuery({
-    queryKey: ["portal-orders-pending"],
+    queryKey: ["portal-orders-pending-count"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("portal_orders")
         .select("id")
         .eq("status", "pending");
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
   });

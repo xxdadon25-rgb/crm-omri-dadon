@@ -61,7 +61,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const { user } = useAuth();
 
   const { data: pendingPortalOrders = [] } = useQuery({
-    queryKey: ["portal-orders-pending"],
+    queryKey: ["portal-orders-pending-count"],
     queryFn: async () => {
       const { data, error } = await supabase.from("portal_orders").select("id").eq("status", "pending");
       if (error) return [];
