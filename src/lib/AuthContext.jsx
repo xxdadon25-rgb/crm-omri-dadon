@@ -6,23 +6,33 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  const resolveSession = async (session) => {
+    const u = session?.user ?? null;
+    setUser(formatUser(u));
+    setIsAuthenticated(!!u);
+    if (u) {
+      const { data } = await supabase
+        .from('staff_members')
+        .select('id')
+        .eq('auth_user_id', u.id)
+        .maybeSingle();
+      setIsStaff(!!data);
+    } else {
+      setIsStaff(false);
+    }
+    setIsLoadingAuth(false);
+  };
 
   useEffect(() => {
     // Initialise from existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(formatUser(u));
-      setIsAuthenticated(!!u);
-      setIsLoadingAuth(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => resolveSession(session));
 
     // Keep auth state in sync across tabs / token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user ?? null;
-      setUser(formatUser(u));
-      setIsAuthenticated(!!u);
-      setIsLoadingAuth(false);
+      resolveSession(session);
     });
 
     return () => subscription.unsubscribe();
@@ -32,6 +42,7 @@ export const AuthProvider = ({ children }) => {
     await supabase.auth.signOut();
     setUser(null);
     setIsAuthenticated(false);
+    setIsStaff(false);
     if (shouldRedirect) window.location.href = '/login';
   };
 
@@ -43,6 +54,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
+      isStaff,
       isLoadingAuth,
       isLoadingPublicSettings: false,
       authError: null,
