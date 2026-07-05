@@ -84,6 +84,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
 
   // ─── DESKTOP: WHATSAPP TEXT LINK ─────────────────────────────────────────
   const handleWhatsAppText = () => {
+    console.log('template:', businessSettings?.whatsapp_template);
     const { title, num } = getDocLabel();
     const validLine = doc.valid_until ? `\nתוקף עד: ${doc.valid_until}` : "";
     const notesLine = doc.customer_notes ? `\n\n${doc.customer_notes}` : "";
