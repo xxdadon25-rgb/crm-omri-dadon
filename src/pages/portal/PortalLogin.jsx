@@ -39,14 +39,21 @@ export default function PortalLogin() {
     setLoading(true);
     try {
       if (tab === "signup") {
-        // Pre-check: only allow signup if email is approved in customer_portal_access
-        const { data: accessRow } = await supabase
-          .from("customer_portal_access")
-          .select("id")
-          .ilike("phone_or_email", email.trim())
-          .eq("is_active", true)
-          .maybeSingle();
-        if (!accessRow) {
+        // Pre-check: only allow signup if email has an approved customer_portal_access row.
+        // Fail closed — any error (query error, network, missing RLS policy) also blocks signup.
+        let approved = false;
+        try {
+          const { data: accessRow, error: checkError } = await supabase
+            .from("customer_portal_access")
+            .select("id")
+            .ilike("phone_or_email", email.trim())
+            .eq("is_active", true)
+            .maybeSingle();
+          approved = !checkError && !!accessRow;
+        } catch {
+          approved = false;
+        }
+        if (!approved) {
           setError("כתובת האימייל הזו לא מאושרת להרשמה לפורטל. פנה אלינו לקבלת גישה.");
           return;
         }
