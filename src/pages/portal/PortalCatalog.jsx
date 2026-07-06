@@ -419,16 +419,16 @@ export default function PortalCatalog() {
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         @media(max-width:1024px){
-          .portal-product-grid{grid-template-columns:repeat(3,1fr) !important;}
-        }
-        @media(max-width:768px){
           .portal-layout{flex-direction:column !important;}
           .portal-cat-col{display:none !important;}
           .portal-cart-col{display:none !important;}
-          .portal-product-grid{grid-template-columns:repeat(2,1fr) !important;}
+          .portal-product-grid{grid-template-columns:repeat(4,1fr) !important;}
           .portal-mobile-cat-btn{display:flex !important;}
         }
-        @media(min-width:769px){
+        @media(max-width:768px){
+          .portal-product-grid{grid-template-columns:repeat(2,1fr) !important;}
+        }
+        @media(min-width:1025px){
           .portal-mobile-cat-btn{display:none !important;}
           .portal-mobile-cart-fab{display:none !important;}
         }
