@@ -86,7 +86,7 @@ function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitt
   const canSubmit = cart.length > 0 && !belowMin && !submitting;
 
   return (
-    <div style={{
+    <div className="portal-cart-panel" style={{
       background: "#FFFFFF",
       borderRadius: 22,
       boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
@@ -321,7 +321,7 @@ export default function PortalCatalog() {
   if (status === "loading") return <Spinner />;
 
   return (
-    <div dir="rtl" style={{ ...PAGE_BG, padding: "24px 16px 48px" }}>
+    <div dir="rtl" style={{ ...PAGE_BG, paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingRight: 16, paddingBottom: 48, paddingLeft: 16 }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         @media(max-width:1024px){
@@ -330,6 +330,7 @@ export default function PortalCatalog() {
         @media(max-width:768px){
           .portal-layout{flex-direction:column !important;}
           .portal-cart-col{position:static !important; width:100% !important; max-width:100% !important;}
+          .portal-cart-panel{position:static !important; max-height:none !important; top:auto !important;}
           .portal-cat-col{width:100% !important; align-self:auto !important;}
           .portal-cat-col .portal-cat-sticky{position:static !important; display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; overflow-x:auto; gap:8px !important; padding:0 0 4px !important;}
           .portal-cat-col .portal-cat-sticky button{flex-shrink:0;}
