@@ -27,7 +27,7 @@ export function usePortalPWAMeta() {
 
     manifest?.setAttribute('href', '/portal-manifest.json');
     appleTitle?.setAttribute('content', 'פורטל לקוחות');
-    appleIcon?.setAttribute('href', '/icons/portal-icon.svg');
+    appleIcon?.setAttribute('href', '/icons/portal-icon-512.png');
 
     // ── canonical + og:url (create if absent, remove on unmount if created) ─
     const { el: canonical, created: canonicalCreated } = getOrCreate(
