@@ -11,13 +11,13 @@
   "dir": "rtl",
   "icons": [
     {
-      "src": "/icons/erp-icon-512.png",
+      "src": "/icons/erp-icon-512-fixed.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/erp-icon-maskable-512.png",
+      "src": "/icons/erp-icon-512-fixed.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
