@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA Manifest — portal identity (baked in statically, no JS swap needed) -->
+    <link rel="manifest" href="/portal-manifest.json" />
+
+    <!-- Theme & App Meta -->
+    <meta name="theme-color" content="#F5885E" />
+    <meta name="application-name" content="פורטל לקוחות" />
+    <meta name="description" content="פורטל הזמנות ללקוחות א.ד שיווק והפצה" />
+    <meta property="og:title" content="פורטל לקוחות - א.ד שיווק והפצה" />
+    <meta property="og:description" content="פורטל הזמנות ללקוחות א.ד שיווק והפצה" />
+    <meta property="og:site_name" content="א.ד שיווק והפצה" />
+
+    <!-- iOS / iPadOS PWA — portal branding baked in statically -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="פורטל לקוחות" />
+    <link rel="apple-touch-icon" href="/icons/portal-icon.svg" />
+
+    <!-- Android / Chrome -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/icons/portal-icon.svg" />
+
+    <!-- Splash screen background while loading -->
+    <style>
+      html, body { margin: 0; padding: 0; background: #ECEDF0; }
+      #splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #ECEDF0;
+        z-index: 9999;
+        transition: opacity 0.4s ease;
+        gap: 16px;
+      }
+      #splash.hidden { opacity: 0; pointer-events: none; }
+      #splash .logo {
+        width: 88px;
+        height: 88px;
+        background: #F5885E;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Heebo', 'Arial', sans-serif;
+        font-size: 44px;
+        font-weight: 900;
+        color: #FFFFFF;
+      }
+      #splash .name {
+        font-family: 'Heebo', 'Arial', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: #120F1C;
+        letter-spacing: -0.5px;
+      }
+      #splash .spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(245,136,94,0.2);
+        border-top-color: #F5885E;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-top: 8px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <title>פורטל לקוחות - א.ד שיווק והפצה</title>
+
+    <!-- Hide Base44 builder UI when running as installed PWA (standalone mode) -->
+    <style>
+      @media all and (display-mode: standalone) {
+        [data-base44-badge],
+        [class*="base44-badge"],
+        [id*="base44-badge"],
+        [class*="edit-with-base44"],
+        [id*="edit-with-base44"],
+        [class*="b44-badge"],
+        [id*="b44-badge"],
+        [class*="builder-badge"],
+        [class*="preview-badge"],
+        [class*="editor-badge"],
+        [class*="floating-badge"],
+        [data-testid*="badge"],
+        iframe[src*="base44"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Splash screen — hidden by JS once React mounts -->
+    <div id="splash">
+      <div class="logo">🛒</div>
+      <div class="name">פורטל לקוחות</div>
+      <div class="spinner"></div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Service Worker registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+
+      // Hide splash once React is ready (first paint after root mounts)
+      const splash = document.getElementById('splash');
+      const observer = new MutationObserver(() => {
+        if (document.getElementById('root').childElementCount > 0) {
+          splash.classList.add('hidden');
+          setTimeout(() => splash.remove(), 450);
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.getElementById('root'), { childList: true });
+    </script>
+  </body>
+</html>

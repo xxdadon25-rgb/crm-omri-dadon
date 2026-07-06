@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/portal/(.*)", "destination": "/portal.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
