@@ -2,6 +2,7 @@
   "name": "QuickStock ERP",
   "short_name": "QuickStock",
   "description": "מערכת ניהול עסקי - מלאי, לקוחות, הצעות מחיר, הזמנות וחשבוניות",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
