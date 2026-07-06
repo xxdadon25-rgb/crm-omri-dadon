@@ -48,19 +48,20 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
         )}
       </div>
 
-      <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.4 }}>{product.name}</p>
+      <div className="card-body" style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+        <p className="card-name" style={{ fontSize: 14, fontWeight: 700, color: DARK, margin: 0, lineHeight: 1.4 }}>{product.name}</p>
         {product.description && (
-          <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <p className="card-desc" style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {product.description}
           </p>
         )}
         <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
-          {discount > 0 && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
-          <span style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
+          <span className="card-price" style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
+          {discount > 0 && <span className="card-price-orig" style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
+          <span className="card-unit" style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
         </div>
         <button
+          className="card-btn"
           onClick={() => onAdd(product, discountedPrice)}
           style={{
             marginTop: 8, height: 36,
@@ -335,7 +336,14 @@ export default function PortalCatalog() {
           .portal-product-grid{grid-template-columns:repeat(2,1fr) !important;}
         }
         @media(max-width:480px){
-          .portal-product-grid{grid-template-columns:1fr !important;}
+          .portal-product-grid{grid-template-columns:repeat(3,1fr) !important; gap:8px !important;}
+          .portal-product-grid .card-body{padding:8px 8px 10px !important;}
+          .portal-product-grid .card-name{font-size:11px !important;}
+          .portal-product-grid .card-desc{display:none !important;}
+          .portal-product-grid .card-price{font-size:14px !important;}
+          .portal-product-grid .card-price-orig{font-size:11px !important;}
+          .portal-product-grid .card-unit{display:none !important;}
+          .portal-product-grid .card-btn{height:30px !important; font-size:11px !important; border-radius:9px !important; margin-top:4px !important;}
         }
       `}</style>
 
