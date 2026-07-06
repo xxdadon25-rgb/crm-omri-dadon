@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
-import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight, MessageCircle } from "lucide-react";
+import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight, MessageCircle, KeyRound, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCENT = "#F5885E";
@@ -586,6 +586,98 @@ function sendWhatsApp(customer, access) {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
+// ─── Reset password modal ─────────────────────────────────────────────────────
+
+function ResetPasswordModal({ customer, authUserId, onClose }) {
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (password.length < 6) {
+      toast.error("הסיסמה חייבת להכיל לפחות 6 תווים");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-portal-password", {
+        body: { auth_user_id: authUserId, new_password: password },
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || "שגיאה לא ידועה");
+      toast.success("הסיסמה עודכנה בהצלחה");
+      onClose();
+    } catch (err) {
+      toast.error("שגיאה בעדכון הסיסמה: " + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ ...CARD, width: "100%", maxWidth: 380, padding: "28px 28px 24px", fontFamily: "'Heebo', sans-serif" }} dir="rtl">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: DARK, margin: 0 }}>איפוס סיסמה</h2>
+            <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{customer.name}</p>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(0,0,0,0.06)", border: "none", borderRadius: 10, padding: 8, cursor: "pointer", display: "flex" }}>
+            <X style={{ width: 16, height: 16, color: MUTED }} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: DARK }}>סיסמה חדשה</label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPw ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="לפחות 6 תווים"
+                autoFocus
+                style={{
+                  width: "100%", height: 44, background: "#F5F3F6",
+                  border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12,
+                  padding: "0 42px 0 12px", fontSize: 14, color: DARK,
+                  fontFamily: "'Heebo', sans-serif", outline: "none", boxSizing: "border-box",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}
+              >
+                {showPw
+                  ? <EyeOff style={{ width: 16, height: 16, color: MUTED }} />
+                  : <Eye style={{ width: 16, height: 16, color: MUTED }} />}
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: 11, color: MUTED }}>לפחות 6 תווים</p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-start" }}>
+          <button
+            onClick={handleSave} disabled={saving}
+            style={{ height: 40, background: saving ? "#ccc" : ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12, padding: "0 22px", fontSize: 14, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8 }}
+          >
+            {saving && <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />}
+            שמור סיסמה חדשה
+          </button>
+          <button onClick={onClose} style={{ height: 40, background: "transparent", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, padding: "0 18px", fontSize: 14, fontWeight: 600, color: DARK, fontFamily: "'Heebo', sans-serif", cursor: "pointer" }}>
+            ביטול
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PortalCustomerAccess() {
@@ -593,6 +685,7 @@ export default function PortalCustomerAccess() {
   const [tab, setTab] = useState("access"); // "access" | "orders"
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
+  const [resetting, setResetting] = useState(null); // { customer, authUserId }
 
   // Tab 1 data
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
@@ -814,6 +907,28 @@ export default function PortalCustomerAccess() {
                                 <MessageCircle style={{ width: 16, height: 16, color: "#25D366" }} />
                               </button>
                             )}
+                            {hasAccess && (
+                              <button
+                                onClick={() => access.auth_user_id
+                                  ? setResetting({ customer, authUserId: access.auth_user_id })
+                                  : toast.error("הלקוח עדיין לא נרשם לפורטל")
+                                }
+                                title={access.auth_user_id ? "אפס סיסמת פורטל" : "הלקוח עדיין לא נרשם"}
+                                style={{
+                                  height: 34, width: 34,
+                                  background: access.auth_user_id ? "rgba(99,102,241,0.1)" : "rgba(0,0,0,0.04)",
+                                  border: "none", borderRadius: 10,
+                                  cursor: access.auth_user_id ? "pointer" : "not-allowed",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, transition: "background 0.15s",
+                                  opacity: access.auth_user_id ? 1 : 0.45,
+                                }}
+                                onMouseEnter={e => { if (access.auth_user_id) e.currentTarget.style.background = "rgba(99,102,241,0.2)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = access.auth_user_id ? "rgba(99,102,241,0.1)" : "rgba(0,0,0,0.04)"; }}
+                              >
+                                <KeyRound style={{ width: 15, height: 15, color: access.auth_user_id ? "#6366f1" : MUTED }} />
+                              </button>
+                            )}
                             <button
                               onClick={() => setEditing({ customer, access: access || null })}
                               style={{
@@ -852,6 +967,15 @@ export default function PortalCustomerAccess() {
           blockedProductIds={blockedByCustomer[editing.customer.id] || []}
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Reset password modal */}
+      {resetting && (
+        <ResetPasswordModal
+          customer={resetting.customer}
+          authUserId={resetting.authUserId}
+          onClose={() => setResetting(null)}
         />
       )}
     </div>
