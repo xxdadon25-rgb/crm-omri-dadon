@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { usePortalManifest } from "@/hooks/usePortalManifest";
+import { usePortalPWAMeta } from "@/hooks/usePortalPWAMeta";
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -132,7 +132,7 @@ function OrderCard({ order, productMap }) {
 }
 
 export default function PortalOrders() {
-  usePortalManifest();
+  usePortalPWAMeta();
   const navigate = useNavigate();
   const [status, setStatus] = useState("loading");
   const [orders, setOrders] = useState([]);
