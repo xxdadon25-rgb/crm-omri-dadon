@@ -304,7 +304,7 @@ export default function SalesCatalog() {
         : `סה״כ לתשלום: ₪${grossTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       const validLine = cartData?.validUntil ? `\nתוקף עד: ${cartData.validUntil}` : "";
       const notesLine = cartData?.customerNotes ? `\n\n${cartData.customerNotes}` : "";
-      const pdfLink = `https://crm-omri-dadon.vercel.app/quote-pdf/${quote.id}`;
+      const pdfLink = `${window.location.origin}/quote-pdf/${quote.id}`;
       const msg = formatWhatsAppMessage(fresh?.whatsapp_template || businessSettings?.whatsapp_template, { name: selectedCustomer?.name, number: counter, amount: grossTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "הצעת מחיר" });
       const cleaned = phone.replace(/\D/g, "");
       const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;

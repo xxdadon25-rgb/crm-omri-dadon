@@ -66,7 +66,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
       return;
     }
     const { num } = getDocLabel();
-    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
     const shareTitle = `הצעת מחיר ${num}`;
 
     if (navigator.share) {
@@ -102,7 +102,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
       toast.error("יציאה זו זמינה רק להצעות מחיר");
       return;
     }
-    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
     const { num } = getDocLabel();
     const message = encodeURIComponent(
       `הצעת מחיר מספר ${num}\n\nשלום ${doc.customer_name},\n\nמצורפת הצעת המחיר שהוכנה עבורך.\n\nלצפייה במסמך:\n${pdfUrl}\n\nלכל שאלה אנחנו זמינים.\n\nבברכה,\n${businessSettings?.business_name || "העסק שלי"}`
@@ -115,9 +115,9 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
   const handleEmail = withLoading("email", async () => {
     if (!customerEmail) { toast.error("ללקוח אין כתובת אימייל"); return; }
     const { num } = getDocLabel();
-    const pdfUrl = `https://crm-omri-dadon.vercel.app/quote-pdf/${doc.id}`;
+    const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
     const bizName = businessSettings?.business_name || "העסק שלי";
-    const res = await fetch("https://crm-omri-dadon.vercel.app/api/send-email", {
+    const res = await fetch(`${window.location.origin}/api/send-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -449,7 +449,7 @@ export default function Invoices() {
                     const phone = customer?.mobile || customer?.phone || "";
                     const cleaned = phone.replace(/\D/g, "");
                     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
-                    const pdfUrl = `https://crm-omri-dadon.vercel.app/invoice-pdf/${viewInvoice.id}`;
+                    const pdfUrl = `${window.location.origin}/invoice-pdf/${viewInvoice.id}`;
                     const total = (viewInvoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
                     const msg = formatWhatsAppMessage(settings[0]?.whatsapp_template, { name: viewInvoice.customer_name, number: viewInvoice.invoice_number, amount: total, docType: "חשבונית" });
                     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");

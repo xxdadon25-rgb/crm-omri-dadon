@@ -27,7 +27,7 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
     const phone = customer?.mobile || customer?.phone || "";
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
-    const pdfUrl = `https://crm-omri-dadon.vercel.app/order-pdf/${order.id}`;
+    const pdfUrl = `${window.location.origin}/order-pdf/${order.id}`;
     const total = (order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
     const msg = `שלום ${order.customer_name},\n\nהזמנה מספר #${order.order_number} ממיני סטוק\nסה"כ לתשלום: ${total}₪\n\nלצפייה בהזמנה: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
