@@ -18,7 +18,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/portal-icon-512.png",
+      "src": "/icons/portal-icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
