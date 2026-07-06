@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
+import { usePortalManifest } from "@/hooks/usePortalManifest";
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -25,6 +26,7 @@ function translateError(msg) {
 }
 
 export default function PortalLogin() {
+  usePortalManifest();
   const navigate = useNavigate();
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");

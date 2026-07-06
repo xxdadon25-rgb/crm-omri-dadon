@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Download, X } from "lucide-react";
 
@@ -9,6 +10,7 @@ import { Download, X } from "lucide-react";
  * - iOS/iPadOS users see a manual install hint instead
  */
 export default function InstallPrompt() {
+  const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -53,6 +55,7 @@ export default function InstallPrompt() {
   };
 
   if (!showBanner || dismissed) return null;
+  if (location.pathname.startsWith("/portal")) return null;
 
   return (
     <div

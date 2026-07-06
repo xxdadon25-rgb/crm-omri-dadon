@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
+import { usePortalManifest } from "@/hooks/usePortalManifest";
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -181,6 +182,7 @@ function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitt
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PortalCatalog() {
+  usePortalManifest();
   const navigate = useNavigate();
   const [status, setStatus] = useState("loading");
   const [discount, setDiscount] = useState(0);

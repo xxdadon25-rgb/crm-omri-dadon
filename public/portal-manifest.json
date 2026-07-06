@@ -1,0 +1,28 @@
+{
+  "name": "א.ד שיווק והפצה - פורטל לקוחות",
+  "short_name": "פורטל לקוחות",
+  "description": "פורטל הזמנות ללקוחות א.ד שיווק והפצה",
+  "start_url": "/portal/login",
+  "scope": "/portal/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#F5885E",
+  "background_color": "#ECEDF0",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/portal-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/portal-maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["shopping", "business"]
+}

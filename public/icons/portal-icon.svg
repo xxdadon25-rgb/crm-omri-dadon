@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#F5885E"/>
+  <!-- Shopping bag glyph -->
+  <g fill="#FFFFFF">
+    <!-- Bag body -->
+    <rect x="136" y="220" width="240" height="196" rx="18" ry="18"/>
+    <!-- Bag handle -->
+    <path d="M196 220 v-44 a60 60 0 0 1 120 0 v44" fill="none" stroke="#FFFFFF" stroke-width="28" stroke-linecap="round"/>
+  </g>
+</svg>
