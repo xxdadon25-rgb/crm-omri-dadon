@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -121,15 +122,25 @@ export default function DebtSummary() {
     setSelectedInvoiceIds(isAllInvoicesSelected ? new Set() : new Set(selectedInvoices.map(i => i.id)));
   };
 
+  const deleteInvoiceWithPayments = async (id) => {
+    const { error: paymentsErr } = await supabase.from("payments").delete().eq("invoice_id", id);
+    if (paymentsErr) throw Object.assign(new Error(paymentsErr.message), { stage: "payments" });
+    await base44.entities.Invoice.delete(id);
+  };
+
   const handleDeleteInvoice = async () => {
     const idToDelete = deleteInvoiceId;
     setDeleteInvoiceId(null);
     try {
-      await base44.entities.Invoice.delete(idToDelete);
+      await deleteInvoiceWithPayments(idToDelete);
       queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => i.id !== idToDelete));
       toast.success("חשבונית נמחקה");
-    } catch {
-      toast.error("שגיאה במחיקת החשבונית");
+    } catch (err) {
+      if (err.stage === "payments") {
+        toast.error("שגיאה במחיקת תשלומים קשורים לחשבונית");
+      } else {
+        toast.error("שגיאה במחיקת החשבונית");
+      }
     }
   };
 
@@ -138,9 +149,12 @@ export default function DebtSummary() {
     const ids = [...selectedInvoiceIds];
     setSelectedInvoiceIds(new Set());
     setBulkDeleteOpen(false);
-    await Promise.allSettled(ids.map(id => base44.entities.Invoice.delete(id)));
+    const results = await Promise.allSettled(ids.map(id => deleteInvoiceWithPayments(id)));
+    const failed = results.filter(r => r.status === "rejected");
+    const succeeded = ids.length - failed.length;
     queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => !ids.includes(i.id)));
-    toast.success(`${ids.length} חשבוניות נמחקו`);
+    if (succeeded > 0) toast.success(`${succeeded} חשבוניות נמחקו`);
+    if (failed.length > 0) toast.error(`${failed.length} חשבוניות לא נמחקו עקב שגיאה`);
     setDeleting(false);
   };
 
