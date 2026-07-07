@@ -36,9 +36,9 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
 
   return (
     <div style={{ background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ width: "100%", aspectRatio: "4/3", background: "#F5F3F6", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#F5F3F6", position: "relative", overflow: "hidden", flexShrink: 0 }}>
         {showImage ? (
-          <img src={imageUrl} alt={product.name} onError={() => setImgError(true)} style={{ width: "100%", height: "100%", objectFit: "contain", padding: "8px" }} />
+          <img src={imageUrl} alt={product.name} onError={() => setImgError(true)} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "8px", boxSizing: "border-box" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.5">
