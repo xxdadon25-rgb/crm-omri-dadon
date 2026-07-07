@@ -5,7 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, BookUser, Search, Users, ChevronRight } from "lucide-react";
+import { Loader2, BookUser, Search, Users, ChevronRight, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatCurrency } from "@/utils/formatCurrency";
 
@@ -82,6 +85,12 @@ export default function DebtSummary() {
   const [selectedId, setSelectedId] = useState(null);
   const [sidebarSearch, setSidebarSearch] = useState("");
 
+  // Invoice delete state
+  const [deleteInvoiceId, setDeleteInvoiceId] = useState(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const filteredRows = useMemo(() => {
     if (!sidebarSearch.trim()) return rows;
     const q = sidebarSearch.toLowerCase();
@@ -96,6 +105,44 @@ export default function DebtSummary() {
       .filter(inv => inv.customer_id === selectedId && inv.payment_status !== "שולם" && (inv.total || 0) - (inv.paid_amount || 0) > 0)
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   }, [invoices, selectedId]);
+
+  // Clear invoice selection when switching customers
+  useEffect(() => { setSelectedInvoiceIds(new Set()); }, [selectedId]);
+
+  const toggleSelectInvoice = (id) => {
+    const next = new Set(selectedInvoiceIds);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelectedInvoiceIds(next);
+  };
+
+  const isAllInvoicesSelected = selectedInvoices.length > 0 && selectedInvoices.every(i => selectedInvoiceIds.has(i.id));
+
+  const toggleSelectAllInvoices = () => {
+    setSelectedInvoiceIds(isAllInvoicesSelected ? new Set() : new Set(selectedInvoices.map(i => i.id)));
+  };
+
+  const handleDeleteInvoice = async () => {
+    const idToDelete = deleteInvoiceId;
+    setDeleteInvoiceId(null);
+    try {
+      await base44.entities.Invoice.delete(idToDelete);
+      queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => i.id !== idToDelete));
+      toast.success("חשבונית נמחקה");
+    } catch {
+      toast.error("שגיאה במחיקת החשבונית");
+    }
+  };
+
+  const handleBulkDeleteInvoices = async () => {
+    setDeleting(true);
+    const ids = [...selectedInvoiceIds];
+    setSelectedInvoiceIds(new Set());
+    setBulkDeleteOpen(false);
+    await Promise.allSettled(ids.map(id => base44.entities.Invoice.delete(id)));
+    queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => !ids.includes(i.id)));
+    toast.success(`${ids.length} חשבוניות נמחקו`);
+    setDeleting(false);
+  };
 
   // const fmtILS = v => `₪${(v || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 })}`;
   const fmtILS = v => formatCurrency(v);
@@ -255,44 +302,63 @@ export default function DebtSummary() {
                 {/* OLD: <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"> */}
                 <div className="heillo-card">
                   {/* OLD: <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between"> */}
-                  <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    {/* OLD: <h3 className="font-semibold text-sm text-gray-700"> */}
+                  <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                     <h3 style={{ fontSize: 13, fontWeight: 600, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>חשבוניות פתוחות ({selectedInvoices.length})</h3>
-                    {/* OLD: <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => navigate(...)}> */}
-                    <button className="heillo-btn-primary"
-                      style={{ fontSize: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 5 }}
-                      onClick={() => navigate(`/customer-ledger?customer=${selectedRow.id}`)}>
-                      <BookUser style={{ width: 13, height: 13 }} /> פתח כרטסת
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {selectedInvoiceIds.size > 0 && (
+                        <button
+                          onClick={() => setBulkDeleteOpen(true)}
+                          disabled={deleting}
+                          style={{ fontSize: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 5, background: "#ef4444", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontFamily: "'Heebo', sans-serif", fontWeight: 600 }}>
+                          <Trash2 style={{ width: 13, height: 13 }} /> מחק בחירה ({selectedInvoiceIds.size})
+                        </button>
+                      )}
+                      <button className="heillo-btn-primary"
+                        style={{ fontSize: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 5 }}
+                        onClick={() => navigate(`/customer-ledger?customer=${selectedRow.id}`)}>
+                        <BookUser style={{ width: 13, height: 13 }} /> פתח כרטסת
+                      </button>
+                    </div>
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     {/* OLD: <Table className="[&_td]:py-3 [&_td]:px-4 [&_th]:px-4"><TableHeader><TableRow className="bg-gray-50"> */}
                     <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
                       <thead className="heillo-table-header">
                         <tr>
+                          <th style={{ padding: "14px 12px 14px 20px", width: 36 }}>
+                            <Checkbox checked={isAllInvoicesSelected} onCheckedChange={toggleSelectAllInvoices} />
+                          </th>
                           {["מספר חשבונית", "תאריך", "סכום חשבונית", "שולם", "יתרה לתשלום", "סטטוס"].map(col => (
                             <th key={col} style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap" }}>{col}</th>
                           ))}
+                          <th style={{ padding: "14px 20px", width: 40 }} />
                         </tr>
                       </thead>
                       <tbody>
                         {selectedInvoices.map((inv, i) => {
                           const remaining = (inv.total || 0) - (inv.paid_amount || 0);
+                          const isChecked = selectedInvoiceIds.has(inv.id);
                           return (
-                            /* OLD: <TableRow key={inv.id} className="hover:bg-gray-50"> */
                             <tr key={inv.id} className="heillo-table-row"
                               style={{ borderBottom: i < selectedInvoices.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
-                              {/* OLD: <TableCell className="font-medium text-right">#{inv.invoice_number || "—"}</TableCell> */}
+                              <td style={{ padding: "14px 12px 14px 20px" }}>
+                                <Checkbox checked={isChecked} onCheckedChange={() => toggleSelectInvoice(inv.id)} />
+                              </td>
                               <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{inv.invoice_number || "—"}</td>
                               <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{inv.date?.slice(0, 10).split("-").reverse().join("/") || "—"}</td>
                               <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{fmtILS(inv.total)}</td>
-                              {/* OLD: <TableCell className="text-right text-green-700"> */}
                               <td style={{ padding: "14px 20px", fontSize: 13, color: "#16a34a", fontWeight: 500 }}>{fmtILS(inv.paid_amount)}</td>
-                              {/* OLD: <TableCell className="text-right font-bold text-red-600"> */}
                               <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 700, color: ACCENT }}>{fmtILS(remaining)}</td>
                               <td style={{ padding: "14px 20px" }}>
-                                {/* OLD: <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getPaymentStatusColor(inv.payment_status)}`}> */}
                                 <span className={`heillo-badge ${getPaymentStatusColor(inv.payment_status)}`}>{inv.payment_status}</span>
+                              </td>
+                              <td style={{ padding: "14px 20px" }}>
+                                <button onClick={() => setDeleteInvoiceId(inv.id)}
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, display: "flex", alignItems: "center", padding: 4, borderRadius: 6 }}
+                                  onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
+                                  onMouseLeave={e => e.currentTarget.style.color = MUTED}>
+                                  <Trash2 style={{ width: 15, height: 15 }} />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -307,6 +373,34 @@ export default function DebtSummary() {
           </div>
         </div>
       )}
+
+      {/* Single invoice delete confirmation */}
+      <AlertDialog open={!!deleteInvoiceId} onOpenChange={() => setDeleteInvoiceId(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת חשבונית</AlertDialogTitle>
+            <AlertDialogDescription>האם למחוק את החשבונית? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInvoice} className="bg-destructive text-destructive-foreground">מחק</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk invoice delete confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת חשבוניות</AlertDialogTitle>
+            <AlertDialogDescription>האם למחוק {selectedInvoiceIds.size} חשבוניות? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDeleteInvoices} disabled={deleting} className="bg-destructive text-destructive-foreground">מחק הכל</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
