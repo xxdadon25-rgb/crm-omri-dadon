@@ -123,10 +123,19 @@ export default function DebtSummary() {
   };
 
   const deleteInvoiceWithPayments = async (id) => {
+    // 1. Null out invoices.credit_note_id so the FK from invoices → credit_notes is released
+    const { error: unlinkErr } = await supabase
+      .from("invoices")
+      .update({ credit_note_id: null, credited_at: null })
+      .eq("id", id);
+    if (unlinkErr) throw Object.assign(new Error(unlinkErr.message), { stage: "unlink_credit" });
+    // 2. Delete credit notes that reference this invoice
     const { error: creditErr } = await supabase.from("credit_notes").delete().eq("invoice_id", id);
     if (creditErr) throw Object.assign(new Error(creditErr.message), { stage: "credit_notes" });
+    // 3. Delete payments that reference this invoice
     const { error: paymentsErr } = await supabase.from("payments").delete().eq("invoice_id", id);
     if (paymentsErr) throw Object.assign(new Error(paymentsErr.message), { stage: "payments" });
+    // 4. Delete the invoice itself
     await base44.entities.Invoice.delete(id);
   };
 
@@ -138,7 +147,9 @@ export default function DebtSummary() {
       queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => i.id !== idToDelete));
       toast.success("חשבונית נמחקה");
     } catch (err) {
-      if (err.stage === "credit_notes") {
+      if (err.stage === "unlink_credit") {
+        toast.error("שגיאה בניתוק זיכוי מהחשבונית");
+      } else if (err.stage === "credit_notes") {
         toast.error("שגיאה במחיקת זיכויים קשורים לחשבונית");
       } else if (err.stage === "payments") {
         toast.error("שגיאה במחיקת תשלומים קשורים לחשבונית");
