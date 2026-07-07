@@ -123,6 +123,8 @@ export default function DebtSummary() {
   };
 
   const deleteInvoiceWithPayments = async (id) => {
+    const { error: creditErr } = await supabase.from("credit_notes").delete().eq("invoice_id", id);
+    if (creditErr) throw Object.assign(new Error(creditErr.message), { stage: "credit_notes" });
     const { error: paymentsErr } = await supabase.from("payments").delete().eq("invoice_id", id);
     if (paymentsErr) throw Object.assign(new Error(paymentsErr.message), { stage: "payments" });
     await base44.entities.Invoice.delete(id);
@@ -136,7 +138,9 @@ export default function DebtSummary() {
       queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => i.id !== idToDelete));
       toast.success("חשבונית נמחקה");
     } catch (err) {
-      if (err.stage === "payments") {
+      if (err.stage === "credit_notes") {
+        toast.error("שגיאה במחיקת זיכויים קשורים לחשבונית");
+      } else if (err.stage === "payments") {
         toast.error("שגיאה במחיקת תשלומים קשורים לחשבונית");
       } else {
         toast.error("שגיאה במחיקת החשבונית");
