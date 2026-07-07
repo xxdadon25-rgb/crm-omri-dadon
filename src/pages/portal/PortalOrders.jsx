@@ -137,6 +137,7 @@ export default function PortalOrders() {
   const [status, setStatus] = useState("loading");
   const [orders, setOrders] = useState([]);
   const [productMap, setProductMap] = useState({});
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +157,16 @@ export default function PortalOrders() {
         .maybeSingle();
 
       if (!access || !access.is_active) {
-        if (!cancelled) navigate("/portal/login", { replace: true });
+        // Fallback: check if this is a staff member (demo mode)
+        const { data: staff } = await supabase
+          .from("staff_members")
+          .select("id")
+          .eq("auth_user_id", session.user.id)
+          .maybeSingle();
+
+        if (!staff) { if (!cancelled) navigate("/portal/login", { replace: true }); return; }
+
+        if (!cancelled) { setIsDemo(true); setStatus("ready"); }
         return;
       }
 
@@ -212,9 +222,20 @@ export default function PortalOrders() {
       <div style={{ maxWidth: 680, margin: "0 auto", width: "100%" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>
-            היסטוריית הזמנות
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>
+              היסטוריית הזמנות
+            </h1>
+            {isDemo && (
+              <span style={{
+                display: "inline-flex", alignItems: "center",
+                background: "rgba(245,136,94,0.15)", color: ACCENT,
+                border: "1px solid rgba(245,136,94,0.35)",
+                borderRadius: 99, padding: "2px 10px",
+                fontSize: 11, fontWeight: 700,
+              }}>מצב הדגמה</span>
+            )}
+          </div>
           <button
             onClick={() => navigate("/portal/dashboard")}
             style={{
@@ -230,8 +251,34 @@ export default function PortalOrders() {
           </button>
         </div>
 
-        {/* Empty state */}
-        {orders.length === 0 ? (
+        {/* Demo empty state */}
+        {isDemo ? (
+          <div style={{
+            background: "#FFFFFF", borderRadius: 22,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+            padding: "48px 28px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🔍</div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: DARK, margin: "0 0 8px" }}>
+              במצב הדגמה אין היסטוריית הזמנות אמיתית
+            </p>
+            <p style={{ fontSize: 14, color: MUTED, margin: "0 0 24px" }}>
+              הזמנות שנשלחות במצב הדגמה אינן נשמרות במסד הנתונים
+            </p>
+            <button
+              onClick={() => navigate("/portal/catalog")}
+              style={{
+                background: ACCENT, color: "#FFFFFF", border: "none", borderRadius: 12,
+                padding: "10px 22px", fontSize: 14, fontWeight: 600,
+                fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              לקטלוג המוצרים ←
+            </button>
+          </div>
+        ) : orders.length === 0 ? (
           <div style={{
             background: "#FFFFFF", borderRadius: 22,
             boxShadow: "0 4px 20px rgba(0,0,0,0.07)",

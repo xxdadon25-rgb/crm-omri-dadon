@@ -34,11 +34,26 @@ function Spinner() {
   );
 }
 
+function DemoBadge() {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      background: "rgba(245,136,94,0.15)", color: ACCENT,
+      border: "1px solid rgba(245,136,94,0.35)",
+      borderRadius: 99, padding: "4px 14px",
+      fontSize: 12, fontWeight: 700, marginBottom: 12,
+    }}>
+      ✦ מצב הדגמה — לצפייה בלבד
+    </div>
+  );
+}
+
 export default function PortalDashboard() {
   usePortalPWAMeta();
   const navigate = useNavigate();
-  const [status, setStatus] = useState("loading"); // loading | ready | redirecting
+  const [status, setStatus] = useState("loading");
   const [customerName, setCustomerName] = useState("");
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +72,22 @@ export default function PortalDashboard() {
         .maybeSingle();
 
       if (!access || !access.is_active) {
-        if (!cancelled) navigate("/portal/login", { replace: true });
+        // Fallback: check if this is a staff member (demo mode)
+        const { data: staff } = await supabase
+          .from("staff_members")
+          .select("id")
+          .eq("auth_user_id", session.user.id)
+          .maybeSingle();
+
+        if (!staff) {
+          if (!cancelled) navigate("/portal/login", { replace: true });
+          return;
+        }
+
+        if (!cancelled) {
+          setIsDemo(true);
+          setStatus("ready");
+        }
         return;
       }
 
@@ -90,6 +120,8 @@ export default function PortalDashboard() {
         א.ד שיווק והפצה
       </h1>
 
+      {isDemo && <DemoBadge />}
+
       <div style={{
         background: "#FFFFFF",
         borderRadius: 22,
@@ -103,7 +135,7 @@ export default function PortalDashboard() {
       }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: DARK, margin: "0 0 6px" }}>
-            ברוך הבא{customerName ? `, ${customerName}` : ""}
+            {isDemo ? "ברוך הבא, מצב הדגמה" : `ברוך הבא${customerName ? `, ${customerName}` : ""}`}
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
             <button

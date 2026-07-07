@@ -113,6 +113,16 @@ function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitt
             המשך קנייה
           </button>
         </div>
+      ) : submitResult === "demo" ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, textAlign: "center", gap: 14 }}>
+          <div style={{ fontSize: 44 }}>🔍</div>
+          <p style={{ fontSize: 15, fontWeight: 700, color: DARK, margin: 0 }}>זהו מצב הדגמה</p>
+          <p style={{ fontSize: 13, color: "#B2B0B1", margin: 0 }}>הזמנות לא נשלחות בפועל</p>
+          <button onClick={onDismissSuccess}
+            style={{ marginTop: 4, background: ACCENT, color: "#FFF", border: "none", borderRadius: 12, padding: "9px 22px", fontSize: 14, fontWeight: 700, fontFamily: "'Heebo', sans-serif", cursor: "pointer" }}>
+            המשך צפייה
+          </button>
+        </div>
       ) : (
         <>
           {/* Items — scrollable */}
@@ -272,6 +282,7 @@ export default function PortalCatalog() {
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // null | "success" | "error"
+  const [isDemo, setIsDemo] = useState(false);
 
   // Mobile sheet state
   const [catSheetOpen, setCatSheetOpen] = useState(false);
@@ -307,7 +318,31 @@ export default function PortalCatalog() {
         .eq("auth_user_id", session.user.id)
         .maybeSingle();
 
-      if (!access || !access.is_active) { if (!cancelled) navigate("/portal/login", { replace: true }); return; }
+      if (!access || !access.is_active) {
+        // Fallback: check if this is a staff member (demo mode)
+        const { data: staff } = await supabase
+          .from("staff_members")
+          .select("id")
+          .eq("auth_user_id", session.user.id)
+          .maybeSingle();
+
+        if (!staff) { if (!cancelled) navigate("/portal/login", { replace: true }); return; }
+
+        // Demo mode: load all active products, no discount, no blocked filter
+        const { data: allProducts } = await supabase
+          .from("products")
+          .select("id, name, sell_price, quantity, unit, image_url, category, description")
+          .eq("is_active", true);
+
+        if (!cancelled) {
+          setIsDemo(true);
+          setDiscount(0);
+          setMinOrderAmount(0);
+          setProducts(allProducts || []);
+          setStatus("ready");
+        }
+        return;
+      }
 
       let effectiveDiscount = 0;
       if ((access.custom_discount_percent || 0) > 0) {
@@ -360,7 +395,20 @@ export default function PortalCatalog() {
 
   // Submit order
   const handleSubmit = async () => {
-    if (!customerId || cart.length === 0) return;
+    if (cart.length === 0) return;
+
+    // Demo mode: simulate success without DB insert
+    if (isDemo) {
+      setSubmitting(true);
+      setSubmitResult(null);
+      await new Promise(r => setTimeout(r, 800));
+      clearCart();
+      setSubmitResult("demo");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!customerId) return;
     setSubmitting(true);
     setSubmitResult(null);
     try {
@@ -447,7 +495,18 @@ export default function PortalCatalog() {
       {/* Page header */}
       <div style={{ maxWidth: 1600, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>א.ד שיווק והפצה</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: DARK, margin: 0, letterSpacing: "-0.5px" }}>א.ד שיווק והפצה</h1>
+            {isDemo && (
+              <span style={{
+                display: "inline-flex", alignItems: "center",
+                background: "rgba(245,136,94,0.15)", color: "#F5885E",
+                border: "1px solid rgba(245,136,94,0.35)",
+                borderRadius: 99, padding: "2px 10px",
+                fontSize: 11, fontWeight: 700,
+              }}>מצב הדגמה</span>
+            )}
+          </div>
           <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>קטלוג מוצרים</p>
         </div>
         <button onClick={() => navigate("/portal/dashboard")}
