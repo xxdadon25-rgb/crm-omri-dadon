@@ -91,6 +91,8 @@ export default function DebtSummary() {
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [singleDeleteConfirmed, setSingleDeleteConfirmed] = useState(false);
+  const [bulkDeleteConfirmed, setBulkDeleteConfirmed] = useState(false);
 
   const filteredRows = useMemo(() => {
     if (!sidebarSearch.trim()) return rows;
@@ -404,29 +406,51 @@ export default function DebtSummary() {
       )}
 
       {/* Single invoice delete confirmation */}
-      <AlertDialog open={!!deleteInvoiceId} onOpenChange={() => setDeleteInvoiceId(null)}>
+      <AlertDialog open={!!deleteInvoiceId} onOpenChange={(open) => { if (!open) { setDeleteInvoiceId(null); setSingleDeleteConfirmed(false); } }}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
             <AlertDialogTitle>מחיקת חשבונית</AlertDialogTitle>
-            <AlertDialogDescription>האם למחוק את החשבונית? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+            <AlertDialogDescription asChild>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+                  <strong>שים לב:</strong> על פי חוק, יש לשמור חשבוניות. מחיקה היא בלתי הפיכה ותמחק לצמיתות גם זיכויים ותשלומים מקושרים.
+                  פעולה זו מיועדת בעיקר לניקוי נתוני בדיקה שגויים — לא למחיקת חשבוניות אמיתיות.
+                </p>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, lineHeight: 1.5 }}>
+                  <Checkbox checked={singleDeleteConfirmed} onCheckedChange={setSingleDeleteConfirmed} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <span>אני מבין/ה שזו פעולה בלתי הפיכה ומאשר/ת שזו אינה חשבונית אמיתית שיש חובה לשמור</span>
+                </label>
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ביטול</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteInvoice} className="bg-destructive text-destructive-foreground">מחק</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setSingleDeleteConfirmed(false)}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInvoice} disabled={!singleDeleteConfirmed} className="bg-destructive text-destructive-foreground">מחק</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Bulk invoice delete confirmation */}
-      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(open) => { setBulkDeleteOpen(open); if (!open) setBulkDeleteConfirmed(false); }}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
-            <AlertDialogTitle>מחיקת חשבוניות</AlertDialogTitle>
-            <AlertDialogDescription>האם למחוק {selectedInvoiceIds.size} חשבוניות? פעולה זו אינה ניתנת לביטול.</AlertDialogDescription>
+            <AlertDialogTitle>מחיקת {selectedInvoiceIds.size} חשבוניות</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+                  <strong>שים לב:</strong> על פי חוק, יש לשמור חשבוניות. מחיקה היא בלתי הפיכה ותמחק לצמיתות גם זיכויים ותשלומים מקושרים לכל אחת מהחשבוניות שנבחרו.
+                  פעולה זו מיועדת בעיקר לניקוי נתוני בדיקה שגויים — לא למחיקת חשבוניות אמיתיות.
+                </p>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, lineHeight: 1.5 }}>
+                  <Checkbox checked={bulkDeleteConfirmed} onCheckedChange={setBulkDeleteConfirmed} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <span>אני מבין/ה שזו פעולה בלתי הפיכה ומאשר/ת שאלו אינן חשבוניות אמיתיות שיש חובה לשמור</span>
+                </label>
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ביטול</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkDeleteInvoices} disabled={deleting} className="bg-destructive text-destructive-foreground">מחק הכל</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setBulkDeleteConfirmed(false)}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDeleteInvoices} disabled={deleting || !bulkDeleteConfirmed} className="bg-destructive text-destructive-foreground">מחק הכל</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
