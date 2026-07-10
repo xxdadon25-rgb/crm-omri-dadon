@@ -5,14 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>התאמת מוצרים - QuickStock</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap');
   :root{
     --coral:#F5885E; --coral-dark:#E06B3F; --bg:#ECEDF0; --panel:#FFFFFF; --ink:#232326;
     --muted:#6B6E76; --line:#DCDEE3; --green:#3FA66A; --green-bg:#E6F6ED;
     --yellow-bg:#FFF6DE; --red-bg:#FDEBEA; --blue-bg:#E8F0FE; --blue:#2F5FD6;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;}
   header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
   header h1{font-size:16px;margin:0;font-weight:700;}
   .tabs{display:flex;gap:6px;}
@@ -297,40 +296,100 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
   }
 
   // ============ TINDER VIEW ============
+  let tinderBuilt = false;
+  let tinderForcePick = false;
+
   function buildQueue(){
-    tinderQueue = ourItems
-      .filter(n => ['pending','suggested_new'].includes(n.status) && !n.matchedOldId && !n.markedNew && !n.deleted && !n.skippedInSession)
-      .sort((a,b) => (b.candidates&&b.candidates[0]?b.candidates[0].score:-1) - (a.candidates&&a.candidates[0]?a.candidates[0].score:-1))
-      .map(n=>n.sku);
+    if(tinderBuilt) return;
+    tinderQueue = ourItems.map(n=>n.sku);
+    tinderBuilt = true;
   }
-  function currentTinderItem(){
-    while(tinderIndex < tinderQueue.length){
-      const n = ourBySku[tinderQueue[tinderIndex]];
-      if(n && ['pending','suggested_new'].includes(computeDisplay(n)) && !n.skippedInSession) return n;
-      tinderIndex++;
-    }
-    return null;
+  function getCurrentOldId(n){
+    return n.matchedOldId || (n.status==='auto_matched' && !n.matchedOldId ? n.autoMatchedOldId : null);
   }
+  function advanceQueue(){ tinderIndex++; tinderForcePick=false; renderTinder(); updateProgress(); }
+
   function renderTinder(){
     buildQueue();
-    if(tinderIndex >= tinderQueue.length) tinderIndex = 0;
-    const n = currentTinderItem();
+    while(tinderIndex < tinderQueue.length){
+      const n = ourBySku[tinderQueue[tinderIndex]];
+      if(n && n.deleted) tinderIndex++; else break;
+    }
     const el = document.getElementById('tinderContent');
     const remaining = tinderQueue.length - tinderIndex;
-    if(!n){
-      el.innerHTML = `<div class="empty-state">🎉 אין עוד פריטים לטיפול בתור הזה!<br><span style="font-size:12px;">אפשר לעבור ל"רשימה מלאה" לבדוק פריטים שדולגו, או ל"שימוש חוזר בתמונה".</span></div>`;
+    if(tinderIndex >= tinderQueue.length){
+      el.innerHTML = `<div class="empty-state">🎉 עברת על כל 627 המוצרים!<br><span style="font-size:12px;">אפשר "איפוס" כדי לעבור שוב, או לבדוק ב"רשימה מלאה".</span></div>`;
       return;
     }
-    const candidates = (n.candidates||[]).map(c=>oldById[c.old_id]).map((o,i)=>({o, score:(n.candidates[i]?n.candidates[i].score:0)}))
-      .filter(c => c.o && !c.o.deleted && !c.o.used);
+    const n = ourBySku[tinderQueue[tinderIndex]];
+    const currentOldId = getCurrentOldId(n);
 
+    if(n.markedNew && !tinderForcePick){
+      el.innerHTML = `
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length}</div>
+        <div class="tinder-main"><div class="txt" style="margin-top:0;">
+          <div class="name">${esc(n.name)}</div>
+          <div class="meta">מק"ט: ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}</div>
+          <span class="tag tag-blue">✚ סומן כמוצר חדש</span>
+        </div></div>
+        <div class="tinder-actions">
+          <button class="btn" id="tinderContinue">המשך ←  <span class="kbd">Enter</span></button>
+          <button class="skip" id="tinderChangeMind">בעצם יש התאמה — בחר מועמד</button>
+        </div>`;
+      document.getElementById('tinderContinue').addEventListener('click', advanceQueue);
+      document.getElementById('tinderChangeMind').addEventListener('click', ()=>{ n.markedNew=false; tinderForcePick=true; renderTinder(); });
+      return;
+    }
+
+    if(currentOldId && !tinderForcePick){
+      const o = oldById[currentOldId];
+      if(n.finalName===null) n.finalName = o.name;
+      if(n.finalSku===null) n.finalSku = n.sku || o.sku || '';
+      el.innerHTML = `
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length} ${n.status==='auto_matched'?'· <span class="tag tag-green">הותאם אוטומטית קודם</span>':''}</div>
+        <div class="tinder-main">
+          <button class="delmain btn secondary" id="tinderDelMain">🗑 מחק פריט</button>
+          <div style="width:90px;flex-shrink:0;">
+            ${o.image && o.image!=='null' ? `<img src="${esc(o.image)}" loading="lazy" style="width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line);">` : `<div class="noimg" style="width:90px;height:90px;">אין תמונה</div>`}
+          </div>
+          <div class="txt" style="margin-top:26px;">
+            <div class="meta">נתונים נכונים: מק"ט ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}</div>
+            <div class="edit-row" style="margin-top:10px;"><label>שם סופי:</label><input type="text" id="confirmNameInput" value="${attr(n.finalName)}"></div>
+            <div class="name-picker">
+              <button data-src="old" class="${n.finalName===o.name?'active':''}">שם ישן: ${esc(o.name)}</button>
+              <button data-src="new" class="${n.finalName===n.name?'active':''}">שם חדש: ${esc(n.name)}</button>
+            </div>
+            <div class="edit-row"><label>מק"ט סופי:</label><input type="text" id="confirmSkuInput" value="${attr(n.finalSku)}"></div>
+          </div>
+        </div>
+        <div class="tinder-actions">
+          <button class="btn" id="tinderContinue">המשך ← <span class="kbd">Enter</span></button>
+          <button class="skip" id="tinderChangeMind">בחר מועמד אחר <span class="kbd">C</span></button>
+          <button class="skip" id="tinderUnmatch">בטל התאמה זו</button>
+        </div>`;
+      document.getElementById('tinderContinue').addEventListener('click', advanceQueue);
+      document.getElementById('tinderDelMain').addEventListener('click', ()=>{ toggleDeleteOur(n.sku); advanceQueue(); });
+      document.getElementById('tinderChangeMind').addEventListener('click', ()=>{ tinderForcePick=true; renderTinder(); });
+      document.getElementById('tinderUnmatch').addEventListener('click', ()=>{ unmatch(n.sku); tinderForcePick=true; renderTinder(); });
+      document.getElementById('confirmNameInput').addEventListener('input', e=> n.finalName=e.target.value);
+      document.getElementById('confirmSkuInput').addEventListener('input', e=> n.finalSku=e.target.value);
+      el.querySelectorAll('[data-src]').forEach(btn=> btn.addEventListener('click', ()=>{
+        n.finalName = btn.dataset.src==='old' ? o.name : n.name;
+        renderTinder();
+      }));
+      return;
+    }
+
+    // PICKING mode
+    const candidates = (n.candidates||[]).map(c=>({o:oldById[c.old_id], score:c.score}))
+      .filter(c => c.o && !c.o.deleted && !c.o.used);
     el.innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">נותרו בתור: ${remaining}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length}</div>
       <div class="tinder-main">
         <button class="delmain btn secondary" id="tinderDelMain">🗑 מחק פריט זה</button>
         <div class="txt" style="margin-top:26px;">
           <div class="name">${esc(n.name)}</div>
-          <div class="meta">מק"ט: ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}${n.barcode?(' · ברקוד '+esc(n.barcode)):''}${n.wc_category?(' · קטגוריה: '+esc(n.wc_category)):''}</div>
+          <div class="meta">מק"ט: ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}${n.barcode?(' · ברקוד '+esc(n.barcode)):''}</div>
         </div>
       </div>
       <div class="cand-grid">
@@ -343,37 +402,26 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
             <div class="cmeta">מק"ט: ${c.o.sku?esc(c.o.sku):'-'}</div>
             <button class="cdel" data-delid="${c.o.id}">🗑 מחק מועמד</button>
           </div>
-        `).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:12.5px;padding:14px;">לא נמצאו מועמדים אוטומטיים — חפש ידנית ב"רשימה מלאה"</div>'}
+        `).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:12.5px;padding:14px;">לא נמצאו מועמדים — חפש ידנית ב"רשימה מלאה"</div>'}
       </div>
       <div class="tinder-actions">
         <button class="new" id="tinderNew"><span class="kbd">N</span> מוצר חדש</button>
         <button class="skip" id="tinderSkip"><span class="kbd">S</span> דלג להמשך אח"כ</button>
       </div>
     `;
-
-    document.getElementById('tinderDelMain').addEventListener('click', ()=>{
-      toggleDeleteOur(n.sku); tinderIndex++; renderTinder(); updateProgress();
-    });
-    document.getElementById('tinderNew').addEventListener('click', ()=>{
-      toggleMarkedNew(n.sku); tinderIndex++; renderTinder(); updateProgress();
-    });
-    document.getElementById('tinderSkip').addEventListener('click', ()=>{
-      n.skippedInSession = true; renderTinder();
-    });
+    document.getElementById('tinderDelMain').addEventListener('click', ()=>{ toggleDeleteOur(n.sku); advanceQueue(); });
+    document.getElementById('tinderNew').addEventListener('click', ()=>{ toggleMarkedNew(n.sku); advanceQueue(); });
+    document.getElementById('tinderSkip').addEventListener('click', advanceQueue);
     el.querySelectorAll('.cand-card').forEach(card=>{
       card.addEventListener('click', e=>{
         if(e.target.closest('.cdel')) return;
         const idx = parseInt(card.dataset.idx);
         const c = candidates[idx];
-        if(c && matchPair(c.o.id, n.sku)){ tinderIndex++; renderTinder(); updateProgress(); }
+        if(c && matchPair(c.o.id, n.sku)){ tinderForcePick=false; renderTinder(); updateProgress(); }
       });
     });
     el.querySelectorAll('.cdel').forEach(btn=>{
-      btn.addEventListener('click', e=>{
-        e.stopPropagation();
-        toggleDeleteOld(btn.dataset.delid);
-        renderTinder();
-      });
+      btn.addEventListener('click', e=>{ e.stopPropagation(); toggleDeleteOld(btn.dataset.delid); renderTinder(); });
     });
   }
 
@@ -381,9 +429,11 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     if(activeTab !== 'tinder') return;
     if(document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
     const k = e.key.toLowerCase();
+    if(document.getElementById('tinderContinue') && (k==='enter')){ document.getElementById('tinderContinue').click(); return; }
+    if(document.getElementById('tinderChangeMind') && k==='c'){ document.getElementById('tinderChangeMind').click(); return; }
     if(['1','2','3','4','5'].includes(k)){
-      const el = document.querySelector(`.cand-card[data-idx="${parseInt(k)-1}"]`);
-      if(el) el.click();
+      const elc = document.querySelector(`.cand-card[data-idx="${parseInt(k)-1}"]`);
+      if(elc) elc.click();
     } else if(k==='n'){ document.getElementById('tinderNew')?.click(); }
     else if(k==='s'){ document.getElementById('tinderSkip')?.click(); }
   });
@@ -539,7 +589,7 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     if(!confirm('לאפס את כל הפעולות מהסשן הזה?')) return;
     oldItems.forEach(o=>{ o.used=!!o.alreadyMatched; o.deleted=false; o.mergedFrom=[]; o.repurposed=false; o.repurposedName=null; });
     ourItems.forEach(n=>{ n.matchedOldId=null; n.finalName=null; n.finalSku=null; n.markedNew=false; n.deleted=false; n.skippedInSession=false; });
-    selectedOldId=null; tinderIndex=0;
+    selectedOldId=null; tinderIndex=0; tinderBuilt=false; tinderForcePick=false;
     renderActive();
   });
 
