@@ -140,6 +140,7 @@ export default function ImportProducts() {
         localStats.failed++;
         localStats.errors.push(`שורה ${rowNum}: שם מוצר חסר`);
       } else {
+        // Full payload used for CREATE (includes defaults for required fields)
         const productData = {
           name,
           sku: (mapped.sku || "").trim() || undefined,
@@ -156,6 +157,21 @@ export default function ImportProducts() {
           is_active: true,
         };
 
+        // Sparse payload used for UPDATE — only fields the user actually mapped,
+        // so unmapped columns are left unchanged in the existing record.
+        const updateData = { name };
+        if (mapped.sku !== undefined)              updateData.sku              = (mapped.sku || "").trim() || undefined;
+        if (mapped.barcode !== undefined)          updateData.barcode          = (mapped.barcode || "").trim() || undefined;
+        if (mapped.supplier !== undefined)         updateData.supplier         = (mapped.supplier || "").trim() || undefined;
+        if (mapped.buy_price !== undefined)        updateData.buy_price        = (mapped.buy_price || "").trim() ? parseFloat(mapped.buy_price) : undefined;
+        if (mapped.sell_price !== undefined)       updateData.sell_price       = (mapped.sell_price || "").trim() ? parseFloat(mapped.sell_price) : undefined;
+        if (mapped.description !== undefined)      updateData.description      = stripHtml(mapped.description);
+        if (mapped.short_description !== undefined) updateData.notes           = stripHtml(mapped.short_description);
+        if (mapped.image_url !== undefined)        updateData.image_url        = (mapped.image_url || "").split(",")[0].trim() || undefined;
+        if (mapped.tags !== undefined)             updateData.tags             = mapped.tags || undefined;
+        if (mapped.quantity !== undefined)         updateData.quantity         = (mapped.quantity || "").trim() ? parseInt(mapped.quantity) : undefined;
+        if (mapped.min_quantity !== undefined)     updateData.min_quantity     = (mapped.min_quantity || "").trim() ? parseInt(mapped.min_quantity) : undefined;
+
         if (mapped.category) {
           const firstCat = mapped.category.split(",")[0].trim();
           if (firstCat) {
@@ -165,13 +181,15 @@ export default function ImportProducts() {
             }
             productData.category = firstCat;
             productData.category_id = catMap[firstCat];
+            updateData.category = firstCat;
+            updateData.category_id = catMap[firstCat];
           }
         }
 
         try {
           const existingSku = productData.sku && skuMap[productData.sku];
           if (existingSku) {
-            await withRetry(() => base44.entities.Product.update(existingSku.id, productData));
+            await withRetry(() => base44.entities.Product.update(existingSku.id, updateData));
             localStats.updated++;
           } else {
             const created = await withRetry(() => base44.entities.Product.create(productData));
