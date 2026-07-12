@@ -217,6 +217,9 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     if(n.status==='suggested_new') return 'suggested_new';
     return 'pending';
   }
+  function remainingCount(){
+    return ourItems.filter(n => ['pending','suggested_new','auto_matched'].includes(computeDisplay(n))).length;
+  }
   function oldStatus(o){
     if(o.deleted) return 'deleted';
     if(o.used) return 'used';
@@ -333,7 +336,7 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
 
     if(n.markedNew && !tinderForcePick){
       el.innerHTML = `
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">נותרו לטיפול: ${remainingCount()}</div>
         <div class="tinder-main"><div class="txt" style="margin-top:0;">
           <div class="name">${esc(n.name)}</div>
           <div class="meta">מק"ט: ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}</div>
@@ -353,7 +356,7 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
       if(n.finalName===null) n.finalName = o.name;
       if(n.finalSku===null) n.finalSku = n.sku || o.sku || '';
       el.innerHTML = `
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length} ${n.status==='auto_matched'?'· <span class="tag tag-green">הותאם אוטומטית קודם</span>':''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">נותרו לטיפול: ${remainingCount()} ${n.status==='auto_matched'?'· <span class="tag tag-green">הותאם אוטומטית קודם</span>':''}</div>
         <div class="tinder-main">
           <button class="delmain btn secondary" id="tinderDelMain">🗑 מחק פריט</button>
           <div style="width:90px;flex-shrink:0;">
@@ -402,7 +405,7 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
         .filter(c => c.o && !c.o.deleted && !c.o.used);
     }
     el.innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">נותרו לטיפול: ${remainingCount()}</div>
       <div class="tinder-main">
         <button class="delmain btn secondary" id="tinderDelMain">🗑 מחק פריט זה</button>
         <div class="txt" style="margin-top:26px;">
