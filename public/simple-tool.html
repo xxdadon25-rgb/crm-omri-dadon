@@ -150,6 +150,10 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
         <div class="edit-panel">
           <h3>✔ נבחר: ${esc(our.name)} — ערוך אם צריך ואז אשר</h3>
           <div class="edit-row"><label>שם:</label><input type="text" id="editName" value="${attr(our.name)}"></div>
+          <div style="display:flex;gap:6px;margin:-4px 0 9px 86px;">
+            <button type="button" class="btn secondary" style="font-size:11px;padding:4px 9px;" id="fillOldNameBtn">שם קיים במערכת: ${esc(o.name)}</button>
+            <button type="button" class="btn secondary" style="font-size:11px;padding:4px 9px;" id="fillNewNameBtn">שם חדש: ${esc(our.name)}</button>
+          </div>
           <div class="edit-row"><label>מק"ט:</label><input type="text" id="editSku" value="${attr(our.sku)}"></div>
           <div class="edit-row"><label>ברקוד:</label><input type="text" id="editBarcode" value="${attr(our.barcode||'')}"></div>
           <div class="edit-row"><label>מחיר עלות:</label><input type="text" id="editPrice" value="${attr(our.buy_price??'')}"></div>
@@ -203,6 +207,7 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
     });
 
     if(selectedCandidateSku){
+      const our = ourBySku[selectedCandidateSku];
       document.getElementById('confirmBtn').addEventListener('click', ()=>{
         const fields = {
           name: document.getElementById('editName').value,
@@ -216,6 +221,12 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
       document.getElementById('cancelSelectBtn').addEventListener('click', ()=>{
         selectedCandidateSku = null;
         render();
+      });
+      document.getElementById('fillOldNameBtn').addEventListener('click', ()=>{
+        document.getElementById('editName').value = o.name;
+      });
+      document.getElementById('fillNewNameBtn').addEventListener('click', ()=>{
+        document.getElementById('editName').value = our.name;
       });
     } else {
       const input = document.getElementById('searchInput');
