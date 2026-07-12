@@ -434,7 +434,13 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     document.getElementById('tinderDelMain').addEventListener('click', ()=>{ toggleDeleteOur(n.sku); advanceQueue(); });
     document.getElementById('tinderNew').addEventListener('click', ()=>{ toggleMarkedNew(n.sku); advanceQueue(); });
     document.getElementById('tinderSkip').addEventListener('click', advanceQueue);
-    document.getElementById('tinderCandSearch').addEventListener('input', e=>{ window.__tinderCandSearch = e.target.value; renderTinder(); });
+    document.getElementById('tinderCandSearch').addEventListener('input', e=>{
+      const cursorPos = e.target.selectionStart;
+      window.__tinderCandSearch = e.target.value;
+      renderTinder();
+      const newInput = document.getElementById('tinderCandSearch');
+      if(newInput){ newInput.focus(); try{ newInput.setSelectionRange(cursorPos, cursorPos); }catch(err){} }
+    });
     document.getElementById('tinderCandSearch').addEventListener('keydown', e=> e.stopPropagation());
     el.querySelectorAll('.cand-card').forEach(card=>{
       card.addEventListener('click', e=>{
