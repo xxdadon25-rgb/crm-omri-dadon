@@ -133,7 +133,13 @@
 
 <main>
   <section class="view active" id="tinderView">
-    <div class="tinder-wrap" id="tinderContent"></div>
+    <div class="tinder-wrap">
+      <div style="margin-bottom:10px;position:relative;">
+        <input type="text" id="tinderJumpSearch" placeholder="🔍 חפש מוצר ספציפי מהרשימה שלנו כדי לקפוץ אליו ישירות..." style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px;">
+        <div id="tinderJumpResults" style="position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid var(--line);border-radius:9px;margin-top:4px;max-height:260px;overflow-y:auto;z-index:20;display:none;box-shadow:0 4px 14px rgba(0,0,0,.1);"></div>
+      </div>
+      <div id="tinderContent"></div>
+    </div>
   </section>
 
   <section class="view" id="listView">
@@ -313,7 +319,8 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     buildQueue();
     while(tinderIndex < tinderQueue.length){
       const n = ourBySku[tinderQueue[tinderIndex]];
-      if(n && n.deleted) tinderIndex++; else break;
+      const d = n ? computeDisplay(n) : 'deleted';
+      if(!n || d==='deleted' || d==='matched' || d==='marked_new') tinderIndex++; else break;
     }
     const el = document.getElementById('tinderContent');
     const remaining = tinderQueue.length - tinderIndex;
@@ -367,7 +374,11 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
           <button class="skip" id="tinderChangeMind">בחר מועמד אחר <span class="kbd">C</span></button>
           <button class="skip" id="tinderUnmatch">בטל התאמה זו</button>
         </div>`;
-      document.getElementById('tinderContinue').addEventListener('click', advanceQueue);
+      document.getElementById('tinderContinue').addEventListener('click', ()=>{
+        n.matchedOldId = currentOldId;
+        o.used = true;
+        advanceQueue();
+      });
       document.getElementById('tinderDelMain').addEventListener('click', ()=>{ toggleDeleteOur(n.sku); advanceQueue(); });
       document.getElementById('tinderChangeMind').addEventListener('click', ()=>{ tinderForcePick=true; renderTinder(); });
       document.getElementById('tinderUnmatch').addEventListener('click', ()=>{ unmatch(n.sku); tinderForcePick=true; renderTinder(); });
@@ -381,8 +392,15 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     }
 
     // PICKING mode
-    const candidates = (n.candidates||[]).map(c=>({o:oldById[c.old_id], score:c.score}))
-      .filter(c => c.o && !c.o.deleted && !c.o.used);
+    const candSearchTerm = (window.__tinderCandSearch || '').trim();
+    let candidates;
+    if(candSearchTerm){
+      candidates = oldItems.filter(o => !o.deleted && !o.used && (o.name.includes(candSearchTerm) || (o.sku && o.sku.includes(candSearchTerm))))
+        .slice(0,24).map(o=>({o, score:null}));
+    } else {
+      candidates = (n.candidates||[]).map(c=>({o:oldById[c.old_id], score:c.score}))
+        .filter(c => c.o && !c.o.deleted && !c.o.used);
+    }
     el.innerHTML = `
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">פריט ${tinderIndex+1} מתוך ${tinderQueue.length}</div>
       <div class="tinder-main">
@@ -392,17 +410,18 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
           <div class="meta">מק"ט: ${esc(n.sku)} · ₪${fmtMoney(n.buy_price)} · כמות ${fmtQty(n.qty)}${n.barcode?(' · ברקוד '+esc(n.barcode)):''}</div>
         </div>
       </div>
+      <input type="text" id="tinderCandSearch" placeholder="🔍 לא מוצא התאמה טובה? חפש ידנית בכל 465 המוצרים הישנים..." value="${attr(candSearchTerm)}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:12.5px;margin:6px 0 4px;">
       <div class="cand-grid">
         ${candidates.map((c,i)=>`
           <div class="cand-card" data-idx="${i}">
-            <span class="num">${i+1}</span>
-            <span class="score tag ${scoreClass(c.score)}">${Math.round(c.score*100)}%</span>
+            ${!candSearchTerm ? `<span class="num">${i+1}</span>` : ''}
+            ${c.score!==null ? `<span class="score tag ${scoreClass(c.score)}">${Math.round(c.score*100)}%</span>` : ''}
             ${c.o.image && c.o.image!=='null' ? `<img src="${esc(c.o.image)}" loading="lazy" onerror="this.style.display='none'">` : `<div class="noimg">אין תמונה</div>`}
             <div class="cname">${esc(c.o.name)}</div>
             <div class="cmeta">מק"ט: ${c.o.sku?esc(c.o.sku):'-'}</div>
             <button class="cdel" data-delid="${c.o.id}">🗑 מחק מועמד</button>
           </div>
-        `).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:12.5px;padding:14px;">לא נמצאו מועמדים — חפש ידנית ב"רשימה מלאה"</div>'}
+        `).join('') || `<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:12.5px;padding:14px;">${candSearchTerm?'אין תוצאות לחיפוש':'לא נמצאו מועמדים — חפש ידנית למעלה'}</div>`}
       </div>
       <div class="tinder-actions">
         <button class="new" id="tinderNew"><span class="kbd">N</span> מוצר חדש</button>
@@ -412,12 +431,14 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
     document.getElementById('tinderDelMain').addEventListener('click', ()=>{ toggleDeleteOur(n.sku); advanceQueue(); });
     document.getElementById('tinderNew').addEventListener('click', ()=>{ toggleMarkedNew(n.sku); advanceQueue(); });
     document.getElementById('tinderSkip').addEventListener('click', advanceQueue);
+    document.getElementById('tinderCandSearch').addEventListener('input', e=>{ window.__tinderCandSearch = e.target.value; renderTinder(); });
+    document.getElementById('tinderCandSearch').addEventListener('keydown', e=> e.stopPropagation());
     el.querySelectorAll('.cand-card').forEach(card=>{
       card.addEventListener('click', e=>{
         if(e.target.closest('.cdel')) return;
         const idx = parseInt(card.dataset.idx);
         const c = candidates[idx];
-        if(c && matchPair(c.o.id, n.sku)){ tinderForcePick=false; renderTinder(); updateProgress(); }
+        if(c && matchPair(c.o.id, n.sku)){ tinderForcePick=false; window.__tinderCandSearch=''; renderTinder(); updateProgress(); }
       });
     });
     el.querySelectorAll('.cdel').forEach(btn=>{
@@ -628,6 +649,39 @@ const MATCHER_DATA_V6 = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", 
       }catch(err){ alert('שגיאה: '+err.message); }
     };
     reader.readAsText(file);
+  });
+
+  // ============ TINDER: JUMP TO SPECIFIC ITEM ============
+  const jumpInput = document.getElementById('tinderJumpSearch');
+  const jumpResults = document.getElementById('tinderJumpResults');
+  jumpInput.addEventListener('input', ()=>{
+    const term = jumpInput.value.trim();
+    if(!term){ jumpResults.style.display='none'; return; }
+    const matches = ourItems.filter(n => n.name.includes(term) || (n.sku && n.sku.includes(term))).slice(0,15);
+    if(!matches.length){ jumpResults.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--muted);">אין תוצאות</div>'; jumpResults.style.display='block'; return; }
+    jumpResults.innerHTML = matches.map(n=>{
+      const d = computeDisplay(n);
+      const statusLabel = {pending:'ממתין',suggested_new:'מוצר חדש מוצע',auto_matched:'בוצע אוטומטית',matched:'הותאם',marked_new:'סומן כחדש',deleted:'מסומן למחיקה'}[d]||d;
+      return `<div class="jump-result" data-sku="${attr(n.sku)}" style="padding:8px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid var(--line);">
+        <div style="font-weight:600;">${esc(n.name)}</div>
+        <div style="font-size:10.5px;color:var(--muted);">מק"ט: ${esc(n.sku)} · ${statusLabel}</div>
+      </div>`;
+    }).join('');
+    jumpResults.style.display='block';
+    jumpResults.querySelectorAll('.jump-result').forEach(row=>{
+      row.addEventListener('click', ()=>{
+        const sku = row.dataset.sku;
+        const idx = tinderQueue.indexOf(sku);
+        if(idx>=0){
+          tinderIndex = idx; tinderForcePick=false; window.__tinderCandSearch='';
+          jumpInput.value=''; jumpResults.style.display='none';
+          renderTinder(); updateProgress();
+        }
+      });
+    });
+  });
+  document.addEventListener('click', e=>{
+    if(!jumpInput.contains(e.target) && !jumpResults.contains(e.target)) jumpResults.style.display='none';
   });
 
   renderActive();
