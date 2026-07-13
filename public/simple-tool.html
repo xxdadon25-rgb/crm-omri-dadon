@@ -109,6 +109,7 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
     const total = oldItems.filter(o=>o.status!=='deleted').length;
     const done = oldItems.filter(o=>o.status==='done').length;
     const skippedCount = oldItems.filter(o=>o.status==='skipped').length;
+    const manualCount = oldItems.filter(o=>o.status==='manual').length;
     document.getElementById('progressFill').style.width = (done/total*100).toFixed(1)+'%';
     document.getElementById('progressText').textContent = done+'/'+total;
     let bar = document.getElementById('skipBar');
@@ -121,6 +122,7 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
     bar.innerHTML = `
       <button class="btn secondary" id="backBtn" ${history.length<2 && !reviewId ? 'disabled style="opacity:.4;cursor:not-allowed;"':''}>⬅ הקודם</button>
       <button class="btn secondary" id="skippedBtn">📌 דילגתי (${skippedCount})</button>
+      <span style="align-self:center;font-size:11px;color:#8A6B0E;background:var(--yellow-bg);padding:5px 10px;border-radius:7px;">🏷 להשלמה ידנית: ${manualCount}</span>
       ${skippedMode || reviewId ? `<button class="btn" id="backToWorkBtn">🔙 חזרה לעבודה רגילה</button>` : ''}
     `;
     document.getElementById('backBtn').addEventListener('click', goBack);
@@ -267,7 +269,8 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
           <button class="delbtn" id="delBtn">🗑 לא רלוונטי</button>
-          ${!reviewId ? `<button class="delbtn" id="skipBtn" style="color:var(--blue);">⏭ דלג</button>` : ''}
+          ${!reviewId && !skippedMode ? `<button class="delbtn" id="skipBtn" style="color:var(--blue);">⏭ דלג</button>` : ''}
+          <button class="delbtn" id="manualBtn" style="color:#8A6B0E;">🏷 השאר כמו שהוא</button>
         </div>
       </div>
       ${candHtml}
@@ -282,6 +285,12 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
     if(skipBtn) skipBtn.addEventListener('click', ()=>{
       o.status = 'skipped';
       advance();
+    });
+    document.getElementById('manualBtn').addEventListener('click', ()=>{
+      if(o.chosen && o.chosen.sku) usedSkus.delete(o.chosen.sku);
+      o.status = 'manual';
+      o.chosen = null;
+      if(reviewId){ reviewId=null; render(); } else advance();
     });
 
     if(selectedCandidateSku){
@@ -325,8 +334,9 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
     const done = oldItems.filter(o=>o.status==='done').map(o=>({ id:o.id, sku:o.sku, chosen:o.chosen }));
     const deleted = oldItems.filter(o=>o.status==='deleted').map(o=>({ id:o.id }));
     const skipped = oldItems.filter(o=>o.status==='skipped').map(o=>({ id:o.id }));
+    const manual = oldItems.filter(o=>o.status==='manual').map(o=>({ id:o.id }));
     const pending = oldItems.filter(o=>o.status==='pending').map(o=>({ id:o.id }));
-    const payload = { done, deleted, skipped, pending, exported_at:new Date().toISOString() };
+    const payload = { done, deleted, skipped, manual, pending, exported_at:new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload,null,1)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -344,13 +354,14 @@ const TOOL_DATA = {"old": [{"id": "96339df6-1545-431e-8ba8-59adc483fbff", "name"
         (payload.done||[]).forEach(d=>{ const o=oldById[d.id]; if(o){ o.status='done'; o.chosen=d.chosen; if(d.chosen && d.chosen.sku) usedSkus.add(d.chosen.sku); } });
         (payload.deleted||[]).forEach(d=>{ const o=oldById[d.id]; if(o) o.status='deleted'; });
         (payload.skipped||[]).forEach(d=>{ const o=oldById[d.id]; if(o) o.status='skipped'; });
+        (payload.manual||[]).forEach(d=>{ const o=oldById[d.id]; if(o) o.status='manual'; });
         queue = oldItems.map(o=>o.id);
         qIndex = 0;
         history = [];
         reviewId = null;
         skippedMode = false;
         render();
-        alert('נטען בהצלחה: '+(payload.done||[]).length+' הושלמו, '+(payload.deleted||[]).length+' לא רלוונטי, '+(payload.skipped||[]).length+' דילוגים');
+        alert('נטען בהצלחה: '+(payload.done||[]).length+' הושלמו, '+(payload.deleted||[]).length+' לא רלוונטי, '+(payload.skipped||[]).length+' דילוגים, '+(payload.manual||[]).length+' להשלמה ידנית');
       }catch(err){ alert('שגיאה: '+err.message); }
     };
     reader.readAsText(file);
