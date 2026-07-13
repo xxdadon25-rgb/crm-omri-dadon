@@ -22,12 +22,18 @@
   .searchbar{margin-bottom:12px;}
   .searchbar input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13.5px;}
   .list{display:flex;flex-direction:column;gap:7px;}
-  .item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
   .item.selected{border-color:var(--green);background:var(--green-bg);}
+  .item.deleted{border-color:#e3b3ae;background:#FDEBEA;opacity:.6;}
+  .item.deleted .name{text-decoration:line-through;}
   .item .name{font-size:13px;font-weight:600;}
   .item .meta{font-size:11px;color:var(--muted);margin-top:2px;}
-  .item .check{width:24px;height:24px;border-radius:6px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .item .txtwrap{flex:1;cursor:pointer;}
+  .item .actions{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+  .item .check{width:24px;height:24px;border-radius:6px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;}
   .item.selected .check{background:var(--green);border-color:var(--green);color:#fff;}
+  .item .delbtn{font-size:10.5px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;color:#B23B33;font-family:inherit;}
+  .item.deleted .delbtn{background:#B23B33;color:#fff;border-color:#B23B33;}
   footer{background:var(--panel);border-top:1px solid var(--line);padding:10px 18px;font-size:11.5px;color:var(--muted);text-align:center;margin-top:30px;}
 </style>
 </head>
@@ -38,7 +44,8 @@
     <div class="sub">243 מוצרים שלא הותאמו לאף תמונה קיימת — סמן מה באמת צריך להוסיף</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
-    <span class="counter" id="counterBadge">0 נבחרו</span>
+    <span class="counter" id="counterBadge">243 יישארו</span>
+    <span class="counter" id="deletedBadge" style="background:#FDEBEA;color:#B23B33;">0 נמחקו</span>
     <button class="btn secondary" id="importBtn">טען קובץ קודם</button>
     <input type="file" id="importFile" accept="application/json" style="display:none">
     <button class="btn" id="exportBtn">ייצוא הבחירה</button>
@@ -54,10 +61,11 @@ const ITEMS = [{"sku": "0658", "name": "סופר מגבת גליל 3 ק\"ג", "b
 </script>
 <script>
 (function(){
-  const selected = new Set();
+  const deleted = new Set();
   let searchTerm = '';
   const listArea = document.getElementById('listArea');
   const counterBadge = document.getElementById('counterBadge');
+  const deletedBadge = document.getElementById('deletedBadge');
 
   function esc(s){ const d=document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
   function fmtMoney(v){ if(v===null||v===undefined||v==='null'||v==='') return '-'; const n=parseFloat(v); return isNaN(n)?'-':n.toFixed(2); }
@@ -67,27 +75,31 @@ const ITEMS = [{"sku": "0658", "name": "סופר מגבת גליל 3 ק\"ג", "b
     const term = searchTerm.trim();
     let items = ITEMS;
     if(term) items = items.filter(n => n.name.includes(term) || (n.sku && n.sku.includes(term)));
-    listArea.innerHTML = items.map(n => `
-      <div class="item ${selected.has(n.sku)?'selected':''}" data-sku="${esc(n.sku)}">
-        <div><div class="name">${esc(n.name)}</div><div class="meta">מק"ט: ${esc(n.sku)} · מחיר עלות: ₪${fmtMoney(n.buy_price)} · כמות: ${fmtQty(n.qty)}</div></div>
-        <div class="check">${selected.has(n.sku)?'✔':''}</div>
-      </div>
-    `).join('') || '<div style="text-align:center;color:var(--muted);padding:20px;">אין תוצאות</div>';
+    listArea.innerHTML = items.map(n => {
+      const isDel = deleted.has(n.sku);
+      return `
+      <div class="item ${isDel?'deleted':''}" data-sku="${esc(n.sku)}">
+        <div class="txtwrap"><div class="name">${esc(n.name)}</div><div class="meta">מק"ט: ${esc(n.sku)} · מחיר עלות: ₪${fmtMoney(n.buy_price)} · כמות: ${fmtQty(n.qty)}</div></div>
+        <button class="delbtn" data-action="delete">${isDel?'↩ בטל מחיקה':'🗑 מחק'}</button>
+      </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--muted);padding:20px;">אין תוצאות</div>';
     listArea.querySelectorAll('.item').forEach(row=>{
-      row.addEventListener('click', ()=>{
-        const sku = row.dataset.sku;
-        if(selected.has(sku)) selected.delete(sku); else selected.add(sku);
+      const sku = row.dataset.sku;
+      row.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+        if(deleted.has(sku)) deleted.delete(sku); else deleted.add(sku);
         render();
       });
     });
-    counterBadge.textContent = selected.size + ' נבחרו';
+    counterBadge.textContent = (ITEMS.length - deleted.size) + ' יישארו';
+    deletedBadge.textContent = deleted.size + ' נמחקו';
   }
 
   document.getElementById('searchInput').addEventListener('input', e=>{ searchTerm = e.target.value; render(); });
 
   document.getElementById('exportBtn').addEventListener('click', ()=>{
-    const chosen = ITEMS.filter(n => selected.has(n.sku));
-    const blob = new Blob([JSON.stringify({ selected: chosen, exported_at: new Date().toISOString() }, null, 1)], {type:'application/json'});
+    const remaining = ITEMS.filter(n => !deleted.has(n.sku));
+    const rejected = ITEMS.filter(n => deleted.has(n.sku));
+    const blob = new Blob([JSON.stringify({ remaining, deleted: rejected, exported_at: new Date().toISOString() }, null, 1)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'new_products_selection_' + new Date().toISOString().slice(0,16).replace(/[:T]/g,'-') + '.json';
@@ -101,9 +113,9 @@ const ITEMS = [{"sku": "0658", "name": "סופר מגבת גליל 3 ק\"ג", "b
     reader.onload = ev=>{
       try{
         const payload = JSON.parse(ev.target.result);
-        (payload.selected||[]).forEach(n=> selected.add(n.sku));
+        (payload.deleted||[]).forEach(n=> deleted.add(n.sku));
         render();
-        alert('נטען: ' + (payload.selected||[]).length + ' נבחרו');
+        alert('נטען: ' + (payload.deleted||[]).length + ' מחוקים');
       }catch(err){ alert('שגיאה: ' + err.message); }
     };
     reader.readAsText(file);
