@@ -176,8 +176,6 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Finbot returned invalid JSON" });
   }
 
-  console.log("Full Finbot response:", JSON.stringify(responseData));
-
   const status = responseData?.status;
   if (status !== 1) {
     const errArr = Array.isArray(responseData?.errors) ? responseData.errors : [];
@@ -189,6 +187,5 @@ Deno.serve(async (req: Request) => {
   const pdfUrl = extractPdfUrl(responseData?.data);
   const invoiceNumber = extractInvoiceNumber(responseData);
 
-  console.log("extracted invoiceNumber:", invoiceNumber, "pdfUrl:", pdfUrl);
   return json({ ok: true, invoiceNumber, pdfUrl });
 });
