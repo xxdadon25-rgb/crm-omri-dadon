@@ -99,7 +99,7 @@ function buildMonthlyInvoiceHTML({ doc, businessSettings }) {
   <!-- TITLE BAR -->
   <div style="margin:0 16px;border-bottom:2px solid #111;background:#F5C518;display:flex;align-items:center;padding:0 12px;height:28px;flex-shrink:0">
     <div style="flex:1;font-size:15px;font-weight:800;color:#111;text-align:right">${title}</div>
-    <div style="flex:1;font-size:12px;font-weight:800;color:#111;text-align:center">מספר: ${doc.invoice_number || "—"}</div>
+    <div style="flex:1;font-size:12px;font-weight:800;color:#111;text-align:center">מספר: ${doc.external_invoice_number || doc.invoice_number || "—"}</div>
     <div style="flex:1;font-size:11px;font-weight:700;color:#111;text-align:left">מקור</div>
   </div>
 
@@ -202,7 +202,7 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
   }
   const isBusiness = doc.customer_type === "עסקי";
   const docTitle   = type === "quote" ? "הצעת מחיר" : type === "order" ? "הזמנה" : "חשבונית מס";
-  const docNum     = type === "quote" ? doc.quote_number : type === "order" ? doc.order_number : doc.invoice_number;
+  const docNum     = type === "quote" ? doc.quote_number : type === "order" ? doc.order_number : (doc.external_invoice_number || doc.invoice_number);
   const items      = doc.items || [];
   const linkedOrder = doc._linkedOrder || null;
 

@@ -6,6 +6,8 @@ import { Receipt, Eye, Printer, MessageCircle, Loader2, FileText } from "lucide-
 import { formatDate } from "@/lib/dateUtils";
 import { useState } from "react";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
+import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 
 // const paymentColors = {
 //   "ממתין לתשלום": "bg-orange-100 text-orange-700",
@@ -49,24 +51,19 @@ export default function LedgerInvoicesTab({ invoices, loading, onPreview, busine
   }
 
   const handlePDF = (invoice) => {
-    window.open(`${window.location.origin}/invoice-pdf/${invoice.id}`, "_blank");
+    printFinbotPdf(invoice);
   };
 
   const handleWhatsApp = (invoice) => {
     const customerName = selectedCustomer?.name || invoice.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const invoiceUrl = `${window.location.origin}/invoice-pdf/${invoice.id}`;
-    const msg =
-`🧾 חשבונית #${invoice.invoice_number || invoice.id}
-
-שלום ${customerName},
-
-מצורפת החשבונית שלך.
-
-${invoiceUrl}
-
-בברכה,
-${companyName}`;
+    const link = invoice.external_pdf_url || "";
+    const header = `🧾 חשבונית #${displayInvoiceNumber(invoice) !== "—" ? displayInvoiceNumber(invoice) : invoice.id}`;
+    const body = `שלום ${customerName},\n\nמצורפת החשבונית שלך.`;
+    const signature = `בברכה,\n${companyName}`;
+    const msg = link
+      ? `${header}\n\n${body}\n\n${link}\n\n${signature}`
+      : `${header}\n\n${body}\n\n${signature}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -90,7 +87,7 @@ ${companyName}`;
             {invoices.map(invoice => (
               <TableRow key={invoice.id} className="hover:bg-muted/30">
                 <TableCell className="font-medium text-right">
-                  <div>#{invoice.invoice_number || "—"}</div>
+                  <div>#{displayInvoiceNumber(invoice)}</div>
                   {getOrderLabel(invoice) && (
                     <div className="text-xs text-muted-foreground font-normal">{getOrderLabel(invoice)}</div>
                   )}
@@ -113,7 +110,7 @@ ${companyName}`;
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPreview(invoice)} title="צפייה">
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePDF(invoice)} title="PDF" disabled={!!loadingId}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePDF(invoice)} title={hasFinbotPdf(invoice) ? "הדפסה" : "אין חשבונית פינבוט"} disabled={!!loadingId || !hasFinbotPdf(invoice)}>
                       {loadingId === `pdf-${invoice.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleWhatsApp(invoice)} title="WhatsApp">

@@ -28,6 +28,8 @@ import OrderEditModal from "@/components/orders/OrderEditModal";
 import OrderCreateModal from "@/components/orders/OrderCreateModal";
 import { formatDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
+import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
@@ -335,7 +337,7 @@ export default function Orders() {
       (Array.isArray(inv.included_order_ids) && inv.included_order_ids.includes(order.id))
     );
     if (existing) {
-      toast.error(`חשבונית כבר קיימת עבור הזמנה זו (#${existing.invoice_number})`);
+      toast.error(`חשבונית כבר קיימת עבור הזמנה זו (#${displayInvoiceNumber(existing)})`);
       return;
     }
 
@@ -387,6 +389,44 @@ export default function Orders() {
       console.log("[Orders→Invoice] sessionStorage pendingInvoice after setItem:", sessionStorage.getItem("pendingInvoice"));
       setViewOrder(null);
       toast.success(`חשבונית #${newInvoiceNumber} נוצרה בהצלחה`);
+
+      // Finbot issuance — never blocks navigation. On success, patch external
+      // fields onto the local row + cache; on failure, warn and continue.
+      try {
+        const customers = await base44.entities.Customer.filter({ id: order.customer_id });
+        const customer = customers[0] || {};
+        const finbot = await invokeFinbot(newInvoice, customer);
+        if (finbot.ok) {
+          const patch = {};
+          if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;
+          if (finbot.pdfUrl) patch.external_pdf_url = finbot.pdfUrl;
+          if (patch.external_invoice_number) {
+            const serial = finbotSerialFromRef(patch.external_invoice_number);
+            if (serial) patch.finbot_serial = serial;
+          }
+          if (Object.keys(patch).length) {
+            const { data: updated } = await supabase
+              .from("invoices")
+              .update(patch)
+              .eq("id", newInvoice.id)
+              .select()
+              .single();
+            if (updated) {
+              queryClient.setQueryData(["invoices"], (old = []) =>
+                old.map((i) => (i.id === updated.id ? updated : i))
+              );
+              sessionStorage.setItem("pendingInvoice", JSON.stringify(updated));
+            }
+          }
+        } else {
+          console.error("[Finbot] issuance failed:", finbot.error);
+          toast.error(`הפקה בפינבוט נכשלה — ניתן לנסות שוב מעמוד החשבוניות. ${finbot.error}`);
+        }
+      } catch (err) {
+        console.error("[Finbot] threw:", err);
+        toast.error("הפקה בפינבוט נכשלה — ניתן לנסות שוב מעמוד החשבוניות");
+      }
+
       console.log("[Orders→Invoice] calling navigate('/invoices')");
       navigate("/invoices");
     } catch (err) {

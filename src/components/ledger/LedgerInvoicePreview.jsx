@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Download, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
@@ -15,6 +15,8 @@ import { toast } from "sonner";
 // };
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
+import { hasFinbotPdf, downloadFinbotPdf } from "@/utils/finbotPdfActions";
 
 const BUCKET = "payment-attachments";
 
@@ -102,15 +104,14 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   if (!invoice) return null;
 
   const handlePDF = () => {
-    window.open(`${window.location.origin}/invoice-pdf/${invoice.id}`, "_blank");
+    downloadFinbotPdf(invoice);
   };
 
   const handleWhatsApp = () => {
     const customerName = selectedCustomer?.name || invoice.customer_name || "";
-    const companyName = businessSettings?.business_name || "העסק שלי";
-    const invoiceUrl = `${window.location.origin}/invoice-pdf/${invoice.id}`;
-    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: invoice.invoice_number || invoice.id, amount: (invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "חשבונית" });
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: displayInvoiceNumber(invoice) !== "—" ? displayInvoiceNumber(invoice) : invoice.id, amount: (invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "חשבונית" });
+    const finalMsg = invoice.external_pdf_url ? `${msg}\n\n${invoice.external_pdf_url}` : msg;
+    window.open(`https://wa.me/?text=${encodeURIComponent(finalMsg)}`, "_blank");
   };
 
   return (
@@ -118,7 +119,7 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>חשבונית #{invoice.invoice_number || "—"}</span>
+            <span>חשבונית #{displayInvoiceNumber(invoice)}</span>
             <Badge className={getPaymentStatusColor(invoice.payment_status)}>
               {invoice.payment_status || "—"}
             </Badge>
@@ -204,13 +205,6 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
             )}
           </div>
         </div>
-
-        {invoice.external_invoice_number && (
-          <div className="text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <span className="font-medium text-blue-700">מספר חשבונית חיצוני: </span>
-            <span className="text-blue-600">{invoice.external_invoice_number}</span>
-          </div>
-        )}
 
         {invoice.notes && (
           <div className="text-sm">
@@ -302,9 +296,9 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
         </div>
 
         <div className="flex gap-2 pt-2 border-t border-border flex-wrap">
-          <Button onClick={handlePDF} className="gap-2">
-            <Printer className="w-4 h-4" />
-            PDF
+          <Button onClick={handlePDF} className="gap-2" disabled={!hasFinbotPdf(invoice)} title={hasFinbotPdf(invoice) ? undefined : "אין חשבונית פינבוט"}>
+            <Download className="w-4 h-4" />
+            הורדת PDF
           </Button>
           <Button variant="outline" onClick={handleWhatsApp} className="gap-2 text-green-700 border-green-300 hover:bg-green-50">
             <MessageCircle className="w-4 h-4" />

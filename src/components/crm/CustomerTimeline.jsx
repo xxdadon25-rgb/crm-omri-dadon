@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { FileText, ShoppingCart, Receipt, UserPlus, ArrowRight } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 function TimelineItem({ icon: Icon, color, title, subtitle, date }) {
   return (
@@ -47,7 +48,7 @@ export default function CustomerTimeline({ customer, quotes, orders, invoices })
     (invoices || []).forEach(inv => {
       if (inv.created_date) {
         const fromOrder = inv.order_id ? ` (מהזמנה)` : "";
-        list.push({ date: inv.created_date, type: "invoice", title: `חשבונית #${inv.invoice_number} הופקה${fromOrder}`, subtitle: `${formatCurrency(inv.total)} — ${inv.payment_status}`, icon: Receipt, color: "bg-orange-100 text-orange-700" });
+        list.push({ date: inv.created_date, type: "invoice", title: `חשבונית #${displayInvoiceNumber(inv)} הופקה${fromOrder}`, subtitle: `${formatCurrency(inv.total)} — ${inv.payment_status}`, icon: Receipt, color: "bg-orange-100 text-orange-700" });
       }
     });
 

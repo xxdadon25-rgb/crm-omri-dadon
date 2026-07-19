@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Search, Users, Package, Truck, ShoppingCart, FileText, Receipt, X } from "lucide-react";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 const CATEGORIES = [
   {
@@ -58,8 +59,10 @@ const CATEGORIES = [
     label: "חשבוניות",
     icon: Receipt,
     match: (item, q) =>
-      String(item.invoice_number || "").includes(q) || item.customer_name?.includes(q),
-    title: (item) => `חשבונית #${item.invoice_number || "—"}`,
+      String(item.invoice_number || "").includes(q) ||
+      String(item.external_invoice_number || "").includes(q) ||
+      item.customer_name?.includes(q),
+    title: (item) => `חשבונית #${displayInvoiceNumber(item)}`,
     subtitle: (item) => item.customer_name || "",
     navigate: () => "/invoices",
   },

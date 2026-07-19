@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Loader2 } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ async function checkOverpaidInvoices() {
   const uid = await getUserId();
   const { data, error } = await supabase
     .from("invoices")
-    .select("id,invoice_number,customer_name,total,paid_amount")
+    .select("id,invoice_number,external_invoice_number,customer_name,total,paid_amount")
     .eq("user_id", uid)
     .filter("paid_amount", "gt", "total");
   if (error) throw error;
@@ -74,7 +75,7 @@ async function checkOverpaidInvoicesFallback() {
   const uid = await getUserId();
   const { data, error } = await supabase
     .from("invoices")
-    .select("id,invoice_number,customer_name,total,paid_amount")
+    .select("id,invoice_number,external_invoice_number,customer_name,total,paid_amount")
     .eq("user_id", uid)
     .gt("paid_amount", 0);
   if (error) throw error;
@@ -978,7 +979,7 @@ export default function QualityControl() {
             <tbody>
               {overpaid.map(inv => (
                 <tr key={inv.id} className="heillo-table-row" style={rowRed}>
-                  <td style={{ ...tdBase, fontWeight: 600 }}>#{inv.invoice_number}</td>
+                  <td style={{ ...tdBase, fontWeight: 600 }}>#{displayInvoiceNumber(inv)}</td>
                   <td style={tdBase}>{inv.customer_name || "—"}</td>
                   <td style={tdBase}>{formatCurrency(inv.total)}</td>
                   <td style={{ ...tdBase, color: "#ef4444", fontWeight: 500 }}>{formatCurrency(inv.paid_amount)}</td>

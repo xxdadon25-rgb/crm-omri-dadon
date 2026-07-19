@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 const DEBT_BLOCK_THRESHOLD = 5000;
 
@@ -375,7 +376,7 @@ export default function DebtSummary() {
                               <td style={{ padding: "14px 12px 14px 20px" }}>
                                 <Checkbox checked={isChecked} onCheckedChange={() => toggleSelectInvoice(inv.id)} />
                               </td>
-                              <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{inv.invoice_number || "—"}</td>
+                              <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{displayInvoiceNumber(inv)}</td>
                               <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{inv.date?.slice(0, 10).split("-").reverse().join("/") || "—"}</td>
                               <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{fmtILS(inv.total)}</td>
                               <td style={{ padding: "14px 20px", fontSize: 13, color: "#16a34a", fontWeight: 500 }}>{fmtILS(inv.paid_amount)}</td>

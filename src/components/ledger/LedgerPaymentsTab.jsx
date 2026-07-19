@@ -6,6 +6,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Loader2, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { supabase } from "@/api/supabaseClient";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 const methodIcons = {
   "מזומן": "💵", "כרטיס אשראי": "💳", "העברה בנקאית": "🏦",
@@ -70,7 +71,7 @@ function buildReceiptHTML(payment, invoice, businessSettings) {
   <!-- TITLE BAR -->
   <div style="margin:0 16px;border-bottom:2px solid #111;background:#F5C518;display:flex;align-items:center;padding:0 12px;height:28px;flex-shrink:0">
     <div style="flex:1;font-size:15px;font-weight:800;text-align:right">חשבונית מס קבלה</div>
-    <div style="flex:1;font-size:12px;font-weight:700;text-align:center">חשבונית #${payment.invoice_number || "—"}</div>
+    <div style="flex:1;font-size:12px;font-weight:700;text-align:center">חשבונית #${displayInvoiceNumber(invoice) !== "—" ? displayInvoiceNumber(invoice) : (payment.invoice_number || "—")}</div>
     <div style="flex:1;font-size:11px;font-weight:700;text-align:left">מקור</div>
   </div>
 
@@ -196,7 +197,7 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     try {
       const invoice = invoiceMap.get(p.invoice_id) || null;
       const blob = await generateReceiptBlob(p, invoice, businessSettings);
-      const filePath = `receipts/${p.invoice_id}/receipt_${p.invoice_number || p.id}.pdf`;
+      const filePath = `receipts/${p.invoice_id}/receipt_${displayInvoiceNumber(invoice) !== "—" ? displayInvoiceNumber(invoice) : (p.invoice_number || p.id)}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("payment-attachments")
         .upload(filePath, blob, {
@@ -223,7 +224,7 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     const msg = [
       `שלום ${customerName},`,
       ``,
-      `אישור קבלת תשלום עבור חשבונית #${p.invoice_number || "—"}`,
+      `אישור קבלת תשלום עבור חשבונית #${displayInvoiceNumber(invoiceMap.get(p.invoice_id)) !== "—" ? displayInvoiceNumber(invoiceMap.get(p.invoice_id)) : (p.invoice_number || "—")}`,
       `סכום: ₪${fmt(p.amount)}`,
       `אמצעי תשלום: ${p.payment_method || "—"}`,
       `תאריך: ${fmtDate(p.payment_date)}`,
@@ -240,13 +241,13 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
   const handleWhatsApp = (inv) => {
     const customerName = selectedCustomer?.name || inv.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const invoiceUrl = `${window.location.origin}/invoice-pdf/${inv.id}`;
     const isMonthly = inv.invoice_type === "monthly";
     const label = isMonthly
-      ? `חשבונית חודשית #${inv.invoice_number} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
-      : `חשבונית #${inv.invoice_number}`;
+      ? `חשבונית חודשית #${displayInvoiceNumber(inv)} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
+      : `חשבונית #${displayInvoiceNumber(inv)}`;
     const remaining = ((inv.total || 0) - (inv.paid_amount || 0)).toLocaleString("he-IL", { minimumFractionDigits: 2 });
-    const msg = `שלום ${customerName},\n\n${label}\nיתרה לתשלום: ₪${remaining}\n\nלצפייה בחשבונית: ${invoiceUrl}\n\nבברכה,\n${companyName}`;
+    const linkLine = inv.external_pdf_url ? `\n\nלצפייה בחשבונית: ${inv.external_pdf_url}` : "";
+    const msg = `שלום ${customerName},\n\n${label}\nיתרה לתשלום: ₪${remaining}${linkLine}\n\nבברכה,\n${companyName}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -278,8 +279,8 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                     <div>
                       <p className="text-sm font-medium">
                         {isMonthly
-                          ? `חשבונית חודשית #${inv.invoice_number || "—"} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
-                          : `חשבונית #${inv.invoice_number || "—"}`}
+                          ? `חשבונית חודשית #${displayInvoiceNumber(inv)} — ${MONTHS[inv.billing_month] || ""} ${inv.billing_year || ""}`
+                          : `חשבונית #${displayInvoiceNumber(inv)}`}
                       </p>
                       <p className="text-xs text-muted-foreground">{formatDate(inv.date)} · {inv.payment_status}</p>
                     </div>
@@ -327,7 +328,7 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                         <TableCell className="text-right">{formatDate(p.payment_date)}</TableCell>
                         <TableCell className="font-medium text-right text-green-700">₪{(p.amount || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right">{methodIcons[p.payment_method] || ""} {p.payment_method}</TableCell>
-                        <TableCell className="text-right">#{p.invoice_number || "—"}</TableCell>
+                        <TableCell className="text-right">#{displayInvoiceNumber(invoiceMap.get(p.invoice_id)) !== "—" ? displayInvoiceNumber(invoiceMap.get(p.invoice_id)) : (p.invoice_number || "—")}</TableCell>
                         <TableCell className="text-right text-muted-foreground text-sm">{p.reference || "—"}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={statusColors[p.status] || "bg-gray-100 text-gray-700"}>

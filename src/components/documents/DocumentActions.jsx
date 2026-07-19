@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
+import { finbotPdfFileUrl } from "@/lib/finbot";
+import { hasFinbotPdf, printFinbotPdf, downloadFinbotPdf } from "@/utils/finbotPdfActions";
 
 // Detect whether the device supports native file sharing (Web Share API Level 2)
 // This is true on Android Chrome 89+, iOS Safari 15+, iPadOS 15+
@@ -31,15 +33,25 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
   const getDocLabel = () => {
     if (type === "quote") return { title: "הצעת מחיר", num: doc.quote_number, fileName: `quote_${doc.quote_number}` };
     if (type === "order") return { title: "הזמנה", num: doc.order_number, fileName: `order_${doc.order_number}` };
-    return { title: "חשבונית", num: doc.invoice_number, fileName: `invoice_${doc.invoice_number}` };
+    const num = doc.external_invoice_number || doc.invoice_number;
+    return { title: "חשבונית", num, fileName: `invoice_${num}` };
   };
 
   const generatePDF = async () => {
     return await generateDocumentPDF({ type, doc, businessSettings });
   };
 
+  // Invoices route through Finbot's real PDF (legal document) via the shared
+  // util. Quotes/orders keep the CRM-rendered PDF path.
+  const finbotDisabled = type === "invoice" && !hasFinbotPdf(doc);
+  const finbotUrl = type === "invoice" ? finbotPdfFileUrl(doc.external_pdf_url) : null;
+
   // ─── PRINT ───────────────────────────────────────────────────────────────────
   const handlePrint = withLoading("print", async () => {
+    if (type === "invoice") {
+      printFinbotPdf(doc);
+      return;
+    }
     const blob = await generatePDF();
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank");
@@ -48,8 +60,12 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
 
   // ─── DOWNLOAD PDF ─────────────────────────────────────────────────────────
   const handlePDF = withLoading("download", async () => {
-    const blob = await generatePDF();
+    if (type === "invoice") {
+      await downloadFinbotPdf(doc);
+      return;
+    }
     const { fileName } = getDocLabel();
+    const blob = await generatePDF();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -61,13 +77,21 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
 
   // ─── SHARE PDF LINK ───────────────────────────────────────────────────────
   const handleNativeSharePDF = withLoading("share", async () => {
-    if (type !== "quote" || !doc.id) {
-      toast.error("שיתוף זמין רק להצעות מחיר");
+    const { num, title } = getDocLabel();
+    let pdfUrl;
+    let shareTitle;
+
+    if (type === "invoice") {
+      if (!finbotUrl) return; // disabled
+      pdfUrl = finbotUrl;
+      shareTitle = `${title} ${num}`;
+    } else if (type === "quote" && doc.id) {
+      pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
+      shareTitle = `הצעת מחיר ${num}`;
+    } else {
+      toast.error("שיתוף לא זמין למסמך זה");
       return;
     }
-    const { num } = getDocLabel();
-    const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
-    const shareTitle = `הצעת מחיר ${num}`;
 
     if (navigator.share) {
       try {
@@ -115,17 +139,36 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
   const handleEmail = withLoading("email", async () => {
     if (!customerEmail) { toast.error("ללקוח אין כתובת אימייל"); return; }
     const { num } = getDocLabel();
-    const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
     const bizName = businessSettings?.business_name || "העסק שלי";
-    const res = await fetch(`${window.location.origin}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+
+    let payload;
+    if (type === "invoice") {
+      // Invoices ship the Finbot PDF as a real attachment. The server fetches
+      // Finbot server-side (CORS-proof) and forwards to Resend.
+      if (!hasFinbotPdf(doc)) return; // button is also disabled
+      const attachmentUrl = finbotPdfFileUrl(doc.external_pdf_url);
+      payload = {
+        to: customerEmail,
+        subject: `חשבונית מספר ${num}`,
+        html: `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8"><p>שלום ${doc.customer_name},</p><p>מצורפת החשבונית שלך.</p><p>בברכה,<br>${bizName}</p></div>`,
+        attachmentUrl,
+        attachmentFilename: `invoice_${num}.pdf`,
+      };
+    } else {
+      // Quotes / orders — unchanged (link-based email, quote-styled copy).
+      // Flagged: stale /quote-pdf link for orders and quote wording for both.
+      const pdfUrl = `${window.location.origin}/quote-pdf/${doc.id}`;
+      payload = {
         to: customerEmail,
         subject: `הצעת מחיר מספר ${num}`,
         html: `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8"><p>שלום ${doc.customer_name},</p><p>מצורפת הצעת המחיר שהוכנה עבורך.</p><p>לצפייה במסמך:<br><a href="${pdfUrl}">${pdfUrl}</a></p><p>לכל שאלה אנחנו זמינים.</p><p>בברכה,<br>${bizName}</p></div>`,
-      }),
+      };
+    }
 
+    const res = await fetch(`${window.location.origin}/api/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       toast.success("האימייל נשלח בהצלחה");
@@ -147,7 +190,7 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
           <Button
             className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
             onClick={handleNativeSharePDF}
-            disabled={loading}
+            disabled={loading || finbotDisabled}
           >
             {isLoading("share") ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
             {nativeShare ? "שלח PDF ישירות (WhatsApp / אחר)" : "הורד PDF ושתף ידנית"}
@@ -180,15 +223,15 @@ export default function DocumentActions({ type, doc, businessSettings, customerP
           </Button>
         )}
 
-        <Button size="sm" variant="outline" onClick={handlePDF} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={handlePDF} disabled={loading || finbotDisabled} title={finbotDisabled ? "אין חשבונית פינבוט" : undefined}>
           {isLoading("download") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Download className="w-4 h-4 ml-1" />}
           הורדת PDF
         </Button>
-        <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading || finbotDisabled} title={finbotDisabled ? "אין חשבונית פינבוט" : undefined}>
           {isLoading("print") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Printer className="w-4 h-4 ml-1" />}
           הדפסה
         </Button>
-        <Button size="sm" variant="outline" onClick={handleEmail} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={handleEmail} disabled={loading || finbotDisabled} title={finbotDisabled ? "אין חשבונית פינבוט" : undefined}>
           {isLoading("email") ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Mail className="w-4 h-4 ml-1" />}
           אימייל
         </Button>

@@ -29,7 +29,10 @@ const TYPE_META = {
 function docNumber(doc, type) {
   if (type === "quote")        return doc.quote_number   ? `#${doc.quote_number}`   : "—";
   if (type === "order")        return doc.order_number   ? `#${doc.order_number}`   : "—";
-  if (type === "invoice")      return doc.invoice_number ? `#${doc.invoice_number}` : "—";
+  if (type === "invoice")      {
+    const num = doc.external_invoice_number || doc.invoice_number;
+    return num ? `#${num}` : "—";
+  }
   if (type === "supplier_doc") return doc.id ? `מסמך-${doc.id.slice(0, 6)}` : "—";
   return "—";
 }

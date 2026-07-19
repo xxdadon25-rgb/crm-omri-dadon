@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Paperclip, Camera, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 const BUCKET = "payment-attachments";
 
@@ -131,7 +132,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
         <DialogHeader>
           <DialogTitle>רישום תשלום</DialogTitle>
           <DialogDescription>
-            חשבונית #{invoice.invoice_number} — {invoice.customer_name}
+            חשבונית #{displayInvoiceNumber(invoice)} — {invoice.customer_name}
           </DialogDescription>
         </DialogHeader>
 

@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { generateDocumentPDF, buildDocumentHTML } from "@/lib/pdfGenerator";
 import { Printer, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 export default function InvoicePDFPreview() {
   const { invoiceId } = useParams();
@@ -59,7 +60,7 @@ export default function InvoicePDFPreview() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `invoice_${invoice.invoice_number}.pdf`;
+      a.download = `invoice_${displayInvoiceNumber(invoice)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -115,7 +116,7 @@ export default function InvoicePDFPreview() {
               הורדה
             </Button>
           </div>
-          <span className="text-sm text-gray-600">חשבונית #{invoice.invoice_number}</span>
+          <span className="text-sm text-gray-600">חשבונית #{displayInvoiceNumber(invoice)}</span>
         </div>
       </div>
       <div className="p-4 pb-12">

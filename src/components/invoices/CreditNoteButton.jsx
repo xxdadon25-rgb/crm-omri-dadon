@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 export default function CreditNoteButton({ invoice }) {
   const [open, setOpen] = useState(false);
@@ -22,8 +23,10 @@ export default function CreditNoteButton({ invoice }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Create credit note record
-      const creditNoteNumber = `זיכוי-${invoice.invoice_number}`;
+      // 1. Create credit note record — label uses Finbot external number when
+      // present so it matches what the customer sees; falls back to internal.
+      const displayNum = displayInvoiceNumber(invoice);
+      const creditNoteNumber = `זיכוי-${displayNum}`;
       const creditedItems = items.map(item => ({
         ...item,
         total: -Math.abs(item.total || 0),
@@ -39,7 +42,7 @@ export default function CreditNoteButton({ invoice }) {
           customer_id: invoice.customer_id,
           items: creditedItems,
           total: -(invoice.total || 0),
-          reason: `זיכוי עבור חשבונית מספר ${invoice.invoice_number}`,
+          reason: `זיכוי עבור חשבונית מספר ${displayNum}`,
         })
         .select()
         .single();
@@ -57,6 +60,65 @@ export default function CreditNoteButton({ invoice }) {
         .eq("id", invoice.id);
 
       if (invErr) throw invErr;
+
+      // Finbot credit-note issuance — non-blocking. Sits between the invoice
+      // marking and the inventory restore so a Finbot failure never prevents
+      // stock from coming back and never leaves the local invoice in a state
+      // where a retry would double-issue.
+      try {
+        const creditInvoice = {
+          date: new Date().toISOString().split("T")[0],
+          items: invoice.items || [],
+          total: invoice.total,
+          customer_name: invoice.customer_name,
+          customer_tax_id: invoice.customer_tax_id,
+          customer_address: invoice.customer_address,
+        };
+        const finbotCustomer = {
+          name: invoice.customer_name,
+          tax_id: invoice.customer_tax_id,
+          address: invoice.customer_address,
+        };
+        const overrides = {
+          type: "4",
+          credit: Math.abs(invoice.total || 0),
+        };
+        // Finbot's linkedDocument needs the internal serial. It's saved on
+        // the invoice row at issuance time (finbot_serial column). If the
+        // parent invoice has no serial — never issued in Finbot, or a legacy
+        // row from before this column existed — skip the Finbot call and
+        // surface a Hebrew toast; the local credit note, inventory restore,
+        // and cache invalidations still proceed.
+        const serial = invoice.finbot_serial ? String(invoice.finbot_serial).trim() : "";
+
+        if (!serial) {
+          toast.error(
+            "לא ניתן להפיק זיכוי בפינבוט — חסר מזהה מסמך פנימי בחשבונית המקורית. הזיכוי המקומי נוצר."
+          );
+        } else {
+          overrides.linkedDocument = serial;
+
+          const { data: fbData, error: fbErr } = await supabase.functions.invoke(
+            "finbot-invoice",
+            { body: { invoice: creditInvoice, customer: finbotCustomer, overrides } }
+          );
+          if (fbErr || !fbData?.ok) {
+            const msg = fbErr?.message || fbData?.error || "Finbot credit note failed";
+            console.error("[Finbot credit note] failed:", msg);
+            toast.error(`הפקת זיכוי בפינבוט נכשלה — הזיכוי המקומי נוצר. ${msg}`);
+          } else {
+            const patch = {};
+            if (fbData.invoiceNumber) patch.external_credit_note_number = fbData.invoiceNumber;
+            if (fbData.pdfUrl) patch.external_credit_note_url = fbData.pdfUrl;
+            if (Object.keys(patch).length) {
+              await supabase.from("credit_notes").update(patch).eq("id", creditNote.id);
+            }
+          }
+        }
+      } catch (fbEx) {
+        console.error("[Finbot credit note] threw:", fbEx);
+        toast.error("הפקת זיכוי בפינבוט נכשלה — הזיכוי המקומי נוצר");
+      }
 
       // 3. Restore inventory — same pattern as Orders.jsx restoreInventory
       for (const item of items) {
@@ -108,7 +170,7 @@ export default function CreditNoteButton({ invoice }) {
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-foreground">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
-                  <div><span className="text-muted-foreground">חשבונית:</span> <span className="font-semibold">#{invoice.invoice_number}</span></div>
+                  <div><span className="text-muted-foreground">חשבונית:</span> <span className="font-semibold">#{displayInvoiceNumber(invoice)}</span></div>
                   <div><span className="text-muted-foreground">לקוח:</span> <span className="font-semibold">{invoice.customer_name}</span></div>
                   <div><span className="text-muted-foreground">סכום לזיכוי:</span> <span className="font-bold text-amber-700">{formatCurrency(invoice.total)}</span></div>
                 </div>

@@ -10,6 +10,9 @@ import { CalendarDays, Eye, Printer, MessageCircle, Loader2 } from "lucide-react
 import { formatDate } from "@/lib/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 import { getPaymentStatusColor } from "@/utils/statusColors";
+import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
+import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 
 const MONTHS = [
   { value: 1, label: "ינואר" }, { value: 2, label: "פברואר" },
@@ -146,7 +149,33 @@ export default function MonthlyInvoicesTab({
         notes: `חשבונית חודשית — ${monthLabel} ${selectedYear} | כולל ${eligible.length} הזמנות`,
       });
 
+      let finalInvoice = invoice;
       sessionStorage.setItem("pendingInvoice", JSON.stringify(invoice));
+
+      // Finbot issuance — non-blocking on failure. On success, patch external
+      // fields onto the invoice row before we refetch.
+      try {
+        const finbot = await invokeFinbot(invoice, selectedCustomer);
+        if (finbot.ok) {
+          const patch = {};
+          if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;
+          if (finbot.pdfUrl) patch.external_pdf_url = finbot.pdfUrl;
+          if (patch.external_invoice_number) {
+            const serial = finbotSerialFromRef(patch.external_invoice_number);
+            if (serial) patch.finbot_serial = serial;
+          }
+          if (Object.keys(patch).length) {
+            finalInvoice = await base44.entities.Invoice.update(invoice.id, patch);
+            sessionStorage.setItem("pendingInvoice", JSON.stringify(finalInvoice));
+          }
+        } else {
+          console.error("[Finbot] issuance failed:", finbot.error);
+          toast({ title: "הפקה בפינבוט נכשלה", description: `${finbot.error} — ניתן לנסות שוב מעמוד החשבוניות`, variant: "destructive" });
+        }
+      } catch (err) {
+        console.error("[Finbot] threw:", err);
+        toast({ title: "הפקה בפינבוט נכשלה", description: "ניתן לנסות שוב מעמוד החשבוניות", variant: "destructive" });
+      }
 
       // Step 3: mark each included order as invoiced
       const invoicedAt = new Date().toISOString();
@@ -163,24 +192,19 @@ export default function MonthlyInvoicesTab({
   };
 
   const handlePDF = (invoice) => {
-    window.open(`${window.location.origin}/invoice-pdf/${invoice.id}`, "_blank");
+    printFinbotPdf(invoice);
   };
 
   const handleWhatsApp = (invoice) => {
     const companyName = businessSettings?.business_name || "העסק שלי";
-    const invoiceUrl = `${window.location.origin}/invoice-pdf/${invoice.id}`;
+    const link = invoice.external_pdf_url || "";
     const monthLabel = MONTHS.find(m => m.value === invoice.billing_month)?.label || invoice.billing_month;
-    const msg =
-`🧾 חשבונית חודשית #${invoice.invoice_number}
-
-שלום ${selectedCustomer?.name || invoice.customer_name},
-
-מצורפת החשבונית החודשית שלך עבור ${monthLabel} ${invoice.billing_year}.
-
-${invoiceUrl}
-
-בברכה,
-${companyName}`;
+    const header = `🧾 חשבונית חודשית #${displayInvoiceNumber(invoice)}`;
+    const body = `שלום ${selectedCustomer?.name || invoice.customer_name},\n\nמצורפת החשבונית החודשית שלך עבור ${monthLabel} ${invoice.billing_year}.`;
+    const signature = `בברכה,\n${companyName}`;
+    const msg = link
+      ? `${header}\n\n${body}\n\n${link}\n\n${signature}`
+      : `${header}\n\n${body}\n\n${signature}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -266,7 +290,7 @@ ${companyName}`;
                     const monthLabel = MONTHS.find(m => m.value === inv.billing_month)?.label || inv.billing_month;
                     return (
                       <TableRow key={inv.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium text-right">#{inv.invoice_number || "—"}</TableCell>
+                        <TableCell className="font-medium text-right">#{displayInvoiceNumber(inv)}</TableCell>
                         <TableCell className="text-right">{monthLabel} {inv.billing_year}</TableCell>
                         <TableCell className="text-right">{formatDate(inv.date)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{(inv.included_order_ids || inv.included_invoice_ids || []).length} הזמנות</TableCell>
@@ -281,7 +305,7 @@ ${companyName}`;
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPreview(inv)} title="צפייה">
                               <Eye className="w-3.5 h-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePDF(inv)} title="PDF">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePDF(inv)} title={hasFinbotPdf(inv) ? "הדפסה" : "אין חשבונית פינבוט"} disabled={!hasFinbotPdf(inv)}>
                               <Printer className="w-3.5 h-3.5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleWhatsApp(inv)} title="WhatsApp">

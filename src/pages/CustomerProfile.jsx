@@ -9,6 +9,7 @@ import { ArrowRight, Phone, Mail, MapPin, FileText, Pencil } from "lucide-react"
 import { format } from "date-fns";
 import { formatDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import CustomerStatusBadge from "@/components/crm/CustomerStatusBadge";
 import CrmTasksPanel from "@/components/crm/CrmTasksPanel";
 import CustomerTimeline from "@/components/crm/CustomerTimeline";
@@ -223,7 +224,7 @@ export default function CustomerProfile() {
             {customerInvoices.length === 0 ? <p className="text-sm text-muted-foreground text-center py-6">אין חשבוניות</p> : customerInvoices.map(inv => (
               <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30">
                 <div>
-                  <p className="text-sm font-medium">חשבונית #{inv.invoice_number}</p>
+                  <p className="text-sm font-medium">חשבונית #{displayInvoiceNumber(inv)}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(inv.date)} — {inv.payment_status}</p>
                 </div>
                 <span className="font-medium">₪{(inv.total || 0).toLocaleString()}</span>

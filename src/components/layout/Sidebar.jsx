@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Settings, Truck, ChevronLeft, ChevronRight, X, ScrollText,
   Upload, BookOpen, ShoppingCart, BarChart2, Bell, Link2, DatabaseBackup, Store, BookUser,
-  Landmark, FolderOpen, Shield, Globe
+  Landmark, FolderOpen, Shield, Globe, Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -50,6 +50,7 @@ const navGroups = [
       { path: "/settings", label: "הגדרות", icon: Settings },
       { path: "/api-settings", label: "הגדרות API", icon: Link2 },
       { path: "/backup", label: "גיבוי ושחזור", icon: DatabaseBackup },
+      { path: "/revach-admin", label: "רווח פלוס", icon: Wallet },
     ],
   },
 ];

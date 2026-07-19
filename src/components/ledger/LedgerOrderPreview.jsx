@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, MessageCircle, X } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
@@ -115,7 +116,7 @@ export default function LedgerOrderPreview({ order, onClose, invoices, businessS
 
         {invoice && (
           <div className="border border-border rounded-lg p-3 bg-green-50 text-sm">
-            <span className="font-medium text-green-700">חשבונית #{invoice.invoice_number} — </span>
+            <span className="font-medium text-green-700">חשבונית #{displayInvoiceNumber(invoice)} — </span>
             <span className="text-green-600">{invoice.payment_status}</span>
             {invoice.paid_amount > 0 && (
               <span className="text-muted-foreground mr-2">| שולם: ₪{invoice.paid_amount.toLocaleString()}</span>

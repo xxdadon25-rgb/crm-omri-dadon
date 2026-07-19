@@ -49,6 +49,7 @@ import CreditNotePDFPreview from "@/pages/CreditNotePDFPreview";
 import DocumentCenter from "@/pages/DocumentCenter";
 import QualityControl from "@/pages/QualityControl";
 import PortalCustomerAccess from "@/pages/PortalCustomerAccess";
+import RevachAdmin from "@/pages/RevachAdmin";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -105,6 +106,7 @@ const AuthenticatedApp = () => {
           <Route path="/documents" element={<DocumentCenter />} />
           <Route path="/quality-control" element={<QualityControl />} />
           <Route path="/portal-access" element={<PortalCustomerAccess />} />
+          <Route path="/revach-admin" element={<RevachAdmin />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

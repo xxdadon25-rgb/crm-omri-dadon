@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/shared/PageHeader";
 import { AlertTriangle, Package, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 export default function Alerts() {
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
@@ -28,14 +29,14 @@ export default function Alerts() {
     ...overdueInvoices.map((inv) => ({
       id: `overdue-${inv.id}`,
       type: "חשבונית באיחור",
-      message: `חשבונית #${inv.invoice_number} — ${inv.customer_name} — ₪${inv.total?.toLocaleString()}`,
+      message: `חשבונית #${displayInvoiceNumber(inv)} — ${inv.customer_name} — ₪${inv.total?.toLocaleString()}`,
       severity: "critical",
       icon: Clock,
     })),
     ...unpaidInvoices.filter((inv) => !overdueInvoices.find((o) => o.id === inv.id)).map((inv) => ({
       id: `unpaid-${inv.id}`,
       type: "ממתין לתשלום",
-      message: `חשבונית #${inv.invoice_number} — ${inv.customer_name} — ₪${inv.total?.toLocaleString()}`,
+      message: `חשבונית #${displayInvoiceNumber(inv)} — ${inv.customer_name} — ₪${inv.total?.toLocaleString()}`,
       severity: "info",
       icon: Clock,
     })),

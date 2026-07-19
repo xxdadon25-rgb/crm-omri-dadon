@@ -6,6 +6,7 @@ import { Search, Receipt, Trash2, Eye, Check, Link2, FileText } from "lucide-rea
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
+import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import ExternalInvoiceButton from "@/components/invoices/ExternalInvoiceButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,7 +130,7 @@ export default function Invoices() {
 
   const filtered = useMemo(() => {
     return invoices.filter(i => {
-      const matchSearch = !search || [i.customer_name, String(i.invoice_number)].some(f => f?.toLowerCase().includes(search.toLowerCase()));
+      const matchSearch = !search || [i.customer_name, String(i.invoice_number || ""), String(i.external_invoice_number || "")].some(f => f?.toLowerCase().includes(search.toLowerCase()));
       const matchStatus = statusFilter === "all" || i.payment_status === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -292,7 +293,7 @@ export default function Invoices() {
                         <Checkbox checked={isSelected} onCheckedChange={() => handleSelectInvoice(inv.id)} />
                       </td>
                       {/* OLD: <TableCell className="font-medium">#{inv.invoice_number}</TableCell> */}
-                      <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{inv.invoice_number}</td>
+                      <td style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: DARK }}>#{displayInvoiceNumber(inv)}</td>
                       <td style={{ padding: "14px 20px", fontSize: 13, color: DARK }}>{inv.customer_name}</td>
                       <td style={{ padding: "14px 20px", fontSize: 13, color: MUTED }}>{formatDate(inv.date)}</td>
                       <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 600, color: DARK }}>₪{(inv.total || 0).toLocaleString()}</td>
@@ -338,7 +339,7 @@ export default function Invoices() {
                             </button>
                           )}
                           {!inv.credited_at && <CreditNoteButton invoice={inv} />}
-                          {settings[0]?.api_url && (
+                          {!inv.external_pdf_url && (
                             <div style={{ flexShrink: 0 }}>
                               <ExternalInvoiceButton
                                 invoice={inv}
@@ -390,7 +391,7 @@ export default function Invoices() {
 
       <Dialog open={!!viewInvoice} onOpenChange={() => setViewInvoice(null)}>
         <DialogContent className="max-w-2xl" dir="rtl">
-          <DialogHeader><DialogTitle>חשבונית #{viewInvoice?.invoice_number}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>חשבונית #{displayInvoiceNumber(viewInvoice)}</DialogTitle></DialogHeader>
           {viewInvoice && (() => {
             const linkedOrder = viewInvoice.order_id ? orders.find(o => o.id === viewInvoice.order_id) : null;
             const docWithOrder = linkedOrder ? { ...viewInvoice, _linkedOrder: linkedOrder } : viewInvoice;
@@ -449,10 +450,10 @@ export default function Invoices() {
                     const phone = customer?.mobile || customer?.phone || "";
                     const cleaned = phone.replace(/\D/g, "");
                     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
-                    const pdfUrl = `${window.location.origin}/invoice-pdf/${viewInvoice.id}`;
                     const total = (viewInvoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
-                    const msg = formatWhatsAppMessage(settings[0]?.whatsapp_template, { name: viewInvoice.customer_name, number: viewInvoice.invoice_number, amount: total, docType: "חשבונית" });
-                    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+                    const msg = formatWhatsAppMessage(settings[0]?.whatsapp_template, { name: viewInvoice.customer_name, number: displayInvoiceNumber(viewInvoice), amount: total, docType: "חשבונית" });
+                    const finalMsg = viewInvoice.external_pdf_url ? `${msg}\n\n${viewInvoice.external_pdf_url}` : msg;
+                    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(finalMsg)}`, "_blank");
                   }}
                   style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "var(--heillo-accent)", fontSize: 13, fontWeight: 500, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
                   onMouseEnter={e => e.currentTarget.style.background = "rgba(245,136,94,0.06)"}
@@ -460,7 +461,7 @@ export default function Invoices() {
                 >
                   <Link2 style={{ width: 15, height: 15 }} /> קישור WhatsApp לחשבונית
                 </button>
-                {settings[0]?.api_url && (
+                {!viewInvoice.external_pdf_url && (
                   <ExternalInvoiceButton
                     invoice={viewInvoice}
                     customer={getCustomer(viewInvoice.customer_id)}

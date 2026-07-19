@@ -6,120 +6,72 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
 
-export default function ExternalInvoiceButton({ invoice, customer, settings }) {
+// Manual retry for Finbot issuance. The automatic path lives in
+// Orders.handleCreateInvoice and MonthlyInvoicesTab.handleGenerate; this
+// button is what the user reaches when that automatic call failed.
+// Stock decrement is intentionally NOT done here — order processing already
+// handled inventory, and retrying must not double-decrement.
+// `settings` is kept in the props signature for backwards compatibility with
+// existing call sites but is no longer required.
+export default function ExternalInvoiceButton({ invoice, customer }) {
   const [loading, setLoading] = useState(false);
   const [logDialog, setLogDialog] = useState(false);
   const [lastLog, setLastLog] = useState(null);
   const queryClient = useQueryClient();
 
-  const apiUrl = settings?.api_url;
-  const apiKey = settings?.api_key;
-  const apiSecret = settings?.api_secret;
-  const companyId = settings?.api_company_id;
-
-  const isConfigured = apiUrl && apiKey;
-
   const handleIssue = async () => {
-    if (!isConfigured) {
-      toast.error("יש להגדיר API URL ו-API Key בהגדרות המערכת");
-      return;
-    }
-
     setLoading(true);
-
-    const payload = {
-      company_id: companyId,
-      customer: {
-        name: invoice.customer_name,
-        phone: customer?.phone || "",
-        address: customer?.address || "",
-        tax_id: customer?.tax_id || "",
-        external_id: invoice.customer_id,
-      },
-      items: (invoice.items || []).map(item => ({
-        name: item.name,
-        sku: item.sku || "",
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        discount: item.discount || 0,
-        total: item.total,
-      })),
-      subtotal: invoice.subtotal,
-      vat_rate: invoice.vat_rate,
-      vat_amount: invoice.vat_amount,
-      total: invoice.total,
-      notes: invoice.notes || "",
-      invoice_number: invoice.invoice_number,
-      date: invoice.date,
-    };
 
     let logEntry = {
       invoice_id: invoice.id,
       customer_name: invoice.customer_name,
-      request_payload: JSON.stringify(payload, null, 2),
+      request_payload: JSON.stringify({ invoice_id: invoice.id, customer_id: invoice.customer_id }, null, 2),
       status: "pending",
     };
 
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      };
-      if (apiSecret) headers["X-Secret-Key"] = apiSecret;
+      const result = await invokeFinbot(invoice, customer || {});
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-      let responseData = {};
-      try { responseData = JSON.parse(responseText); } catch { responseData = { raw: responseText }; }
-
-      if (!response.ok) {
-        throw new Error(`שגיאת API: ${response.status} - ${responseText}`);
+      if (!result.ok) {
+        logEntry = {
+          ...logEntry,
+          response_payload: result.error,
+          status: "error",
+          error_message: result.error,
+        };
+        await base44.entities.InvoiceLog.create(logEntry);
+        setLastLog({ ...logEntry, success: false });
+        toast.error("שגיאה בהפקת חשבונית — ראה לוג");
+        setLogDialog(true);
+        return;
       }
 
-      const externalNum = responseData.invoice_number || responseData.id || responseData.doc_number || "";
-      const pdfUrl = responseData.pdf_url || responseData.pdf || responseData.download_url || "";
-
-      // Update invoice status and save external data
-      await base44.entities.Invoice.update(invoice.id, {
-        payment_status: "חשבונית הופקה",
-        ...(externalNum && { external_invoice_number: externalNum }),
-        ...(pdfUrl && { external_pdf_url: pdfUrl }),
-      });
-
-      // Update stock for each item
-      for (const item of (invoice.items || [])) {
-        if (item.product_id) {
-          const products = await base44.entities.Product.filter({ id: item.product_id });
-          if (products[0]) {
-            const newQty = Math.max(0, (products[0].quantity || 0) - item.quantity);
-            await base44.entities.Product.update(item.product_id, { quantity: newQty });
-          }
-        }
+      const patch = { payment_status: "חשבונית הופקה" };
+      if (result.invoiceNumber) patch.external_invoice_number = result.invoiceNumber;
+      if (result.pdfUrl) patch.external_pdf_url = result.pdfUrl;
+      if (patch.external_invoice_number) {
+        const serial = finbotSerialFromRef(patch.external_invoice_number);
+        if (serial) patch.finbot_serial = serial;
       }
+
+      await base44.entities.Invoice.update(invoice.id, patch);
 
       logEntry = {
         ...logEntry,
-        response_payload: JSON.stringify(responseData, null, 2),
+        response_payload: JSON.stringify(result, null, 2),
         status: "success",
-        external_invoice_number: String(externalNum),
-        pdf_url: pdfUrl,
+        external_invoice_number: result.invoiceNumber ? String(result.invoiceNumber) : "",
+        pdf_url: result.pdfUrl || "",
       };
-
       await base44.entities.InvoiceLog.create(logEntry);
-      setLastLog({ ...logEntry, success: true, pdfUrl });
+      setLastLog({ ...logEntry, success: true, pdfUrl: result.pdfUrl });
 
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
 
-      toast.success(`חשבונית הופקה בהצלחה${externalNum ? ` — מספר ${externalNum}` : ""}`);
+      toast.success(`חשבונית הופקה בהצלחה${result.invoiceNumber ? ` — מספר ${result.invoiceNumber}` : ""}`);
       setLogDialog(true);
-
     } catch (err) {
       logEntry = {
         ...logEntry,
@@ -129,7 +81,6 @@ export default function ExternalInvoiceButton({ invoice, customer, settings }) {
       };
       await base44.entities.InvoiceLog.create(logEntry);
       setLastLog({ ...logEntry, success: false });
-
       toast.error("שגיאה בהפקת חשבונית — ראה לוג");
       setLogDialog(true);
     } finally {
@@ -141,12 +92,12 @@ export default function ExternalInvoiceButton({ invoice, customer, settings }) {
     <>
       <Button
         onClick={handleIssue}
-        disabled={loading || !isConfigured}
+        disabled={loading}
         className="gap-2"
-        title={!isConfigured ? "יש להגדיר API בהגדרות המערכת" : ""}
+        title="הפקה חוזרת דרך פינבוט"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-        {loading ? "מפיק חשבונית..." : "הפק חשבונית"}
+        {loading ? "מפיק מחדש..." : "הפק חשבונית מחדש בפינבוט"}
       </Button>
 
       <Dialog open={logDialog} onOpenChange={setLogDialog}>
