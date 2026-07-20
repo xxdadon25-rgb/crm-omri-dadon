@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     ];
   }
 
-  const body = { from: "QuickStock ERP <noreply@adstock.co.il>", to, subject, html };
+  const body = { from: "QuickStock ERP <noreply@adstock.co.il>", reply_to: "a.d.shivuk555@gmail.com", to, subject, html };
   if (attachments) body.attachments = attachments;
 
   const response = await fetch("https://api.resend.com/emails", {
