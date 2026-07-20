@@ -11,6 +11,26 @@ import { Upload, Camera, X, Loader2, CheckCircle, AlertTriangle, PackagePlus } f
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 
+// Suppliers list a pre-discount price and a discounted line total. Gemini
+// inconsistently returns one or the other in `unit_price`, so derive it from
+// `total ÷ quantity` whenever the extracted price doesn't reconcile. Never
+// divide by zero, never produce NaN.
+function reconcileUnitPrice({ quantity, unit_price, total }) {
+  const parse = (v) => {
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const qty = parse(quantity);
+  const t = parse(total);
+  if (qty === null || qty <= 0 || t === null) return unit_price;
+  const derived = Math.round((t / qty) * 100) / 100;
+  const price = parse(unit_price);
+  if (price === null) return derived;
+  if (Math.abs(price * qty - t) > 0.02) return derived;
+  return unit_price;
+}
+
 async function extractFromFile(file, onRetry) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("מפתח VITE_GEMINI_API_KEY חסר ב-.env.local");
@@ -28,7 +48,7 @@ async function extractFromFile(file, onRetry) {
 {"supplier":{"name":"שם הספק או null","tax_id":"ח.פ או עוסק מורשה או null"},"items":[{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]}
 אם שדה חסר השתמש ב-null.`;
 
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
   const fetchBody = JSON.stringify({
     contents: [{
       parts: [
@@ -73,7 +93,10 @@ async function extractFromFile(file, onRetry) {
     const parsed = JSON.parse(objMatch[0]);
     // New format: {supplier: {...}, items: [...]}
     if (parsed && Array.isArray(parsed.items)) {
-      return { supplier: parsed.supplier || null, items: parsed.items };
+      return {
+        supplier: parsed.supplier || null,
+        items: parsed.items.map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
+      };
     }
     // Fallback: Gemini returned a bare array wrapped in {}  — shouldn't happen but guard it
     throw new Error("מבנה JSON לא צפוי");
@@ -88,7 +111,10 @@ async function extractFromFile(file, onRetry) {
         if (lastClose !== -1) {
           try {
             const recoveredItems = JSON.parse(partial.slice(0, lastClose + 1) + "]");
-            return { supplier: null, items: recoveredItems };
+            return {
+              supplier: null,
+              items: recoveredItems.map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
+            };
           } catch (e) {
             console.log('Partial parse error:', e);
           }
