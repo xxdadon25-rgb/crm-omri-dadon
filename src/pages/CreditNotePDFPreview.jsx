@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { Printer, FileText, Loader2 } from "lucide-react";
+import { Printer, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import domtoimage from "dom-to-image-more";

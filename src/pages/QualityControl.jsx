@@ -1,11 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
-import { base44 } from "@/api/base44Client";
-import PageHeader from "@/components/shared/PageHeader";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Loader2 } from "lucide-react";

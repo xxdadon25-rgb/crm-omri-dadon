@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Printer, FileText, MessageCircle, Mail, Loader2, Link2, Share2, Download } from "lucide-react";
+import { Printer, MessageCircle, Mail, Loader2, Link2, Share2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";

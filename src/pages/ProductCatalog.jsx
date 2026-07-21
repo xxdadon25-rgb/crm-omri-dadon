@@ -2,10 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Search, BookOpen, Package, Tag, LayoutGrid } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 

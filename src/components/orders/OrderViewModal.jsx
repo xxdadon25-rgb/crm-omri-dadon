@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, FileText, Loader2, CheckCircle2, Link2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Link2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import DocumentActions from "@/components/documents/DocumentActions";
 import DocumentTotals from "@/components/documents/DocumentTotals";

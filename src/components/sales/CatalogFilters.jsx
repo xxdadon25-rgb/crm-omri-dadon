@@ -1,5 +1,4 @@
 import { Search, X, Grid3X3 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useRef } from "react";
 
 export default function CatalogFilters({ search, onSearch, categories, selectedCategory, onCategoryChange }) {

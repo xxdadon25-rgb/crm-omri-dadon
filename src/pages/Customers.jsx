@@ -2,17 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Users, Eye, Check, LayoutDashboard, List, MapPin, Navigation, X } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Users, Eye, LayoutDashboard, List, MapPin, Navigation, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/api/supabaseClient";
 import { formatDate } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import CustomerDialog from "@/components/customers/CustomerDialog";
 import CustomerStatusBadge from "@/components/crm/CustomerStatusBadge";
@@ -143,11 +139,9 @@ export default function Customers() {
   };
 
   const handleDelete = async () => {
-    console.log('[handleDelete] called, deleteId:', deleteId);
     const idToDelete = deleteId;
     try {
       await base44.entities.Customer.delete(idToDelete);
-      console.log('[handleDelete] delete done, updating cache');
       queryClient.setQueryData(["customers"], (old = []) => (old || []).filter(c => c.id !== idToDelete));
       toast.success("לקוח נמחק");
     } catch (err) {

@@ -17,14 +17,9 @@ function persistDeletedIds() {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, Pencil, Trash2, Receipt, Store, Check } from "lucide-react";
+import { Plus, Search, FileText, Pencil, Trash2, Receipt, Store } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -52,36 +47,26 @@ export default function Quotes() {
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: ["quotes"],
     queryFn: async () => {
-      console.log("[QUOTES QUERYFN ACTIVE]");
       const pendingRaw = sessionStorage.getItem("pendingQuotes");
-      console.log("[QUERYFN] sessionStorage.pendingQuotes RAW:", pendingRaw);
       const pendingQuotes = pendingRaw ? JSON.parse(pendingRaw) : [];
-      console.log("[QUERYFN] parsed pendingQuotes (ids/numbers):", pendingQuotes.map(p => ({ id: p.id, number: p.quote_number })));
       const result = await base44.entities.Quote.list("-created_date");
-      console.log("[QUERYFN] Quote.list returned ids:", result.map(q => ({ id: q.id, number: q.quote_number })).slice(0, 5), result.length > 5 ? "..." : "");
 
       if (pendingQuotes.length > 0) {
         const backendIds = new Set(result.map(q => q.id));
-        console.log("[QUERYFN] backendIds count:", backendIds.size);
 
         // Prepend only pending quotes NOT already in backend — no early cleanup
         const missing = pendingQuotes.filter(p => !backendIds.has(p.id));
-        console.log("[QUERYFN] pending NOT in backend:", missing.map(p => ({ id: p.id, number: p.quote_number })));
 
         if (missing.length > 0) {
           // Strip internal _confirmCount before injecting into visible result
           const cleanMissing = missing.map(({ _confirmCount, ...p }) => p);
-          console.log("[QUERYFN] prepending", cleanMissing.length, "missing quotes");
           result.unshift(...cleanMissing);
         }
       } else {
-        console.log("[QUERYFN] no pendingQuotes — skipping merge");
       }
 
       // Deduplicate by id to prevent visual duplicates
       const deduped = result.filter((q, i, arr) => arr.findIndex(x => x.id === q.id) === i);
-      console.log("[QUERYFN] FINAL result count:", deduped.length);
-      console.log("[QUERYFN] === QUERYFN END ===");
       return deduped;
     },
     select: (data) => data.filter(q => !deletedQuoteIds.has(q.id)),

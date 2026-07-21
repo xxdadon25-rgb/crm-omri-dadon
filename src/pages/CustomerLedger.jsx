@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
-import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import LedgerSummaryBar from "@/components/ledger/LedgerSummaryBar";
 import LedgerQuotesTab from "@/components/ledger/LedgerQuotesTab";

@@ -14,12 +14,10 @@ const TABLES = [
 ];
 
 export async function runBackup(type = "ידני") {
-  console.log("[backup] ===== START runBackup =====", { type });
   const snapshot = {};
   const counts = {};
 
   for (const table of TABLES) {
-    console.log(`[backup] fetching table: ${table} ...`);
     try {
       const { data, error } = await supabase.from(table).select("*");
       if (error) {
@@ -29,7 +27,6 @@ export async function runBackup(type = "ידני") {
       } else {
         snapshot[table] = data ?? [];
         counts[table] = (data ?? []).length;
-        console.log(`[backup] OK table "${table}": ${counts[table]} rows`);
       }
     } catch (err) {
       console.error(`[backup] EXCEPTION on table "${table}":`, err);
@@ -38,29 +35,23 @@ export async function runBackup(type = "ידני") {
     }
   }
 
-  console.log("[backup] all tables fetched. counts:", counts);
 
   const now = new Date();
   const json = JSON.stringify({ created_at: now.toISOString(), type, data: snapshot }, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const sizeKb = Math.round(blob.size / 1024);
-  console.log(`[backup] JSON ready — ${sizeKb} KB. Triggering download...`);
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = `backup_${now.toISOString().slice(0, 10)}.json`;
-  console.log(`[backup] download link created — filename: ${a.download}, url: ${url}`);
   document.body.appendChild(a);
-  console.log("[backup] calling a.click() to trigger download...");
   a.click();
-  console.log("[backup] a.click() returned — download should have started");
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 
   const isoNow = now.toISOString();
   const result = { file_url: url, counts, sizeKb, created_date: isoNow, updated_date: isoNow };
-  console.log("[backup] ===== END runBackup =====", result);
   return result;
 }
 

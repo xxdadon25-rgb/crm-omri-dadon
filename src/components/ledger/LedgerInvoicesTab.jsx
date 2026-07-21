@@ -5,7 +5,6 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Receipt, Eye, Printer, MessageCircle, Loader2, FileText } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useState } from "react";
-import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 

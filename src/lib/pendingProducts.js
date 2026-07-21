@@ -34,7 +34,7 @@ export async function fetchProductsWithPending(listFn, callerLabel) {
     }
 
     const stillMissing = pending.filter(p => !backendIds.has(p.id));
-    // eslint-disable-next-line no-unused-vars
+     
     const cleanMissing = stillMissing.map(({ _confirmCount, ...p }) => p);
     result.unshift(...cleanMissing);
   }
@@ -56,7 +56,7 @@ export async function fetchProductsWithPending(listFn, callerLabel) {
         return { ...pending, _confirmCount: (pending._confirmCount || 0) + 1 };
       }
       // Backend still stale — replace with our saved version
-      // eslint-disable-next-line no-unused-vars
+       
       const { _confirmCount, _savedAt, ...cleanPending } = pending;
       result[idx] = cleanPending;
       return pending;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { Printer, Download, Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import domtoimage from "dom-to-image-more";
@@ -15,7 +15,6 @@ function fmt(n) {
 
 export default function QuotePDFPreview() {
   const { quoteId } = useParams();
-  console.log("[QuotePDF] quoteId:", quoteId, "| pathname:", window.location.pathname);
   const [quote, setQuote] = useState(null);
   const [biz, setBiz] = useState({});
   const [loading, setLoading] = useState(true);
@@ -30,10 +29,8 @@ export default function QuotePDFPreview() {
         if (qErr) throw qErr;
         const q = rows?.[0] || null;
         if (!q) { setError("הצעת המחיר לא נמצאה"); return; }
-        console.log("[QuotePDF] q.user_id:", q.user_id);
         const { data: settingsRows, error: sErr } = await supabase
           .from("business_settings").select("*").eq("user_id", q.user_id).limit(1);
-        console.log("[QuotePDF] settingsRows:", settingsRows, "error:", sErr);
         setQuote(q);
         setBiz(settingsRows?.[0] || {});
       } catch (e) {

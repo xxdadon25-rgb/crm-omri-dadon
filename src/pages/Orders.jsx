@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useNavigate } from "react-router-dom";
 
@@ -14,14 +14,9 @@ const setPendingDeletedOrderIds = (set) => {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
-import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ShoppingCart, Search, Plus, Trash2, Eye, Pencil, Check, FileText, Loader2 } from "lucide-react";
+import { ShoppingCart, Search, Plus, Trash2, Eye, Pencil, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import OrderViewModal from "@/components/orders/OrderViewModal";
 import OrderEditModal from "@/components/orders/OrderEditModal";
@@ -223,17 +218,12 @@ export default function Orders() {
   };
 
   const deductInventory = async (items) => {
-    console.log('[deductInventory] called with items:', JSON.stringify(items));
     for (const item of items) {
       const productId = item.product_id || item.id;
-      console.log('[deductInventory] processing item, productId:', productId, 'quantity:', item.quantity);
-      if (!productId) { console.log('[deductInventory] SKIPPED - no productId'); continue; }
       const { data: product, error: fetchErr } = await supabase.from("products").select("id,quantity").eq("id", productId).single();
-      console.log('[deductInventory] fetched product:', product, 'error:', fetchErr);
       if (!product) continue;
       const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
       const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
-      console.log('[deductInventory] update result error:', updateErr, 'newQty:', newQty);
       const raw = sessionStorage.getItem("pendingProductUpdates");
       if (raw) {
         try {
@@ -383,10 +373,7 @@ export default function Orders() {
         queryClient.invalidateQueries({ queryKey: ["settings"] });
       }
 
-      console.log("[Orders→Invoice] created invoice object:", newInvoice);
-      console.log("[Orders→Invoice] created invoice id:", newInvoice?.id);
       sessionStorage.setItem("pendingInvoice", JSON.stringify(newInvoice));
-      console.log("[Orders→Invoice] sessionStorage pendingInvoice after setItem:", sessionStorage.getItem("pendingInvoice"));
       setViewOrder(null);
       toast.success(`חשבונית #${newInvoiceNumber} נוצרה בהצלחה`);
 
@@ -427,7 +414,6 @@ export default function Orders() {
         toast.error("הפקה בפינבוט נכשלה — ניתן לנסות שוב מעמוד החשבוניות");
       }
 
-      console.log("[Orders→Invoice] calling navigate('/invoices')");
       navigate("/invoices");
     } catch (err) {
       toast.error("שגיאה ביצירת חשבונית: " + err.message);

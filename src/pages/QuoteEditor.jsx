@@ -141,38 +141,29 @@ export default function QuoteEditor() {
   };
 
   const handleSave = async () => {
-    console.log("[SAVE] handleSave called, customer_id:", form.customer_id);
     if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
     if (!form.agent) { toast.error("יש לבחור סוכן"); return; }
     setSaving(true);
-    console.log("[SAVE] setSaving(true), quoteId:", quoteId);
     try {
       const data = { ...form, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal };
       ['date', 'valid_until'].forEach(f => { if (!data[f]) data[f] = null; });
-      console.log("[SAVE] data to save:", data);
       if (quoteId) {
-        console.log("[SAVE] updating existing quote:", quoteId);
         const updated = await base44.entities.Quote.update(quoteId, data);
-        console.log("[SAVE] update result:", updated);
         queryClient.setQueryData(["quotes"], (old = []) => old.map(q => q.id === quoteId ? updated : q));
         toast.success("הצעת מחיר עודכנה");
       } else {
         const { data: quoteNum } = await supabase.rpc('get_next_quote_number');
         data.quote_number = quoteNum;
-        console.log("[SAVE] creating new quote, number:", quoteNum);
         const created = await base44.entities.Quote.create(data);
-        console.log("[SAVE] create result:", created);
         queryClient.setQueryData(["quotes"], (old = []) => [created, ...(Array.isArray(old) ? old : [])]);
         toast.success("הצעת מחיר נוצרה");
       }
-      console.log("[SAVE] navigating to /quotes");
       navigate("/quotes");
     } catch (err) {
       console.error("[SAVE] caught error:", err);
       toast.error("שגיאה בשמירת הצעת המחיר: " + (err?.message || JSON.stringify(err)));
     } finally {
       setSaving(false);
-      console.log("[SAVE] finally block done");
     }
   };
 

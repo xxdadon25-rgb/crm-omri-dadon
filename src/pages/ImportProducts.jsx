@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import PageHeader from "@/components/shared/PageHeader";
 import UploadZone from "@/components/import/UploadZone";
 import CsvPreview from "@/components/import/CsvPreview";
 import ColumnMapper from "@/components/import/ColumnMapper";
 import ImportProgress from "@/components/import/ImportProgress";
 import ImportLogsTable from "@/components/import/ImportLogsTable";
-import { Button } from "@/components/ui/button";
 import { parseCSV, autoDetectMapping, applyMapping, stripHtml } from "@/lib/csvParser";
 import { toast } from "sonner";
 import { Play, RotateCcw, Download } from "lucide-react";

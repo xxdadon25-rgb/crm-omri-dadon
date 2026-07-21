@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Upload, Save, Link2, Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
-import PageHeader from "@/components/shared/PageHeader";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -91,19 +87,11 @@ export default function Settings() {
   };
 
   const handleChangeCode = async () => {
-    console.log("[handleChangeCode] called", {
-      currentCodeInput,
-      storedCode: form.profitability_access_code,
-      newCodeInput,
-      confirmCodeInput,
-      existingId: existing?.id,
-    });
     if (!currentCodeInput) {
       toast.error("יש להזין את הקוד הנוכחי");
       return;
     }
     if (currentCodeInput !== form.profitability_access_code) {
-      console.log("[handleChangeCode] code mismatch — entered:", currentCodeInput, "stored:", form.profitability_access_code);
       toast.error("הקוד הנוכחי שגוי");
       return;
     }
@@ -124,17 +112,13 @@ export default function Settings() {
     try {
       let dbError = null;
       if (existing?.id) {
-        console.log("[handleChangeCode] updating existing record id:", existing.id, "new code:", newCodeInput);
         const { error } = await supabase.from("business_settings")
           .update({ profitability_access_code: newCodeInput })
           .eq("id", existing.id);
-        console.log("[handleChangeCode] update result error:", error);
         dbError = error;
       } else {
-        console.log("[handleChangeCode] no existing record — inserting new");
         const { error } = await supabase.from("business_settings")
           .insert({ profitability_access_code: newCodeInput, user_id: user.id });
-        console.log("[handleChangeCode] insert result error:", error);
         dbError = error;
       }
       if (dbError) {

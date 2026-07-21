@@ -288,11 +288,9 @@ export default function SalesCatalog() {
       const { data, total: grossTotal } = buildQuotePayload("טיוטה", cartData, vat);
       data.quote_number = quoteNum;
       let quote = await base44.entities.Quote.create(data);
-      console.log("[WhatsApp] quote after create:", JSON.stringify(quote));
       if (!quote?.id) {
         const found = await base44.entities.Quote.filter({ quote_number: quoteNum });
         quote = found[0];
-        console.log("[WhatsApp] refetched quote:", JSON.stringify(quote));
       }
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
 

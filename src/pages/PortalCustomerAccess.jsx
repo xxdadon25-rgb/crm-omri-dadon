@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
-import { Search, X, Globe, ChevronDown, ChevronUp, ChevronRight, MessageCircle, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Search, X, Globe, ChevronDown, ChevronUp, MessageCircle, KeyRound, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCENT = "#F5885E";

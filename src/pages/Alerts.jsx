@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import PageHeader from "@/components/shared/PageHeader";
-import { AlertTriangle, Package, Clock, CheckCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Package, Clock, CheckCircle } from "lucide-react";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 export default function Alerts() {

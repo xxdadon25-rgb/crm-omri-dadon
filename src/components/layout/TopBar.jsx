@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import GlobalSearch from "@/components/search/GlobalSearch";
 
 // ─── NEW TOPBAR (Heillo style) ────────────────────────────────────────────────

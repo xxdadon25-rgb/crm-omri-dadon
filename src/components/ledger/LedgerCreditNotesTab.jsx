@@ -2,7 +2,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/shared/EmptyState";
 import { RotateCcw, FileText } from "lucide-react";
-import { formatDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 export default function LedgerCreditNotesTab({ creditNotes = [], loading }) {

@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import PageHeader from "@/components/shared/PageHeader";
 import BackupCard from "@/components/backup/BackupCard";
 import RestoreDialog from "@/components/backup/RestoreDialog";
-import { Button } from "@/components/ui/button";
 import { DatabaseBackup, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { runBackup } from "@/lib/backupEngine";

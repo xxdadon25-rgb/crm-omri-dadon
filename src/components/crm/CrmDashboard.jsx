@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { parse, isPast, isToday } from "date-fns";
 import { Users, Star, Clock, AlertTriangle, CheckCircle, UserPlus } from "lucide-react";
-import CustomerStatusBadge from "./CustomerStatusBadge";
 
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (

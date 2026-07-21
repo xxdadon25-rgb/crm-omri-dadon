@@ -269,7 +269,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         openSupplierOrderRef.current = order;
         setOpenSupplierOrder(order);
       });
-  }, [open, supplier?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, supplier?.id]);  
 
   const reset = () => {
     setStep("upload");

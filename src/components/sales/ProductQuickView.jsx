@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Plus, Minus, Package, ZoomIn, ChevronRight, ChevronLeft, ShoppingCart } from "lucide-react";
+import { X, Package, ZoomIn, ChevronRight, ChevronLeft, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ProductQuickView({ product, cartQty, onAdd, onClose }) {

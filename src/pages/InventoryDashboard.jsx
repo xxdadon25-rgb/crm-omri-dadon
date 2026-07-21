@@ -6,7 +6,6 @@ import { formatDateTime } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/shared/PageHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import EmptyState from "@/components/shared/EmptyState";
 
 export default function InventoryDashboard() {
   const { data: products = [] } = useQuery({
