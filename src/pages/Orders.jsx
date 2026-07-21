@@ -23,7 +23,7 @@ import OrderEditModal from "@/components/orders/OrderEditModal";
 import OrderCreateModal from "@/components/orders/OrderCreateModal";
 import { formatDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
-import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
+import { invokeFinbot } from "@/lib/finbot";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 // const statusColors = {
@@ -387,10 +387,6 @@ export default function Orders() {
           const patch = {};
           if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;
           if (finbot.pdfUrl) patch.external_pdf_url = finbot.pdfUrl;
-          if (patch.external_invoice_number) {
-            const serial = finbotSerialFromRef(patch.external_invoice_number);
-            if (serial) patch.finbot_serial = serial;
-          }
           if (Object.keys(patch).length) {
             const { data: updated } = await supabase
               .from("invoices")

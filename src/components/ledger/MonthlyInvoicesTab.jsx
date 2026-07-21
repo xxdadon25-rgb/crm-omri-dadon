@@ -10,7 +10,7 @@ import { CalendarDays, Eye, Printer, MessageCircle, Loader2 } from "lucide-react
 import { formatDate } from "@/lib/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 import { getPaymentStatusColor } from "@/utils/statusColors";
-import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
+import { invokeFinbot } from "@/lib/finbot";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 
@@ -160,10 +160,6 @@ export default function MonthlyInvoicesTab({
           const patch = {};
           if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;
           if (finbot.pdfUrl) patch.external_pdf_url = finbot.pdfUrl;
-          if (patch.external_invoice_number) {
-            const serial = finbotSerialFromRef(patch.external_invoice_number);
-            if (serial) patch.finbot_serial = serial;
-          }
           if (Object.keys(patch).length) {
             finalInvoice = await base44.entities.Invoice.update(invoice.id, patch);
             sessionStorage.setItem("pendingInvoice", JSON.stringify(finalInvoice));

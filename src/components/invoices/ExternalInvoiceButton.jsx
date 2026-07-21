@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { invokeFinbot, finbotSerialFromRef } from "@/lib/finbot";
+import { invokeFinbot } from "@/lib/finbot";
 
 // Manual retry for Finbot issuance. The automatic path lives in
 // Orders.handleCreateInvoice and MonthlyInvoicesTab.handleGenerate; this
@@ -51,10 +51,6 @@ export default function ExternalInvoiceButton({ invoice, customer }) {
       const patch = { payment_status: "חשבונית הופקה" };
       if (result.invoiceNumber) patch.external_invoice_number = result.invoiceNumber;
       if (result.pdfUrl) patch.external_pdf_url = result.pdfUrl;
-      if (patch.external_invoice_number) {
-        const serial = finbotSerialFromRef(patch.external_invoice_number);
-        if (serial) patch.finbot_serial = serial;
-      }
 
       await base44.entities.Invoice.update(invoice.id, patch);
 
