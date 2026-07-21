@@ -31,10 +31,13 @@ function reconcileUnitPrice({ quantity, unit_price, total }) {
   return unit_price;
 }
 
-async function extractFromFile(file, onRetry) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("מפתח VITE_GEMINI_API_KEY חסר ב-.env.local");
-
+// Gemini extraction is proxied through the extract-delivery Edge Function so
+// the API key stays server-side (Supabase Secret GEMINI_API_KEY). The client
+// only sends the file bytes + mime type; retry/parse/MAX_TOKENS recovery all
+// live in the function. reconcileUnitPrice stays client-side (see above).
+// onRetry is kept in the signature for backward compatibility with callers,
+// but is no longer invoked — server-side retries are silent.
+async function extractFromFile(file, _onRetry) {
   const base64 = await new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(r.result.split(",")[1]);
@@ -42,85 +45,16 @@ async function extractFromFile(file, onRetry) {
     r.readAsDataURL(file);
   });
 
-  const prompt = `זוהי תעודת משלוח או חשבונית ספק. חלץ את פרטי הספק ואת כל פריטי המוצרים.
-החזר תשובה כ-JSON בלבד. אין להוסיף \`\`\`json או \`\`\` או כל טקסט אחר. רק JSON טהור.
-פורמט נדרש:
-{"supplier":{"name":"שם הספק או null","tax_id":"ח.פ או עוסק מורשה או null"},"items":[{"product_name":"שם המוצר","sku":"מק\"ט או null","quantity":1,"unit_price":0,"total":0}]}
-אם שדה חסר השתמש ב-null.`;
-
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
-  const fetchBody = JSON.stringify({
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: file.type, data: base64 } },
-        { text: prompt },
-      ],
-    }],
-    generationConfig: { temperature: 0, maxOutputTokens: 8192 },
+  const { data, error } = await supabase.functions.invoke("extract-delivery", {
+    body: { base64, mimeType: file.type },
   });
+  if (error) throw new Error(error.message || "שגיאה בקריאה לשרת החילוץ");
+  if (!data?.ok) throw new Error(data?.error || "שגיאה בחילוץ הנתונים");
 
-  const fetchOpts = { method: "POST", headers: { "content-type": "application/json" }, body: fetchBody };
-  let resp = await fetch(GEMINI_URL, fetchOpts);
-
-  const MAX_RETRIES = 3;
-  let attempt = 0;
-  while (resp.status === 503 && attempt < MAX_RETRIES) {
-    attempt++;
-    onRetry?.(attempt, MAX_RETRIES);
-    await new Promise(res => setTimeout(res, 5000));
-    resp = await fetch(GEMINI_URL, fetchOpts);
-  }
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || `שגיאת API (${resp.status})`);
-  }
-
-  const data = await resp.json();
-  const candidate = data.candidates?.[0];
-  const rawText = candidate?.content?.parts?.[0]?.text ?? "";
-  const finishReason = candidate?.finishReason;
-
-  // Strip markdown code fences if Gemini added them despite instructions
-  const text = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-
-  // Try to parse the new wrapper format {supplier, items}
-  const objMatch = text.match(/\{[\s\S]*\}/);
-  if (!objMatch) throw new Error("לא ניתן לחלץ נתונים מהמסמך");
-
-  try {
-    const parsed = JSON.parse(objMatch[0]);
-    // New format: {supplier: {...}, items: [...]}
-    if (parsed && Array.isArray(parsed.items)) {
-      return {
-        supplier: parsed.supplier || null,
-        items: parsed.items.map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
-      };
-    }
-    // Fallback: Gemini returned a bare array wrapped in {}  — shouldn't happen but guard it
-    throw new Error("מבנה JSON לא צפוי");
-  } catch {
-    // Recovery for MAX_TOKENS truncation — extract items array from partial response
-    if (finishReason === "MAX_TOKENS") {
-      const arrMatch = objMatch[0].match(/\[[\s\S]*/);
-      if (arrMatch) {
-        const partial = arrMatch[0];
-        const lastClose = partial.lastIndexOf("}");
-        if (lastClose !== -1) {
-          try {
-            const recoveredItems = JSON.parse(partial.slice(0, lastClose + 1) + "]");
-            return {
-              supplier: null,
-              items: recoveredItems.map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
-            };
-          } catch {
-            // Partial JSON couldn't be recovered — fall through to the throw below.
-          }
-        }
-      }
-    }
-    throw new Error("שגיאה בפענוח תשובת ה-AI");
-  }
+  return {
+    supplier: data.supplier || null,
+    items: (data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
+  };
 }
 
 // ── Shortage detection ────────────────────────────────────────────────────────
