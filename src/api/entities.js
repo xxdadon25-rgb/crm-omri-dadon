@@ -82,9 +82,7 @@ function makeEntityMethods(tableName) {
 
     /** delete(id) */
     async delete(id) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.from(tableName).delete().eq('id', id).select();
-      console.log('[DELETE] rows deleted:', data?.length, 'error:', error?.message);
+      const { error } = await supabase.from(tableName).delete().eq('id', id).select();
       throwIfError(error);
     },
   };

@@ -77,7 +77,6 @@ async function extractFromFile(file, onRetry) {
   }
 
   const data = await resp.json();
-  console.log('Gemini raw response:', JSON.stringify(data, null, 2));
   const candidate = data.candidates?.[0];
   const rawText = candidate?.content?.parts?.[0]?.text ?? "";
   const finishReason = candidate?.finishReason;
@@ -100,8 +99,7 @@ async function extractFromFile(file, onRetry) {
     }
     // Fallback: Gemini returned a bare array wrapped in {}  — shouldn't happen but guard it
     throw new Error("מבנה JSON לא צפוי");
-  } catch (error) {
-    console.log('Parse error:', error);
+  } catch {
     // Recovery for MAX_TOKENS truncation — extract items array from partial response
     if (finishReason === "MAX_TOKENS") {
       const arrMatch = objMatch[0].match(/\[[\s\S]*/);
@@ -115,8 +113,8 @@ async function extractFromFile(file, onRetry) {
               supplier: null,
               items: recoveredItems.map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
             };
-          } catch (e) {
-            console.log('Partial parse error:', e);
+          } catch {
+            // Partial JSON couldn't be recovered — fall through to the throw below.
           }
         }
       }
@@ -437,9 +435,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             updatePayload.buy_price = price;
             priceChanges++;
           }
-          console.log('[executeSave] updating id:', item.matched.id, 'payload:', JSON.stringify(updatePayload));
           const { data: updateData, error: updateError } = await supabase.from("products").update(updatePayload).eq("id", item.matched.id).select();
-          console.log('[executeSave] result:', JSON.stringify({ data: updateData, error: updateError }));
           const raw = sessionStorage.getItem("pendingProductUpdates");
           if (raw) {
             try {
