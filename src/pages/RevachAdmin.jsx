@@ -58,9 +58,17 @@ export default function RevachAdmin() {
     if (!window.confirm(`${label} את "${customer.business_name || "העסק"}"?`)) return;
     setActingId(customer.business_id);
     try {
-      if (kind === "approve") await approveCustomer(customer.business_id);
-      else await blockCustomer(customer.business_id);
-      toast.success(kind === "approve" ? "הלקוח אושר בהצלחה" : "הלקוח נחסם בהצלחה");
+      let result;
+      if (kind === "approve") {
+        result = await approveCustomer(customer.business_id);
+        toast.success("הלקוח אושר בהצלחה");
+        if (result?.whatsapp_url) {
+          window.open(result.whatsapp_url, "_blank");
+        }
+      } else {
+        await blockCustomer(customer.business_id);
+        toast.success("הלקוח נחסם בהצלחה");
+      }
       await load();
     } catch (err) {
       toast.error(err.message || "אירעה שגיאה בביצוע הפעולה");
