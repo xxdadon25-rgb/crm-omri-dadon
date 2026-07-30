@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare } from "lucide-react";
-import { listCustomers, approveCustomer, blockCustomer } from "@/lib/revachAdmin";
+import { listCustomers, approveCustomer, blockCustomer, cancelCustomer } from "@/lib/revachAdmin";
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -54,8 +54,12 @@ export default function RevachAdmin() {
   }, [load]);
 
   const runAction = async (customer, kind) => {
-    const label = kind === "approve" ? "לאשר" : "לחסום";
-    if (!window.confirm(`${label} את "${customer.business_name || "העסק"}"?`)) return;
+    const bizName = customer.business_name || "העסק";
+    const confirmMsg =
+      kind === "cancel"
+        ? `לבטל את המנוי של "${bizName}"?`
+        : `${kind === "approve" ? "לאשר" : "לחסום"} את "${bizName}"?`;
+    if (!window.confirm(confirmMsg)) return;
     setActingId(customer.business_id);
     try {
       let result;
@@ -65,6 +69,9 @@ export default function RevachAdmin() {
         if (result?.whatsapp_url) {
           window.open(result.whatsapp_url, "_blank");
         }
+      } else if (kind === "cancel") {
+        await cancelCustomer(customer.business_id);
+        toast.success("המנוי בוטל בהצלחה");
       } else {
         await blockCustomer(customer.business_id);
         toast.success("הלקוח נחסם בהצלחה");
@@ -195,6 +202,7 @@ export default function RevachAdmin() {
                         <TableHead className="text-right">חשבוניות</TableHead>
                         <TableHead className="text-right">הצטרפות</TableHead>
                         <TableHead className="text-right">תוקף מנוי</TableHead>
+                        <TableHead className="text-right">ביטול</TableHead>
                         <TableHead className="text-right">פעולות</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -227,6 +235,22 @@ export default function RevachAdmin() {
                             {fmtDate(c.business_created_at || c.created_at)}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">{fmtDate(c.subscription_end)}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {c.cancel_at ? (
+                              <span className="text-destructive">לחסום ב-{fmtDate(c.cancel_at)}</span>
+                            ) : c.status === "active" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => runAction(c, "cancel")}
+                                disabled={actingId === c.business_id}
+                              >
+                                בטל מנוי
+                              </Button>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap">
                             <div className="flex gap-2">
                               {(c.status === "pending" || c.status === "blocked") && (

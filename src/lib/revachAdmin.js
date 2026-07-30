@@ -14,3 +14,4 @@ async function callProxy(body) {
 export const listCustomers = () => callProxy({ action: "list_customers" });
 export const approveCustomer = (business_id) => callProxy({ action: "approve", business_id });
 export const blockCustomer = (business_id) => callProxy({ action: "block", business_id });
+export const cancelCustomer = (business_id) => callProxy({ action: "cancel", business_id });
