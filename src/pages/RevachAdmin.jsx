@@ -154,6 +154,7 @@ export default function RevachAdmin() {
                       <TableRow>
                         <TableHead className="text-right">עסק</TableHead>
                         <TableHead className="text-right">איש קשר</TableHead>
+                        <TableHead className="text-right">אימייל</TableHead>
                         <TableHead className="text-right">חבילה</TableHead>
                         <TableHead className="text-right">סטטוס</TableHead>
                         <TableHead className="text-right">סריקות</TableHead>
@@ -166,6 +167,7 @@ export default function RevachAdmin() {
                             {c.business_name || "—"}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">{c.contact_name || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.email || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{c.plan_id || "—"}</TableCell>
                           <TableCell>{statusBadge(c.status)}</TableCell>
                           <TableCell className="whitespace-nowrap">
@@ -195,6 +197,7 @@ export default function RevachAdmin() {
                       <TableRow>
                         <TableHead className="text-right">עסק</TableHead>
                         <TableHead className="text-right">איש קשר</TableHead>
+                        <TableHead className="text-right">אימייל</TableHead>
                         <TableHead className="text-right">חבילה</TableHead>
                         <TableHead className="text-right">מחזור</TableHead>
                         <TableHead className="text-right">סטטוס</TableHead>
@@ -218,6 +221,7 @@ export default function RevachAdmin() {
                             )}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">{c.contact_name || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.email || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{c.plan_id || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">
                             {c.billing_cycle === "yearly"
