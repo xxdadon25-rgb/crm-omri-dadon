@@ -231,7 +231,7 @@ export default function QuotePDFPreview() {
 
             {/* FOOTER */}
             <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
-              מיני סטוק | טל: 054-6479930 | השזיף 5 נשר, ישראל | xxdadon25@gmail.com
+              מיני סטוק | טל: 053-7650570 | השזיף 5 נשר, ישראל | a.d.shivuk555@gmail.com
             </div>
           </div>
 
