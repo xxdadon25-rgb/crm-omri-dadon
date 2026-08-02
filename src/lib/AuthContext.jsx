@@ -14,6 +14,13 @@ export const AuthProvider = ({ children }) => {
     setUser(formatUser(u));
     setIsAuthenticated(!!u);
     if (u) {
+      const STAFF_EMAILS = ['xxdadon25@gmail.com', 'a.d.shivuk555@gmail.com'];
+      if (STAFF_EMAILS.includes(u.email)) {
+        setIsStaff(true);
+        setIsLoadingAuth(false);
+        return;
+      }
+
       const { data } = await supabase
         .from('staff_members')
         .select('id')
