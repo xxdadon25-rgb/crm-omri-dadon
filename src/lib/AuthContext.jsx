@@ -16,17 +16,8 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(!!u);
     if (u) {
       const STAFF_EMAILS = ['xxdadon25@gmail.com'];
-      const staffMatch = STAFF_EMAILS.includes(u.email?.toLowerCase());
-
-      const { data: portalRow } = await supabase
-        .from('customer_portal_access')
-        .select('id')
-        .ilike('phone_or_email', u.email)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      setIsStaff(staffMatch);
-      setIsPortalCustomer(!!portalRow);
+      setIsStaff(STAFF_EMAILS.includes(u.email?.toLowerCase()));
+      setIsPortalCustomer(false);
     } else {
       setIsStaff(false);
       setIsPortalCustomer(false);
