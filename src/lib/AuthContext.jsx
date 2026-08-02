@@ -15,17 +15,23 @@ export const AuthProvider = ({ children }) => {
     setUser(formatUser(u));
     setIsAuthenticated(!!u);
     if (u) {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const token = currentSession?.access_token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       const [{ data: staffRow }, { data: portalRow }] = await Promise.all([
         supabase
           .from('staff_members')
           .select('id')
           .eq('auth_user_id', u.id)
+          .headers(headers)
           .maybeSingle(),
         supabase
           .from('customer_portal_access')
           .select('id')
           .ilike('phone_or_email', u.email)
           .eq('is_active', true)
+          .headers(headers)
           .maybeSingle(),
       ]);
       console.log('resolveSession result:', { isStaff: !!staffRow, isPortalCustomer: !!portalRow, userId: u.id });
