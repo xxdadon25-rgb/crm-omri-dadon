@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
           .eq('is_active', true)
           .maybeSingle(),
       ]);
+      console.log('resolveSession result:', { isStaff: !!staffRow, isPortalCustomer: !!portalRow, userId: u.id });
       setIsStaff(!!staffRow);
       setIsPortalCustomer(!!portalRow);
     } else {
