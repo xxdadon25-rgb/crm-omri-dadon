@@ -15,20 +15,17 @@ export const AuthProvider = ({ children }) => {
     setUser(formatUser(u));
     setIsAuthenticated(!!u);
     if (u) {
-      const [{ data: staffRow }, { data: portalRow }] = await Promise.all([
-        supabase
-          .from('staff_members')
-          .select('id')
-          .eq('auth_user_id', u.id)
-          .maybeSingle(),
-        supabase
-          .from('customer_portal_access')
-          .select('id')
-          .ilike('phone_or_email', u.email)
-          .eq('is_active', true)
-          .maybeSingle(),
-      ]);
-      setIsStaff(!!staffRow);
+      const STAFF_EMAILS = ['xxdadon25@gmail.com'];
+      const staffMatch = STAFF_EMAILS.includes(u.email?.toLowerCase());
+
+      const { data: portalRow } = await supabase
+        .from('customer_portal_access')
+        .select('id')
+        .ilike('phone_or_email', u.email)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      setIsStaff(staffMatch);
       setIsPortalCustomer(!!portalRow);
     } else {
       setIsStaff(false);
