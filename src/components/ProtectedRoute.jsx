@@ -10,7 +10,7 @@ const DefaultFallback = () => (
 );
 
 export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement }) {
-  const { isAuthenticated, isStaff, isPortalCustomer, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+  const { isAuthenticated, isStaff, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
 
   useEffect(() => {
     if (!authChecked && !isLoadingAuth) {
@@ -18,7 +18,7 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     }
   }, [authChecked, isLoadingAuth, checkUserAuth]);
 
-  if (isLoadingAuth || !authChecked || isStaff === null || isPortalCustomer === null) {
+  if (isLoadingAuth || !authChecked || isStaff === null) {
     return fallback;
   }
 
@@ -34,7 +34,7 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
   }
 
   if (!isStaff) {
-    return <Navigate to={isPortalCustomer ? "/portal/dashboard" : "/portal/login"} replace />;
+    return <Navigate to="/portal/login" replace />;
   }
 
   return <Outlet />;
