@@ -6,9 +6,10 @@ import CsvPreview from "@/components/import/CsvPreview";
 import ColumnMapper from "@/components/import/ColumnMapper";
 import ImportProgress from "@/components/import/ImportProgress";
 import ImportLogsTable from "@/components/import/ImportLogsTable";
+import ImageMatcher from "@/components/import/ImageMatcher";
 import { parseCSV, autoDetectMapping, applyMapping, stripHtml } from "@/lib/csvParser";
 import { toast } from "sonner";
-import { Play, RotateCcw, Download } from "lucide-react";
+import { Play, RotateCcw, Download, ImageIcon } from "lucide-react";
 
 const BATCH_SIZE = 10;
 const DELAY_BETWEEN_ITEMS_MS = 200;
@@ -38,6 +39,7 @@ async function withRetry(fn, maxRetries = MAX_RETRIES) {
 export default function ImportProducts() {
   const queryClient = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState("csv");
   const [step, setStep] = useState("upload");
   const [csvData, setCsvData] = useState(null);
   const [mapping, setMapping] = useState({});
@@ -261,86 +263,112 @@ export default function ImportProducts() {
     <div className="heillo-page" dir="rtl">
 
       {/* ── Top bar ── */}
-      {/* OLD: <PageHeader title="ייבוא מוצרים" ...><Button>הורד תבנית</Button>...</PageHeader> */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, gap: 12, flexWrap: "wrap", fontFamily: "'Heebo', sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap", fontFamily: "'Heebo', sans-serif" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0 }}>ייבוא מוצרים</h1>
           <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0" }}>ייבוא ועדכון מוצרים מ-WooCommerce CSV</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={downloadTemplate}
-            style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-            onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
-            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
-          >
-            <Download style={{ width: 15, height: 15 }} /> הורד תבנית
-          </button>
-          {step !== "upload" && (
+        {activeTab === "csv" && (
+          <div style={{ display: "flex", gap: 8 }}>
             <button
-              onClick={reset}
-              style={{ background: "transparent", color: "var(--heillo-text-muted)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              onClick={downloadTemplate}
+              style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+              onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
             >
-              <RotateCcw style={{ width: 15, height: 15 }} /> התחל מחדש
+              <Download style={{ width: 15, height: 15 }} /> הורד תבנית
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* OLD: <div className="space-y-6 max-w-4xl"> */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900 }}>
-
-        {/* Step 1: Upload */}
-        {step === "upload" && (
-          /* OLD: <div className="bg-card border border-border rounded-xl p-6"> */
-          <div className="heillo-card" style={{ padding: 32 }}>
-            <UploadZone onFile={handleFile} />
+            {step !== "upload" && (
+              <button
+                onClick={reset}
+                style={{ background: "transparent", color: "var(--heillo-text-muted)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "7px 14px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <RotateCcw style={{ width: 15, height: 15 }} /> התחל מחדש
+              </button>
+            )}
           </div>
         )}
+      </div>
 
-        {/* Step 2: Preview + Mapping */}
-        {step === "preview" && csvData && (
-          <>
-            <CsvPreview headers={csvData.headers} rows={csvData.rows} />
-            <ColumnMapper headers={csvData.headers} mapping={mapping} onChange={setMapping} />
-            {/* OLD: <div className="flex justify-end"><Button onClick={runImport} size="lg">...</Button></div> */}
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={runImport} className="heillo-btn-primary" style={{ fontSize: 14, padding: "10px 24px", display: "flex", alignItems: "center", gap: 8 }}>
-                <Play style={{ width: 16, height: 16 }} />
-                התחל ייבוא ({csvData.rows.length} מוצרים)
-              </button>
+      {/* ── Tabs ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "2px solid rgba(0,0,0,0.06)", marginBottom: 20 }}>
+        {[
+          { key: "csv", label: "ייבוא CSV", icon: <Download style={{ width: 14, height: 14 }} /> },
+          { key: "images", label: "שיוך תמונות למוצרים", icon: <ImageIcon style={{ width: 14, height: 14 }} /> },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "10px 20px", fontSize: 14, fontWeight: activeTab === tab.key ? 700 : 500,
+              fontFamily: "'Heebo', sans-serif",
+              color: activeTab === tab.key ? "var(--heillo-text-primary)" : "var(--heillo-text-muted)",
+              background: "none", border: "none", cursor: "pointer",
+              borderBottom: activeTab === tab.key ? "2px solid var(--heillo-text-primary)" : "2px solid transparent",
+              marginBottom: -2, transition: "all 0.2s",
+            }}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: CSV Import ── */}
+      {activeTab === "csv" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900 }}>
+          {step === "upload" && (
+            <div className="heillo-card" style={{ padding: 32 }}>
+              <UploadZone onFile={handleFile} />
             </div>
-          </>
-        )}
+          )}
 
-        {/* Step 3 & 4: Progress / Done */}
-        {(step === "importing" || step === "done") && (
-          <>
-            <ImportProgress progress={progress} stats={stats} />
-            {step === "done" && (
-              /* OLD: <div className="flex gap-3 justify-end"> */
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button
-                  onClick={reset}
-                  style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "8px 18px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
-                >
-                  <RotateCcw style={{ width: 15, height: 15 }} /> ייבוא נוסף
-                </button>
-                <button className="heillo-btn-primary" onClick={() => window.location.href = "/inventory"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  צפה במלאי
+          {step === "preview" && csvData && (
+            <>
+              <CsvPreview headers={csvData.headers} rows={csvData.rows} />
+              <ColumnMapper headers={csvData.headers} mapping={mapping} onChange={setMapping} />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={runImport} className="heillo-btn-primary" style={{ fontSize: 14, padding: "10px 24px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Play style={{ width: 16, height: 16 }} />
+                  התחל ייבוא ({csvData.rows.length} מוצרים)
                 </button>
               </div>
-            )}
-          </>
-        )}
+            </>
+          )}
 
-        {/* Import Logs — always visible */}
-        <ImportLogsTable />
-      </div>
+          {(step === "importing" || step === "done") && (
+            <>
+              <ImportProgress progress={progress} stats={stats} />
+              {step === "done" && (
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={reset}
+                    style={{ background: "#FFFFFF", color: "var(--heillo-text-primary)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, fontWeight: 500, padding: "8px 18px", fontSize: 13, fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#F8F8FA"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+                  >
+                    <RotateCcw style={{ width: 15, height: 15 }} /> ייבוא נוסף
+                  </button>
+                  <button className="heillo-btn-primary" onClick={() => window.location.href = "/inventory"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    צפה במלאי
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          <ImportLogsTable />
+        </div>
+      )}
+
+      {/* ── Tab: Image Matcher ── */}
+      {activeTab === "images" && (
+        <div className="heillo-card" style={{ padding: 24 }}>
+          <ImageMatcher />
+        </div>
+      )}
     </div>
   );
 }
