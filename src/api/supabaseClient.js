@@ -18,3 +18,13 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: window.localStorage,
   },
 });
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        supabase.auth.refreshSession();
+      }
+    });
+  }
+});
