@@ -1,9 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Download, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Loader2, Trash2, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { toast } from "sonner";
 
@@ -17,6 +17,8 @@ import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { hasFinbotPdf, downloadFinbotPdf } from "@/utils/finbotPdfActions";
+import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
+import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
 
 const BUCKET = "payment-attachments";
 
@@ -24,8 +26,19 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   const [attachments, setAttachments] = useState([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [accessCodeOpen, setAccessCodeOpen] = useState(false);
+  const [profitabilityModalOpen, setProfitabilityModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+
+  const items = invoice?.items || [];
+  const totalCostNet = useMemo(() => items.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [items]);
+  const totalSalesNet = useMemo(() => items.reduce((s, i) => s + (i.total || 0), 0), [items]);
+  const totalProfit = totalSalesNet - totalCostNet;
+  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
+  const itemCount = items.reduce((s, i) => s + (i.quantity || 0), 0);
+  const avgProfitPerItem = itemCount > 0 ? totalProfit / itemCount : 0;
+  const hasCostData = items.some(i => i.buy_price !== undefined && i.buy_price !== null && i.buy_price !== "");
 
   useEffect(() => {
     if (invoice?.id) fetchAttachments();
@@ -305,6 +318,11 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
             <MessageCircle className="w-4 h-4" />
             WhatsApp
           </Button>
+          {hasCostData && (
+            <Button variant="outline" onClick={() => setAccessCodeOpen(true)} className="gap-2 border-green-200 text-green-700 hover:bg-green-50">
+              <TrendingUp className="w-4 h-4" /> רווחיות
+            </Button>
+          )}
           {invoice.payment_status !== "שולם" && onRecordPayment && (
             <Button variant="default" className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => { onClose(); onRecordPayment(invoice); }}>
               <Wallet className="w-4 h-4" />
@@ -315,6 +333,23 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
             <X className="w-4 h-4 ml-1" /> סגור
           </Button>
         </div>
+
+        <ProfitabilityAccessDialog
+          open={accessCodeOpen}
+          onOpenChange={setAccessCodeOpen}
+          correctCode={businessSettings?.profitability_access_code || "1234"}
+          onSuccess={() => { setAccessCodeOpen(false); setProfitabilityModalOpen(true); }}
+        />
+        <ProfitabilityModal
+          open={profitabilityModalOpen}
+          onOpenChange={setProfitabilityModalOpen}
+          totalCostNet={totalCostNet}
+          totalSalesNet={totalSalesNet}
+          totalProfit={totalProfit}
+          profitMargin={profitMargin}
+          itemCount={itemCount}
+          avgProfitPerItem={avgProfitPerItem}
+        />
       </DialogContent>
     </Dialog>
   );
