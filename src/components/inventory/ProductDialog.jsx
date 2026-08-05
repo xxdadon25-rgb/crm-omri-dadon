@@ -19,6 +19,7 @@ const emptyProduct = {
 
 export default function ProductDialog({ open, onOpenChange, product, onSaved, categories, suppliers }) {
   const [form, setForm] = useState(emptyProduct);
+  const [rollPrice, setRollPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState([]);
@@ -27,17 +28,25 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
 
   useEffect(() => {
     if (product) {
+      const mpr = product.meters_per_roll ?? "";
+      const bp = product.buy_price ?? "";
       setForm({
         ...emptyProduct,
         ...product,
-        buy_price: product.buy_price ?? "",
+        buy_price: bp,
         sell_price: product.sell_price ?? "",
         quantity: product.quantity ?? "",
         min_quantity: product.min_quantity ?? "",
-        meters_per_roll: product.meters_per_roll ?? "",
+        meters_per_roll: mpr,
       });
+      if (mpr && bp) {
+        setRollPrice(String(parseFloat(bp) * parseFloat(mpr)));
+      } else {
+        setRollPrice("");
+      }
     } else {
       setForm(emptyProduct);
+      setRollPrice("");
     }
   }, [product, open]);
 
@@ -143,16 +152,54 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
           </div>
           <div className="space-y-1.5">
             <Label>מטרים בגליל</Label>
-            <Input type="number" step="0.1" value={form.meters_per_roll} onChange={(e) => handleChange("meters_per_roll", e.target.value)} placeholder="השאר ריק אם לא רלוונטי" />
+            <Input type="number" step="0.1" value={form.meters_per_roll} onChange={(e) => {
+              const mpr = e.target.value;
+              handleChange("meters_per_roll", mpr);
+              if (mpr && rollPrice) {
+                const perMeter = parseFloat(rollPrice) / parseFloat(mpr);
+                handleChange("buy_price", isFinite(perMeter) ? String(Math.round(perMeter * 100) / 100) : "");
+              } else if (!mpr) {
+                setRollPrice("");
+              }
+            }} placeholder="השאר ריק אם לא רלוונטי" />
           </div>
-          <div className="space-y-1.5">
-            <Label>{form.meters_per_roll ? "מחיר קנייה למטר" : "מחיר קנייה לפני מע״מ"}</Label>
-            <Input type="number" step="0.01" value={form.buy_price} onChange={(e) => handleChange("buy_price", e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>{form.meters_per_roll ? "מחיר מכירה למטר *" : "מחיר מכירה לפני מע״מ *"}</Label>
-            <Input type="number" step="0.01" value={form.sell_price} onChange={(e) => handleChange("sell_price", e.target.value)} required />
-          </div>
+          {form.meters_per_roll ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>מחיר קנייה לגליל</Label>
+                <Input type="number" step="0.01" value={rollPrice} onChange={(e) => {
+                  const rp = e.target.value;
+                  setRollPrice(rp);
+                  const mpr = parseFloat(form.meters_per_roll);
+                  if (rp && mpr) {
+                    const perMeter = parseFloat(rp) / mpr;
+                    handleChange("buy_price", isFinite(perMeter) ? String(Math.round(perMeter * 100) / 100) : "");
+                  } else {
+                    handleChange("buy_price", "");
+                  }
+                }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>מחיר קנייה למטר</Label>
+                <Input type="number" step="0.01" value={form.buy_price} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>מחיר מכירה למטר *</Label>
+                <Input type="number" step="0.01" value={form.sell_price} onChange={(e) => handleChange("sell_price", e.target.value)} required />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label>מחיר קנייה לפני מע״מ</Label>
+                <Input type="number" step="0.01" value={form.buy_price} onChange={(e) => handleChange("buy_price", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>מחיר מכירה לפני מע״מ *</Label>
+                <Input type="number" step="0.01" value={form.sell_price} onChange={(e) => handleChange("sell_price", e.target.value)} required />
+              </div>
+            </>
+          )}
           <div className="space-y-1.5">
             <Label>כמות במלאי</Label>
             <Input type="number" value={form.quantity} onChange={(e) => handleChange("quantity", e.target.value)} />
