@@ -7,9 +7,10 @@ import ColumnMapper from "@/components/import/ColumnMapper";
 import ImportProgress from "@/components/import/ImportProgress";
 import ImportLogsTable from "@/components/import/ImportLogsTable";
 import ImageMatcher from "@/components/import/ImageMatcher";
+import PriceMatcher from "@/components/import/PriceMatcher";
 import { parseCSV, autoDetectMapping, applyMapping, stripHtml } from "@/lib/csvParser";
 import { toast } from "sonner";
-import { Play, RotateCcw, Download, ImageIcon } from "lucide-react";
+import { Play, RotateCcw, Download, ImageIcon, DollarSign } from "lucide-react";
 
 const BATCH_SIZE = 10;
 const DELAY_BETWEEN_ITEMS_MS = 200;
@@ -297,6 +298,7 @@ export default function ImportProducts() {
         {[
           { key: "csv", label: "ייבוא CSV", icon: <Download style={{ width: 14, height: 14 }} /> },
           { key: "images", label: "שיוך תמונות למוצרים", icon: <ImageIcon style={{ width: 14, height: 14 }} /> },
+          { key: "prices", label: "שיוך מחירי קנייה", icon: <DollarSign style={{ width: 14, height: 14 }} /> },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -367,6 +369,13 @@ export default function ImportProducts() {
       {activeTab === "images" && (
         <div className="heillo-card" style={{ padding: 24 }}>
           <ImageMatcher />
+        </div>
+      )}
+
+      {/* ── Tab: Price Matcher ── */}
+      {activeTab === "prices" && (
+        <div className="heillo-card" style={{ padding: 24 }}>
+          <PriceMatcher />
         </div>
       )}
     </div>
