@@ -18,7 +18,7 @@ const ProductCard = memo(({ product, qty, onUpdate }) => (
     <div className="w-full h-24 bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
       {product.image_url ? (
         <img
-          src={product.image_url.split(",")[0].trim()}
+          src={product.image_url}
           alt={product.name}
           className="w-full h-full object-cover"
           loading="lazy"
