@@ -28,21 +28,49 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   const [uploading, setUploading] = useState(false);
   const [accessCodeOpen, setAccessCodeOpen] = useState(false);
   const [profitabilityModalOpen, setProfitabilityModalOpen] = useState(false);
+  const [enrichedItems, setEnrichedItems] = useState([]);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  const items = invoice?.items || [];
-  const totalCostNet = useMemo(() => items.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [items]);
-  const totalSalesNet = useMemo(() => items.reduce((s, i) => s + (i.total || 0), 0), [items]);
+  const totalCostNet = useMemo(() => enrichedItems.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [enrichedItems]);
+  const totalSalesNet = useMemo(() => enrichedItems.reduce((s, i) => s + (i.total || 0), 0), [enrichedItems]);
   const totalProfit = totalSalesNet - totalCostNet;
   const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
-  const itemCount = items.reduce((s, i) => s + (i.quantity || 0), 0);
+  const itemCount = enrichedItems.reduce((s, i) => s + (i.quantity || 0), 0);
   const avgProfitPerItem = itemCount > 0 ? totalProfit / itemCount : 0;
-  const hasCostData = items.some(i => i.buy_price !== undefined && i.buy_price !== null && i.buy_price !== "");
 
   useEffect(() => {
-    if (invoice?.id) fetchAttachments();
+    if (!invoice?.id) { setEnrichedItems([]); return; }
+    fetchAttachments();
+    enrichItemsWithCost();
   }, [invoice?.id]);
+
+  const enrichItemsWithCost = async () => {
+    const items = invoice?.items || [];
+    const missingIds = items
+      .filter(i => (i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id)
+      .map(i => i.product_id);
+
+    if (missingIds.length === 0) {
+      setEnrichedItems(items);
+      return;
+    }
+
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, buy_price")
+      .in("id", missingIds);
+
+    const priceMap = {};
+    (products || []).forEach(p => { priceMap[p.id] = p.buy_price; });
+
+    setEnrichedItems(items.map(i => {
+      if ((i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id && priceMap[i.product_id] != null) {
+        return { ...i, buy_price: priceMap[i.product_id] };
+      }
+      return i;
+    }));
+  };
 
   const fetchAttachments = async () => {
     setLoadingAttachments(true);
@@ -318,11 +346,9 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
             <MessageCircle className="w-4 h-4" />
             WhatsApp
           </Button>
-          {hasCostData && (
-            <Button variant="outline" onClick={() => setAccessCodeOpen(true)} className="gap-2 border-green-200 text-green-700 hover:bg-green-50">
-              <TrendingUp className="w-4 h-4" /> רווחיות
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => setAccessCodeOpen(true)} className="gap-2 border-green-200 text-green-700 hover:bg-green-50">
+            <TrendingUp className="w-4 h-4" /> רווחיות
+          </Button>
           {invoice.payment_status !== "שולם" && onRecordPayment && (
             <Button variant="default" className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => { onClose(); onRecordPayment(invoice); }}>
               <Wallet className="w-4 h-4" />
