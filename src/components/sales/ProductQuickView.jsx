@@ -108,9 +108,11 @@ export default function ProductQuickView({ product, cartQty, onAdd, onClose }) {
               <span className="text-3xl font-bold text-primary">
                 ₪{(product.sell_price || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              {product.unit && product.unit !== "יחידה" && (
+              {product.meters_per_roll ? (
+                <span className="text-sm text-muted-foreground">למטר</span>
+              ) : product.unit && product.unit !== "יחידה" ? (
                 <span className="text-sm text-muted-foreground">לכל {product.unit}</span>
-              )}
+              ) : null}
             </div>
 
             {/* Stock */}
@@ -122,7 +124,7 @@ export default function ProductQuickView({ product, cartQty, onAdd, onClose }) {
                   ? "bg-yellow-100 text-yellow-700"
                   : "bg-green-100 text-green-700"
               }`}>
-                {product.quantity <= 0 ? "אזל מהמלאי" : `במלאי: ${product.quantity} ${product.unit || "יח׳"}`}
+                {product.quantity <= 0 ? "אזל מהמלאי" : `במלאי: ${product.quantity} ${product.meters_per_roll ? "מטר" : (product.unit || "יח׳")}`}
               </div>
             )}
 

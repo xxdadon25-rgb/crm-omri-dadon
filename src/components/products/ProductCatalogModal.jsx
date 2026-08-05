@@ -174,6 +174,8 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
         quantity: qty,
         unit_price: product.sell_price || 0,
         buy_price: product.buy_price || 0,
+        unit: product.meters_per_roll ? "מטר" : (product.unit || "יחידה"),
+        meters_per_roll: product.meters_per_roll || null,
         discount: defaultDiscount,
         total: qty * (product.sell_price || 0) * (1 - defaultDiscount / 100),
       };

@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS products (
   notes                    TEXT,
   is_active                BOOLEAN DEFAULT TRUE,
   tags                     TEXT,
-  prices_migrated_to_net   BOOLEAN DEFAULT FALSE
+  prices_migrated_to_net   BOOLEAN DEFAULT FALSE,
+  meters_per_roll          NUMERIC
 );
 
 -- categories

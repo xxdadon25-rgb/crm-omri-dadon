@@ -114,10 +114,11 @@ export default function ProductCard({ product, cartQty, onAdd, onQuickView, isFa
             <p style={{ fontSize: 15, fontWeight: 700, color: ACCENT, margin: 0 }}>
               ₪{(product.sell_price || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            {product.unit && product.unit !== "יחידה" && (
-              /* OLD: <p className="text-xs text-muted-foreground"> */
+            {product.meters_per_roll ? (
+              <p style={{ fontSize: 11, color: MUTED, margin: "2px 0 0" }}>למטר</p>
+            ) : product.unit && product.unit !== "יחידה" ? (
               <p style={{ fontSize: 11, color: MUTED, margin: "2px 0 0" }}>לכל {product.unit}</p>
-            )}
+            ) : null}
           </div>
           {/* OLD: <Button size="sm" className="h-9 w-9 shrink-0 p-0" onClick={() => onAdd(product)} variant={inCart ? "default" : "outline"}> */}
           <button
