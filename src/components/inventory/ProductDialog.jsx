@@ -20,6 +20,7 @@ const emptyProduct = {
 export default function ProductDialog({ open, onOpenChange, product, onSaved, categories, suppliers }) {
   const [form, setForm] = useState(emptyProduct);
   const [rollPrice, setRollPrice] = useState("");
+  const [rollCount, setRollCount] = useState("");
   const [saving, setSaving] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState([]);
@@ -44,9 +45,16 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
       } else {
         setRollPrice("");
       }
+      const qty = product.quantity ?? "";
+      if (mpr && qty) {
+        setRollCount(String(Math.floor(parseFloat(qty) / parseFloat(mpr))));
+      } else {
+        setRollCount("");
+      }
     } else {
       setForm(emptyProduct);
       setRollPrice("");
+      setRollCount("");
     }
   }, [product, open]);
 
@@ -161,6 +169,11 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
               } else if (!mpr) {
                 setRollPrice("");
               }
+              if (mpr && rollCount) {
+                handleChange("quantity", String(parseFloat(rollCount) * parseFloat(mpr)));
+              } else if (!mpr) {
+                setRollCount("");
+              }
             }} placeholder="השאר ריק אם לא רלוונטי" />
           </div>
           {form.meters_per_roll ? (
@@ -200,10 +213,32 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
               </div>
             </>
           )}
-          <div className="space-y-1.5">
-            <Label>כמות במלאי</Label>
-            <Input type="number" value={form.quantity} onChange={(e) => handleChange("quantity", e.target.value)} />
-          </div>
+          {form.meters_per_roll ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>כמות גלילים במלאי</Label>
+                <Input type="number" value={rollCount} onChange={(e) => {
+                  const rc = e.target.value;
+                  setRollCount(rc);
+                  const mpr = parseFloat(form.meters_per_roll);
+                  if (rc && mpr) {
+                    handleChange("quantity", String(parseFloat(rc) * mpr));
+                  } else {
+                    handleChange("quantity", "");
+                  }
+                }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>כמות במלאי (מטרים)</Label>
+                <Input type="number" value={form.quantity} readOnly className="bg-muted" />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>כמות במלאי</Label>
+              <Input type="number" value={form.quantity} onChange={(e) => handleChange("quantity", e.target.value)} />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>מינימום מלאי</Label>
             <Input type="number" value={form.min_quantity} onChange={(e) => handleChange("min_quantity", e.target.value)} />
