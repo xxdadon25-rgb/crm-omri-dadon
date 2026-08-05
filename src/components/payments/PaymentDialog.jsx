@@ -117,6 +117,25 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       toast.success("התשלום נרשם בהצלחה");
       onOpenChange(false);
       if (onSaved) onSaved();
+
+      try {
+        await supabase.functions.invoke("payment-webhook", {
+          body: {
+            invoice_id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            external_invoice_number: invoice.external_invoice_number || null,
+            customer_id: invoice.customer_id,
+            customer_name: invoice.customer_name,
+            amount: numAmount,
+            payment_method: method,
+            payment_date: date,
+            reference: reference || null,
+            invoice_total: invoice.total || 0,
+            new_paid_amount: newPaid,
+            new_payment_status: newStatus,
+          },
+        });
+      } catch {}
     } catch (err) {
       toast.error("שגיאה בשמירת התשלום: " + err.message);
     } finally {
