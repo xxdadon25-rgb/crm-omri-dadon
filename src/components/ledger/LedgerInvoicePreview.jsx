@@ -110,7 +110,8 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   const handleWhatsApp = () => {
     const customerName = selectedCustomer?.name || invoice.customer_name || "";
     const msg = formatWhatsAppMessage(businessSettings?.whatsapp_template, { name: customerName, number: displayInvoiceNumber(invoice) !== "—" ? displayInvoiceNumber(invoice) : invoice.id, amount: (invoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), docType: "חשבונית" });
-    const finalMsg = invoice.external_pdf_url ? `${msg}\n\n${invoice.external_pdf_url}` : msg;
+    const bankDetails = "\n\nלתשלום בהעברה בנקאית:\nבנק לאומי (10)\nסניף: 882\nחשבון: 11814/48\nעל שם: א.ד שיווק והפצה";
+    const finalMsg = (invoice.external_pdf_url ? `${msg}\n\n${invoice.external_pdf_url}` : msg) + bankDetails;
     window.open(`https://wa.me/?text=${encodeURIComponent(finalMsg)}`, "_blank");
   };
 
