@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import { ImageIcon, Upload, Search, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
@@ -14,6 +15,7 @@ function extFromType(type) {
 
 export default function ImageMatcher() {
   const [products, setProducts] = useState([]);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState({});
@@ -58,6 +60,7 @@ export default function ImageMatcher() {
       if (updateErr) throw new Error(updateErr.message);
 
       setUploading((prev) => ({ ...prev, [productId]: "done" }));
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setTimeout(() => {
         setProducts((prev) => prev.filter((p) => p.id !== productId));
         setUploading((prev) => { const n = { ...prev }; delete n[productId]; return n; });
