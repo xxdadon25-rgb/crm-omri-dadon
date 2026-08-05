@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Search, Receipt, Trash2, Eye, Link2, FileText } from "lucide-react";
+import { Search, Receipt, Trash2, Eye, Link2, FileText, TrendingUp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
@@ -41,6 +41,9 @@ const removePendingDeletedInvoiceIds = (ids) => {
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import { formatCurrency } from "@/utils/formatCurrency";
 import CreditNoteButton from "@/components/invoices/CreditNoteButton";
+import { supabase } from "@/api/supabaseClient";
+import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
+import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
 
 export default function Invoices() {
   const [search, setSearch] = useState("");
@@ -50,7 +53,41 @@ export default function Invoices() {
   const [selectedInvoices, setSelectedInvoices] = useState(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [accessCodeOpen, setAccessCodeOpen] = useState(false);
+  const [profitabilityModalOpen, setProfitabilityModalOpen] = useState(false);
+  const [enrichedItems, setEnrichedItems] = useState([]);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!viewInvoice?.id) { setEnrichedItems([]); return; }
+    const enrichItems = async () => {
+      const items = viewInvoice.items || [];
+      const missingIds = items
+        .filter(i => (i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id)
+        .map(i => i.product_id);
+      if (missingIds.length === 0) { setEnrichedItems(items); return; }
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, buy_price")
+        .in("id", missingIds);
+      const priceMap = {};
+      (products || []).forEach(p => { priceMap[p.id] = p.buy_price; });
+      setEnrichedItems(items.map(i => {
+        if ((i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id && priceMap[i.product_id] != null) {
+          return { ...i, buy_price: priceMap[i.product_id] };
+        }
+        return i;
+      }));
+    };
+    enrichItems();
+  }, [viewInvoice?.id]);
+
+  const totalCostNet = useMemo(() => enrichedItems.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [enrichedItems]);
+  const totalSalesNet = useMemo(() => enrichedItems.reduce((s, i) => s + (i.total || 0), 0), [enrichedItems]);
+  const totalProfit = totalSalesNet - totalCostNet;
+  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
+  const profitItemCount = enrichedItems.reduce((s, i) => s + (i.quantity || 0), 0);
+  const avgProfitPerItem = profitItemCount > 0 ? totalProfit / profitItemCount : 0;
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["invoices"],
@@ -457,6 +494,14 @@ export default function Invoices() {
                 >
                   <Link2 style={{ width: 15, height: 15 }} /> קישור WhatsApp לחשבונית
                 </button>
+                <button
+                  onClick={() => setAccessCodeOpen(true)}
+                  style={{ background: "#FFFFFF", border: "1px solid rgba(34,197,94,0.4)", borderRadius: 12, color: "#15803d", fontSize: 13, fontWeight: 500, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(34,197,94,0.06)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+                >
+                  <TrendingUp style={{ width: 15, height: 15 }} /> רווחיות
+                </button>
                 {!viewInvoice.external_pdf_url && (
                   <ExternalInvoiceButton
                     invoice={viewInvoice}
@@ -468,6 +513,22 @@ export default function Invoices() {
             </div>
             );
           })()}
+          <ProfitabilityAccessDialog
+            open={accessCodeOpen}
+            onOpenChange={setAccessCodeOpen}
+            correctCode={settings[0]?.profitability_access_code || "1234"}
+            onSuccess={() => { setAccessCodeOpen(false); setProfitabilityModalOpen(true); }}
+          />
+          <ProfitabilityModal
+            open={profitabilityModalOpen}
+            onOpenChange={setProfitabilityModalOpen}
+            totalCostNet={totalCostNet}
+            totalSalesNet={totalSalesNet}
+            totalProfit={totalProfit}
+            profitMargin={profitMargin}
+            itemCount={profitItemCount}
+            avgProfitPerItem={avgProfitPerItem}
+          />
         </DialogContent>
       </Dialog>
     </div>
