@@ -59,7 +59,13 @@ ${url}
 תודה שבחרת לעבוד איתנו.
 
 בברכה,
-${companyName}`;
+${companyName}
+
+לתשלום בהעברה בנקאית:
+בנק לאומי (10)
+סניף: 882
+חשבון: 11814/48
+על שם: א.ד שיווק והפצה`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

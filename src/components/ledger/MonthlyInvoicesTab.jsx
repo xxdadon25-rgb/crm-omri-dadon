@@ -198,9 +198,10 @@ export default function MonthlyInvoicesTab({
     const header = `🧾 חשבונית חודשית #${displayInvoiceNumber(invoice)}`;
     const body = `שלום ${selectedCustomer?.name || invoice.customer_name},\n\nמצורפת החשבונית החודשית שלך עבור ${monthLabel} ${invoice.billing_year}.`;
     const signature = `בברכה,\n${companyName}`;
+    const bankDetails = "\n\nלתשלום בהעברה בנקאית:\nבנק לאומי (10)\nסניף: 882\nחשבון: 11814/48\nעל שם: א.ד שיווק והפצה";
     const msg = link
-      ? `${header}\n\n${body}\n\n${link}\n\n${signature}`
-      : `${header}\n\n${body}\n\n${signature}`;
+      ? `${header}\n\n${body}\n\n${link}\n\n${signature}${bankDetails}`
+      : `${header}\n\n${body}\n\n${signature}${bankDetails}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
