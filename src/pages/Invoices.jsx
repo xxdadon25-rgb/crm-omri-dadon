@@ -447,7 +447,8 @@ export default function Invoices() {
                     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
                     const total = (viewInvoice.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
                     const msg = formatWhatsAppMessage(settings[0]?.whatsapp_template, { name: viewInvoice.customer_name, number: displayInvoiceNumber(viewInvoice), amount: total, docType: "חשבונית" });
-                    const finalMsg = viewInvoice.external_pdf_url ? `${msg}\n\n${viewInvoice.external_pdf_url}` : msg;
+                    const bankDetails = "\n\nלתשלום בהעברה בנקאית:\nבנק לאומי (10)\nסניף: 882\nחשבון: 11814/48\nעל שם: א.ד שיווק והפצה";
+                    const finalMsg = (viewInvoice.external_pdf_url ? `${msg}\n\n${viewInvoice.external_pdf_url}` : msg) + bankDetails;
                     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(finalMsg)}`, "_blank");
                   }}
                   style={{ background: "#FFFFFF", border: "1px solid rgba(245,136,94,0.4)", borderRadius: 12, color: "var(--heillo-accent)", fontSize: 13, fontWeight: 500, padding: "7px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Heebo', sans-serif" }}
