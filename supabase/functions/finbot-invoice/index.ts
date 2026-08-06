@@ -176,6 +176,8 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Finbot returned invalid JSON" });
   }
 
+  console.log("FINBOT FULL RESPONSE:", JSON.stringify(responseData));
+
   const status = responseData?.status;
   if (status !== 1) {
     const errArr = Array.isArray(responseData?.errors) ? responseData.errors : [];
