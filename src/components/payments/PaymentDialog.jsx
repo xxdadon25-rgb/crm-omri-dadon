@@ -93,7 +93,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
 
     setSaving(true);
     try {
-      await base44.entities.Payment.create({
+      const newPayment = await base44.entities.Payment.create({
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number,
         customer_id: invoice.customer_id,
@@ -115,8 +115,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       });
 
       try {
-        console.log("PAYMENT WEBHOOK INVOKED");
-        const { data: webhookData, error: webhookError } = await supabase.functions.invoke("payment-webhook-", {
+        const { data: receiptData } = await supabase.functions.invoke("payment-webhook-", {
           body: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
@@ -133,8 +132,15 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             new_payment_status: newStatus,
           },
         });
-        console.log("WEBHOOK RESULT:", { data: webhookData, error: webhookError });
-      } catch (e) { console.log("WEBHOOK CATCH:", e); }
+        if (receiptData?.ok && newPayment?.id) {
+          const patch = {};
+          if (receiptData.receiptNumber) patch.external_receipt_number = receiptData.receiptNumber;
+          if (receiptData.pdfUrl) patch.external_receipt_url = receiptData.pdfUrl;
+          if (Object.keys(patch).length) {
+            await supabase.from("payments").update(patch).eq("id", newPayment.id);
+          }
+        }
+      } catch {}
 
       toast.success("התשלום נרשם בהצלחה");
       onOpenChange(false);
