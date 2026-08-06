@@ -114,10 +114,6 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
         payment_status: newStatus,
       });
 
-      toast.success("התשלום נרשם בהצלחה");
-      onOpenChange(false);
-      if (onSaved) onSaved();
-
       try {
         await supabase.functions.invoke("payment-webhook-", {
           body: {
@@ -136,6 +132,10 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
           },
         });
       } catch {}
+
+      toast.success("התשלום נרשם בהצלחה");
+      onOpenChange(false);
+      if (onSaved) onSaved();
     } catch (err) {
       toast.error("שגיאה בשמירת התשלום: " + err.message);
     } finally {
