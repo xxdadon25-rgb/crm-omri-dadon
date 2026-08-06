@@ -60,6 +60,12 @@ function buildItems(invoiceItems: any[]): Array<{ name: string; amount: number; 
 
 // The Finbot spec says `data` is the "PDF link". Allow both shapes: a bare
 // string, or an object where the link is under one of several field names.
+function extractFinbotSerial(pdfUrl: string | undefined): string | undefined {
+  if (!pdfUrl) return undefined;
+  const m = pdfUrl.match(/auth\/(\d{4})/);
+  return m ? m[1] : undefined;
+}
+
 function extractPdfUrl(data: unknown): string | undefined {
   if (typeof data === "string") return data;
   if (data && typeof data === "object") {
@@ -188,6 +194,7 @@ Deno.serve(async (req: Request) => {
 
   const pdfUrl = extractPdfUrl(responseData?.data);
   const invoiceNumber = extractInvoiceNumber(responseData);
+  const finbotSerial = extractFinbotSerial(pdfUrl);
 
-  return json({ ok: true, invoiceNumber, pdfUrl });
+  return json({ ok: true, invoiceNumber, pdfUrl, finbotSerial });
 });

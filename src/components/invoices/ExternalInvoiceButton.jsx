@@ -51,6 +51,7 @@ export default function ExternalInvoiceButton({ invoice, customer }) {
       const patch = { payment_status: "חשבונית הופקה" };
       if (result.invoiceNumber) patch.external_invoice_number = result.invoiceNumber;
       if (result.pdfUrl) patch.external_pdf_url = result.pdfUrl;
+      if (result.finbotSerial) patch.finbot_serial = result.finbotSerial;
 
       await base44.entities.Invoice.update(invoice.id, patch);
 

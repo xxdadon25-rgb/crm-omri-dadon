@@ -111,8 +111,8 @@ Deno.serve(async (req: Request) => {
     ],
   };
 
-  if (body.external_invoice_number) {
-    payload.linkedDocument = String(body.external_invoice_number);
+  if (body.finbot_serial) {
+    payload.linkedDocument = String(body.finbot_serial);
   }
 
   let res: Response;

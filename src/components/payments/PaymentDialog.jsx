@@ -121,6 +121,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
             external_invoice_number: invoice.external_invoice_number || null,
+            finbot_serial: invoice.finbot_serial || null,
             customer_id: invoice.customer_id,
             customer_name: invoice.customer_name,
             amount: numAmount,

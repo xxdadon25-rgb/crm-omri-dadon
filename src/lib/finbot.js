@@ -47,6 +47,7 @@ export async function invokeFinbot(invoice, customer) {
       ok: true,
       invoiceNumber: data.invoiceNumber,
       pdfUrl: data.pdfUrl,
+      finbotSerial: data.finbotSerial,
     };
   } catch (err) {
     return { ok: false, error: err?.message || "Finbot call threw" };

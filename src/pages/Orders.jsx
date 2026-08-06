@@ -387,6 +387,7 @@ export default function Orders() {
           const patch = {};
           if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;
           if (finbot.pdfUrl) patch.external_pdf_url = finbot.pdfUrl;
+          if (finbot.finbotSerial) patch.finbot_serial = finbot.finbotSerial;
           if (Object.keys(patch).length) {
             const { data: updated } = await supabase
               .from("invoices")
