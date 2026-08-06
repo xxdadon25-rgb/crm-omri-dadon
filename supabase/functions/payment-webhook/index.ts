@@ -13,7 +13,6 @@
  */
 
 const FINBOT_URL = "https://api.finbotai.co.il/income";
-const FINBOT_SERIAL_OFFSET = 5398;
 const VAT_RATE = 1.18;
 
 const corsHeaders = {
@@ -112,9 +111,8 @@ Deno.serve(async (req: Request) => {
     ],
   };
 
-  const extNum = Number(body.external_invoice_number);
-  if (Number.isFinite(extNum) && extNum > FINBOT_SERIAL_OFFSET) {
-    payload.linkedDocument = String(extNum - FINBOT_SERIAL_OFFSET);
+  if (body.external_invoice_number) {
+    payload.linkedDocument = String(body.external_invoice_number);
   }
 
   let res: Response;
