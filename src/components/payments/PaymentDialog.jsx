@@ -116,7 +116,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
 
       try {
         console.log("PAYMENT WEBHOOK INVOKED");
-        await supabase.functions.invoke("payment-webhook-", {
+        const { data: webhookData, error: webhookError } = await supabase.functions.invoke("payment-webhook-", {
           body: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
@@ -132,7 +132,8 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             new_payment_status: newStatus,
           },
         });
-      } catch {}
+        console.log("WEBHOOK RESULT:", { data: webhookData, error: webhookError });
+      } catch (e) { console.log("WEBHOOK CATCH:", e); }
 
       toast.success("התשלום נרשם בהצלחה");
       onOpenChange(false);
