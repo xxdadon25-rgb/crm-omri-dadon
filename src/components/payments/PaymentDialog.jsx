@@ -115,7 +115,8 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       });
 
       try {
-        const { data: receiptData } = await supabase.functions.invoke("payment-webhook-", {
+        console.log("[receipt] invoking payment-webhook-...");
+        const { data: receiptData, error: receiptError } = await supabase.functions.invoke("payment-webhook-", {
           body: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
@@ -132,15 +133,17 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             new_payment_status: newStatus,
           },
         });
+        console.log("[receipt] invoke result:", { data: receiptData, error: receiptError });
         if (receiptData?.ok && newPayment?.id) {
           const patch = {};
           if (receiptData.receiptNumber) patch.external_receipt_number = receiptData.receiptNumber;
           if (receiptData.pdfUrl) patch.external_receipt_url = receiptData.pdfUrl;
           if (Object.keys(patch).length) {
             await supabase.from("payments").update(patch).eq("id", newPayment.id);
+            console.log("[receipt] saved to payment:", patch);
           }
         }
-      } catch {}
+      } catch (e) { console.log("[receipt] CATCH:", e); }
 
       toast.success("התשלום נרשם בהצלחה");
       onOpenChange(false);
