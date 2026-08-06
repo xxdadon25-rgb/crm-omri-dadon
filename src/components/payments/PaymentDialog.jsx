@@ -119,7 +119,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       if (onSaved) onSaved();
 
       try {
-        await supabase.functions.invoke("payment-webhook", {
+        await supabase.functions.invoke("payment-webhook-", {
           body: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
