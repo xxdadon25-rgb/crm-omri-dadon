@@ -1,15 +1,11 @@
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import EmptyState from "@/components/shared/EmptyState";
-import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Loader2, Trash2, Receipt } from "lucide-react";
+import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 const methodIcons = {
   "מזומן": "💵", "כרטיס אשראי": "💳", "העברה בנקאית": "🏦",
@@ -38,37 +34,6 @@ function fmt(n) {
 export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, invoices, selectedCustomer, businessSettings }) {
   const unpaidInvoices = invoices.filter(i => i.payment_status !== "שולם");
   const invoiceMap = new Map(invoices.map(i => [i.id, i]));
-  const queryClient = useQueryClient();
-
-  const [deletePaymentId, setDeletePaymentId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDeletePayment = async () => {
-    const payment = payments.find(p => p.id === deletePaymentId);
-    if (!payment) return;
-    setDeleting(true);
-    try {
-      const { error } = await supabase.from("payments").delete().eq("id", payment.id);
-      if (error) throw error;
-
-      const invoice = invoiceMap.get(payment.invoice_id);
-      if (invoice) {
-        const newPaid = Math.max(0, (invoice.paid_amount || 0) - (payment.amount || 0));
-        const newStatus = newPaid <= 0 ? "ממתין לתשלום" : newPaid >= (invoice.total || 0) ? "שולם" : "שולם חלקית";
-        await supabase.from("invoices").update({ paid_amount: newPaid, payment_status: newStatus }).eq("id", invoice.id);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["payments"] });
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("התשלום נמחק בהצלחה");
-    } catch (err) {
-      toast.error("שגיאה במחיקת התשלום: " + err.message);
-    } finally {
-      setDeleting(false);
-      setDeletePaymentId(null);
-    }
-  };
-
   const handlePaymentWhatsApp = (p, receiptUrl) => {
     const customerName = selectedCustomer?.name || p.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
@@ -197,9 +162,6 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                                   <Receipt className="w-3 h-3" /> הצג קבלה
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs px-2 gap-1" onClick={() => setDeletePaymentId(p.id)}>
-                                <Trash2 className="w-3 h-3" /> מחק תשלום
-                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -216,24 +178,6 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
           </>
         )}
       </div>
-
-      <AlertDialog open={!!deletePaymentId} onOpenChange={(open) => { if (!open) setDeletePaymentId(null); }}>
-        <AlertDialogContent dir="rtl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>האם למחוק תשלום זה?</AlertDialogTitle>
-            <AlertDialogDescription>
-              פעולה זו תמחק את התשלום ותעדכן את יתרת החשבונית בהתאם.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
-            <AlertDialogCancel disabled={deleting}>ביטול</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePayment} disabled={deleting} className="bg-red-600 hover:bg-red-700">
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
-              מחק תשלום
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
