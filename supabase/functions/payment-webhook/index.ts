@@ -145,9 +145,6 @@ Deno.serve(async (req: Request) => {
   }
 
   const rawText = await res.text();
-  console.log("[payment-webhook] Finbot HTTP status:", res.status);
-  console.log("[payment-webhook] Finbot raw response:", rawText);
-  console.log("[payment-webhook] Payload sent:", JSON.stringify(payload));
 
   if (!res.ok) {
     return json({ ok: false, error: `Finbot HTTP ${res.status}: ${rawText.slice(0, 500)}` });
@@ -160,14 +157,11 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Finbot returned invalid JSON" });
   }
 
-  console.log("[payment-webhook] Finbot parsed response:", JSON.stringify(responseData));
-
   const status = responseData?.status;
   if (status !== 1) {
     const errArr = Array.isArray(responseData?.errors) ? responseData.errors : [];
     const firstErr = errArr.length ? String(errArr[0]) : undefined;
     const msg = responseData?.message || firstErr || `Finbot status ${status}`;
-    console.log("[payment-webhook] Finbot error:", { status, errors: errArr, message: responseData?.message });
     return json({ ok: false, error: String(msg), status, finbotErrors: errArr });
   }
 
