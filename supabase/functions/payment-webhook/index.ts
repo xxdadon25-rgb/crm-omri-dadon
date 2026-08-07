@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
   };
 
   const finbotPaymentType = PAYMENT_TYPE_MAP[body.payment_method] ?? 11;
-  payload.payment = [
+  payload.payments = [
     { type: finbotPaymentType, amount: amount }
   ];
 
