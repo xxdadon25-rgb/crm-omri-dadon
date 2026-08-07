@@ -18,10 +18,10 @@ const VAT_RATE = 1.18;
 const PAYMENT_TYPE_MAP: Record<string, string> = {
   "מזומן": "1",
   "שיק": "2",
-  "העברה בנקאית": "3",
-  "כרטיס אשראי": "4",
-  "ביט": "3",
-  "פייבוקס": "3",
+  "העברה בנקאית": "4",
+  "כרטיס אשראי": "3",
+  "ביט": "4",
+  "פייבוקס": "4",
   "אחר": "11",
 };
 
@@ -97,8 +97,6 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Invalid payment amount" }, 400);
   }
 
-  const priceBeforeVat = parseFloat((amount / VAT_RATE).toFixed(2));
-
   const invoiceNum = body.invoice_number || body.external_invoice_number || "";
   const itemName = `תשלום עבור חשבונית #${invoiceNum}`;
 
@@ -107,7 +105,7 @@ Deno.serve(async (req: Request) => {
     date: formatDate(body.payment_date),
     language: "HE",
     currency: "ILS",
-    vatType: true,
+    vatType: false,
     rounding: false,
     customer: {
       name: String(body.customer_name || ""),
@@ -116,7 +114,7 @@ Deno.serve(async (req: Request) => {
       {
         name: itemName,
         amount: 1,
-        price: priceBeforeVat,
+        price: amount,
       },
     ],
   };
