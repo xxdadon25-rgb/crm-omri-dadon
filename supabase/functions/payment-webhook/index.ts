@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Invalid payment amount" }, 400);
   }
 
-  const priceBeforeVat = amount / VAT_RATE;
+  const priceBeforeVat = Math.round((amount / VAT_RATE) * 100) / 100;
 
   const invoiceNum = body.invoice_number || body.external_invoice_number || "";
   const itemName = `תשלום עבור חשבונית #${invoiceNum}`;
