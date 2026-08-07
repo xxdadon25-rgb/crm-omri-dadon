@@ -159,6 +159,15 @@ export default function Invoices() {
   });
   const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
+  const { data: creditNotes = [] } = useQuery({
+    queryKey: ["credit_notes"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await supabase.from("credit_notes").select("id, invoice_id, external_credit_note_url").eq("user_id", user?.id);
+      return data ?? [];
+    },
+  });
+  const creditNoteMap = useMemo(() => new Map(creditNotes.map(cn => [cn.invoice_id, cn])), [creditNotes]);
 
   const filtered = useMemo(() => {
     return invoices.filter(i => {
@@ -364,7 +373,11 @@ export default function Invoices() {
                           {inv.credited_at && inv.credit_note_id && (
                             /* OLD: <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-purple-600" title="הפק PDF זיכוי" ...> */
                             <button title="הפק PDF זיכוי" className="heillo-icon-btn" style={{ color: "#7c3aed" }}
-                              onClick={() => window.open(`/credit-note-pdf/${inv.credit_note_id}`, "_blank")}
+                              onClick={() => {
+                                const cn = creditNoteMap.get(inv.id);
+                                if (cn?.external_credit_note_url) { window.open(cn.external_credit_note_url, "_blank"); }
+                                else { toast("הזיכוי לא נשלח לפינבוט"); }
+                              }}
                               onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.08)"}
                               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                               <FileText size={17} strokeWidth={1.8} />

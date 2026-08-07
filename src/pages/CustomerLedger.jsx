@@ -540,7 +540,7 @@ export default function CustomerLedger() {
                 </TabsContent>
 
                 <TabsContent value="invoices" className="mt-4">
-                  <LedgerInvoicesTab invoices={customerInvoices} loading={loadingInvoices} onPreview={setPreviewInvoice} businessSettings={businessSettings} selectedCustomer={selectedCustomer} allOrders={orders} />
+                  <LedgerInvoicesTab invoices={customerInvoices} loading={loadingInvoices} onPreview={setPreviewInvoice} businessSettings={businessSettings} selectedCustomer={selectedCustomer} allOrders={orders} creditNotes={customerCreditNotes} />
                 </TabsContent>
 
                 <TabsContent value="monthly" className="mt-4">

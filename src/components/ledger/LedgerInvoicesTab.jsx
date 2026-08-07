@@ -4,8 +4,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import EmptyState from "@/components/shared/EmptyState";
 import { Receipt, Eye, Printer, MessageCircle, Loader2, FileText } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
+import { toast } from "sonner";
 import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 
 // const paymentColors = {
@@ -17,7 +18,8 @@ import { hasFinbotPdf, printFinbotPdf } from "@/utils/finbotPdfActions";
 import { getPaymentStatusColor } from "@/utils/statusColors";
 import CreditNoteButton from "@/components/invoices/CreditNoteButton";
 
-export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer, allOrders = [] }) {
+export default function LedgerInvoicesTab({ invoices, loading, onPreview, businessSettings, selectedCustomer, allOrders = [], creditNotes = [] }) {
+  const creditNoteMap = useMemo(() => new Map(creditNotes.map(cn => [cn.invoice_id, cn])), [creditNotes]);
   const orderMap = new Map(allOrders.map(o => [o.id, o.order_number]));
 
   const getOrderLabel = (invoice) => {
@@ -117,7 +119,11 @@ export default function LedgerInvoicesTab({ invoices, loading, onPreview, busine
                     </Button>
                     {invoice.credited_at && invoice.credit_note_id && (
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-purple-600" title="PDF זיכוי"
-                        onClick={() => window.open(`/credit-note-pdf/${invoice.credit_note_id}`, "_blank")}>
+                        onClick={() => {
+                          const cn = creditNoteMap.get(invoice.id);
+                          if (cn?.external_credit_note_url) { window.open(cn.external_credit_note_url, "_blank"); }
+                          else { toast("הזיכוי לא נשלח לפינבוט"); }
+                        }}>
                         <FileText className="w-3.5 h-3.5" />
                       </Button>
                     )}
