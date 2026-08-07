@@ -16,13 +16,13 @@ const FINBOT_URL = "https://api.finbotai.co.il/income";
 const VAT_RATE = 1.18;
 
 const PAYMENT_TYPE_MAP: Record<string, string> = {
-  "מזומן": "1",
-  "שיק": "2",
-  "העברה בנקאית": "4",
-  "כרטיס אשראי": "3",
-  "ביט": "4",
-  "פייבוקס": "4",
-  "אחר": "11",
+  "מזומן": "0",
+  "העברה בנקאית": "1",
+  "כרטיס אשראי": "2",
+  "שיק": "3",
+  "ביט": "8",
+  "פייבוקס": "9",
+  "אחר": "7",
 };
 
 const corsHeaders = {
@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
   const finbotPaymentType = PAYMENT_TYPE_MAP[body.payment_method] ?? "11";
   payload.payments = [
-    { type: finbotPaymentType, amount: amount, date: formatDate(body.payment_date) }
+    { type: finbotPaymentType, sum: amount, date: formatDate(body.payment_date) }
   ];
 
   if (body.finbot_serial) {
