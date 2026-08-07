@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/shared/EmptyState";
 import { RotateCcw, FileText } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { toast } from "sonner";
 
 export default function LedgerCreditNotesTab({ creditNotes = [], loading }) {
   if (loading) {
@@ -52,7 +53,7 @@ export default function LedgerCreditNotesTab({ creditNotes = [], loading }) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={() => window.open(`/credit-note-pdf/${cn.id}`, "_blank")}
+                    onClick={() => cn.external_credit_note_url ? window.open(cn.external_credit_note_url, "_blank") : toast("הזיכוי לא נשלח לפינבוט")}
                     title="הפק PDF זיכוי"
                   >
                     <FileText className="w-3.5 h-3.5" />
