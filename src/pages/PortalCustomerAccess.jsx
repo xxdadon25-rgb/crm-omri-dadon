@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
-import { Search, X, Globe, ChevronDown, ChevronUp, MessageCircle, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Search, X, Globe, ChevronDown, ChevronUp, MessageCircle, KeyRound, Eye, EyeOff, UserPlus, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import CustomerDialog from "@/components/customers/CustomerDialog";
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -686,6 +687,8 @@ export default function PortalCustomerAccess() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [resetting, setResetting] = useState(null); // { customer, authUserId }
+  const [linkingRow, setLinkingRow] = useState(null); // pending access row being linked
+  const [creatingForRow, setCreatingForRow] = useState(null); // pending access row for new customer creation
 
   // Tab 1 data
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
@@ -753,6 +756,11 @@ export default function PortalCustomerAccess() {
     return m;
   }, [blockedRows]);
 
+  const pendingRegistrations = useMemo(() =>
+    accessRows.filter(r => !r.customer_id),
+    [accessRows]
+  );
+
   const filtered = useMemo(() =>
     customers.filter(c => c.name?.toLowerCase().includes(search.toLowerCase())),
     [customers, search]
@@ -778,6 +786,30 @@ export default function PortalCustomerAccess() {
     setEditing(null);
   };
 
+  const handleLinkToCustomer = async (accessRowId, customerId) => {
+    const { error } = await supabase
+      .from("customer_portal_access")
+      .update({ customer_id: customerId, is_active: true })
+      .eq("id", accessRowId);
+    if (error) { toast.error("שגיאה בקישור הלקוח"); return; }
+    qc.invalidateQueries({ queryKey: ["customer-portal-access-all"] });
+    setLinkingRow(null);
+    toast.success("הלקוח קושר בהצלחה וגישתו הופעלה");
+  };
+
+  const handleNewCustomerCreated = async (createdCustomer) => {
+    if (!creatingForRow) return;
+    const { error } = await supabase
+      .from("customer_portal_access")
+      .update({ customer_id: createdCustomer.id, is_active: true })
+      .eq("id", creatingForRow.id);
+    if (error) { toast.error("הלקוח נוצר אך הקישור נכשל"); return; }
+    qc.invalidateQueries({ queryKey: ["customer-portal-access-all"] });
+    qc.invalidateQueries({ queryKey: ["customers-portal-page"] });
+    setCreatingForRow(null);
+    toast.success("לקוח חדש נוצר וקושר בהצלחה");
+  };
+
   const activeCount = accessRows.filter(r => r.is_active).length;
 
   const TABS = [
@@ -795,7 +827,7 @@ export default function PortalCustomerAccess() {
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>פורטל לקוחות</h1>
             <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>
-              {activeCount} לקוחות עם גישה פעילה · {customers.length} לקוחות סה״כ
+              {activeCount} לקוחות עם גישה פעילה · {customers.length} לקוחות סה״כ{pendingRegistrations.length > 0 ? ` · ${pendingRegistrations.length} ממתינים לקישור` : ""}
             </p>
           </div>
         </div>
@@ -842,6 +874,106 @@ export default function PortalCustomerAccess() {
           </div>
         )}
       </div>
+
+      {/* Pending registrations */}
+      {tab === "access" && pendingRegistrations.length > 0 && (
+        <div style={{ ...CARD, padding: "20px 24px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <UserPlus style={{ width: 18, height: 18, color: ACCENT }} />
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: DARK, margin: 0, fontFamily: "'Heebo', sans-serif" }}>
+              לקוחות חדשים — טרם קושרו ({pendingRegistrations.length})
+            </h3>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {pendingRegistrations.map(row => (
+              <div key={row.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+                background: "#FFF7ED", borderRadius: 14, border: "1px solid rgba(245,136,94,0.2)",
+                flexWrap: "wrap",
+              }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: DARK, fontFamily: "'Heebo', sans-serif" }}>
+                    {row.phone_or_email}
+                  </div>
+                  <div style={{ fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>
+                    נרשם {new Date(row.created_at).toLocaleDateString("he-IL")}
+                  </div>
+                </div>
+
+                {linkingRow?.id === row.id ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <select
+                      id={`link-select-${row.id}`}
+                      style={{
+                        height: 36, borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)",
+                        padding: "0 10px", fontSize: 13, fontFamily: "'Heebo', sans-serif",
+                        color: DARK, background: "#FFFFFF", minWidth: 180,
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>בחר לקוח...</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        const sel = document.getElementById(`link-select-${row.id}`);
+                        if (!sel?.value) { toast.error("יש לבחור לקוח"); return; }
+                        handleLinkToCustomer(row.id, Number(sel.value));
+                      }}
+                      style={{
+                        height: 36, background: ACCENT, color: "#FFFFFF", border: "none",
+                        borderRadius: 10, padding: "0 14px", fontSize: 13, fontWeight: 600,
+                        fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+                      }}
+                    >
+                      קשר
+                    </button>
+                    <button
+                      onClick={() => setLinkingRow(null)}
+                      style={{
+                        height: 36, background: "transparent", color: MUTED, border: "1px solid rgba(0,0,0,0.1)",
+                        borderRadius: 10, padding: "0 12px", fontSize: 13, fontWeight: 600,
+                        fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+                      }}
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      onClick={() => setLinkingRow(row)}
+                      style={{
+                        height: 34, background: "rgba(0,0,0,0.04)", color: DARK, border: "none",
+                        borderRadius: 10, padding: "0 14px", fontSize: 13, fontWeight: 600,
+                        fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex",
+                        alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Link2 style={{ width: 14, height: 14 }} />
+                      קשר ללקוח קיים
+                    </button>
+                    <button
+                      onClick={() => setCreatingForRow(row)}
+                      style={{
+                        height: 34, background: ACCENT, color: "#FFFFFF", border: "none",
+                        borderRadius: 10, padding: "0 14px", fontSize: 13, fontWeight: 600,
+                        fontFamily: "'Heebo', sans-serif", cursor: "pointer", display: "flex",
+                        alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                      }}
+                    >
+                      <UserPlus style={{ width: 14, height: 14 }} />
+                      צור לקוח חדש
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Customer access table */}
       {tab === "access" && (
@@ -976,6 +1108,16 @@ export default function PortalCustomerAccess() {
           customer={resetting.customer}
           authUserId={resetting.authUserId}
           onClose={() => setResetting(null)}
+        />
+      )}
+
+      {/* Create new customer for pending registration */}
+      {creatingForRow && (
+        <CustomerDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setCreatingForRow(null); }}
+          customer={null}
+          onSaved={handleNewCustomerCreated}
         />
       )}
     </div>

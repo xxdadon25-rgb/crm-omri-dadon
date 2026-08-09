@@ -71,7 +71,7 @@ export default function PortalDashboard() {
         .eq("auth_user_id", session.user.id)
         .maybeSingle();
 
-      if (!access || !access.is_active) {
+      if (!access) {
         // Fallback: check if this is a staff member (demo mode)
         const { data: staff } = await supabase
           .from("staff_members")
@@ -88,6 +88,11 @@ export default function PortalDashboard() {
           setIsDemo(true);
           setStatus("ready");
         }
+        return;
+      }
+
+      if (!access.is_active) {
+        if (!cancelled) setStatus("pending");
         return;
       }
 
@@ -113,6 +118,35 @@ export default function PortalDashboard() {
   };
 
   if (status === "loading") return <Spinner />;
+
+  if (status === "pending") return (
+    <div dir="rtl" style={PAGE_STYLE}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, color: DARK, margin: "0 0 24px", letterSpacing: "-0.5px" }}>
+        א.ד שיווק והפצה
+      </h1>
+      <div style={{
+        background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+        padding: "32px 28px", width: "100%", maxWidth: 440, textAlign: "center",
+      }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+        <p style={{ fontSize: 17, fontWeight: 700, color: DARK, margin: "0 0 8px" }}>ההרשמה התקבלה!</p>
+        <p style={{ fontSize: 14, color: MUTED, margin: "0 0 20px", lineHeight: 1.6 }}>
+          החשבון שלך ממתין לאישור. נעדכן אותך ברגע שהגישה תאושר.
+        </p>
+        <button
+          onClick={handleLogout}
+          style={{
+            height: 40, background: "transparent", border: `1.5px solid rgba(0,0,0,0.12)`,
+            borderRadius: 12, padding: "0 20px", fontSize: 14, fontWeight: 600,
+            color: DARK, fontFamily: "'Heebo', sans-serif", cursor: "pointer",
+          }}
+        >
+          התנתק
+        </button>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   return (
     <div dir="rtl" style={PAGE_STYLE}>

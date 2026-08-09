@@ -41,26 +41,16 @@ export default function PortalLogin() {
     setLoading(true);
     try {
       if (tab === "signup") {
-        // Pre-check: only allow signup if email has an approved customer_portal_access row.
-        // Fail closed — any error (query error, network, missing RLS policy) also blocks signup.
-        let approved = false;
-        try {
-          const { data: accessRow, error: checkError } = await supabase
-            .from("customer_portal_access")
-            .select("id")
-            .ilike("phone_or_email", email.trim())
-            .eq("is_active", true)
-            .maybeSingle();
-          approved = !checkError && !!accessRow;
-        } catch {
-          approved = false;
-        }
-        if (!approved) {
-          setError("כתובת האימייל הזו לא מאושרת להרשמה לפורטל. פנה אלינו לקבלת גישה.");
-          return;
-        }
-        const { error: err } = await supabase.auth.signUp({ email, password });
+        const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
         if (err) { setError(translateError(err.message)); return; }
+        if (signUpData?.user?.id) {
+          await supabase.from("customer_portal_access").insert({
+            phone_or_email: email.trim(),
+            auth_user_id: signUpData.user.id,
+            is_active: false,
+            first_login_completed: false,
+          });
+        }
         setSignupSuccess(true);
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
