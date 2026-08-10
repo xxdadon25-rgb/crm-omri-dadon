@@ -19,10 +19,11 @@ const ERROR_MAP = {
 
 function translateError(msg) {
   if (!msg) return "אירעה שגיאה. נסה שוב.";
+  const text = typeof msg === "string" ? msg : String(msg);
   for (const [key, val] of Object.entries(ERROR_MAP)) {
-    if (msg.includes(key)) return val;
+    if (text.includes(key)) return val;
   }
-  return msg;
+  return text;
 }
 
 export default function PortalLogin() {
@@ -49,6 +50,8 @@ export default function PortalLogin() {
         if (err) { setError(translateError(err.message)); return; }
         navigate("/portal/dashboard");
       }
+    } catch (ex) {
+      setError(translateError(ex?.message));
     } finally {
       setLoading(false);
     }
