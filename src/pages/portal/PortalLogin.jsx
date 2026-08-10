@@ -41,16 +41,8 @@ export default function PortalLogin() {
     setLoading(true);
     try {
       if (tab === "signup") {
-        const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
+        const { error: err } = await supabase.auth.signUp({ email, password });
         if (err) { setError(translateError(err.message)); return; }
-        if (signUpData?.user?.id) {
-          await supabase.from("customer_portal_access").insert({
-            phone_or_email: email.trim(),
-            auth_user_id: signUpData.user.id,
-            is_active: false,
-            first_login_completed: false,
-          });
-        }
         setSignupSuccess(true);
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
