@@ -64,7 +64,19 @@ export default function RevachAdmin() {
     try {
       let result;
       if (kind === "approve") {
-        result = await approveCustomer(customer.business_id);
+        try {
+          result = await approveCustomer(customer.business_id);
+        } catch (firstErr) {
+          if (firstErr.message === "no_payment") {
+            const override = window.confirm(
+              `הלקוח "${bizName}" לא שילם דרך המערכת. לאשר גישה בכל זאת?`
+            );
+            if (!override) { setActingId(null); return; }
+            result = await approveCustomer(customer.business_id, { force: true });
+          } else {
+            throw firstErr;
+          }
+        }
         toast.success("הלקוח אושר בהצלחה");
         if (result?.whatsapp_url) {
           window.open(result.whatsapp_url, "_blank");
