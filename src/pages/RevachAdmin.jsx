@@ -233,7 +233,7 @@ export default function RevachAdmin() {
                           <TableCell>
                             <div className="flex items-center gap-1.5">
                               {statusBadge(c.status)}
-                              {c.status === "pending" && c.approved_at && (
+                              {c.status === "pending" && (c.paid_at || c.last_payment_at) && (
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100/90 text-[10px]">
                                   ✅ שילם
                                 </Badge>
