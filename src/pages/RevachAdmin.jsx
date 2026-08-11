@@ -230,7 +230,16 @@ export default function RevachAdmin() {
                                 ? "חודשי"
                                 : "—"}
                           </TableCell>
-                          <TableCell>{statusBadge(c.status)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              {statusBadge(c.status)}
+                              {c.status === "pending" && c.approved_at && (
+                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100/90 text-[10px]">
+                                  ✅ שילם
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="whitespace-nowrap">
                             {c.scans_used ?? 0} / {c.scan_quota ?? 0}
                           </TableCell>
