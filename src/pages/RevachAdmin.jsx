@@ -6,8 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare } from "lucide-react";
-import { listCustomers, approveCustomer, blockCustomer, cancelCustomer } from "@/lib/revachAdmin";
+import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare, Trash2 } from "lucide-react";
+import { listCustomers, approveCustomer, blockCustomer, cancelCustomer, deleteCustomer } from "@/lib/revachAdmin";
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -56,9 +56,11 @@ export default function RevachAdmin() {
   const runAction = async (customer, kind) => {
     const bizName = customer.business_name || "העסק";
     const confirmMsg =
-      kind === "cancel"
-        ? `לבטל את המנוי של "${bizName}"?`
-        : `${kind === "approve" ? "לאשר" : "לחסום"} את "${bizName}"?`;
+      kind === "delete"
+        ? `⚠️ פעולה זו תמחק את "${bizName}" לצמיתות מהמערכת — עסק, פרופיל, מנוי, וגישה.\n\nלא ניתן לשחזר. להמשיך?`
+        : kind === "cancel"
+          ? `לבטל את המנוי של "${bizName}"?`
+          : `${kind === "approve" ? "לאשר" : "לחסום"} את "${bizName}"?`;
     if (!window.confirm(confirmMsg)) return;
     setActingId(customer.business_id);
     try {
@@ -72,6 +74,9 @@ export default function RevachAdmin() {
       } else if (kind === "cancel") {
         await cancelCustomer(customer.business_id);
         toast.success("המנוי בוטל בהצלחה");
+      } else if (kind === "delete") {
+        await deleteCustomer(customer.business_id);
+        toast.success("הלקוח נמחק בהצלחה");
       } else {
         await blockCustomer(customer.business_id);
         toast.success("הלקוח נחסם בהצלחה");
@@ -285,6 +290,15 @@ export default function RevachAdmin() {
                                   חסימה
                                 </Button>
                               )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => runAction(c, "delete")}
+                                disabled={actingId === c.business_id}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
