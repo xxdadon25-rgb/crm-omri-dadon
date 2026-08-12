@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/api/supabaseClient";
 import { toast } from "sonner";
-import { Upload, Camera, X, Loader2, CheckCircle, AlertTriangle, PackagePlus } from "lucide-react";
+import { Upload, Camera, X, Loader2, CheckCircle, AlertTriangle, PackagePlus, Link2 } from "lucide-react";
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 
@@ -144,6 +144,33 @@ async function preprocessImage(file) {
   }
 }
 
+// ── Auto-merge duplicate rows ────────────────────────────────────────────────
+
+function mergeExtractedItems(items) {
+  const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const groups = new Map();
+  for (const item of items) {
+    const key = norm(item.sku) || norm(item.product_name);
+    if (!key) { groups.set(Symbol(), [item]); continue; }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const merged = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) { merged.push(group[0]); continue; }
+    const first = group[0];
+    const totalQty = group.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const totalSum = group.reduce((s, i) => s + (Number(i.total) || 0), 0);
+    merged.push({
+      ...first,
+      quantity: totalQty,
+      total: totalSum,
+      unit_price: totalQty > 0 ? Math.round((totalSum / totalQty) * 100) / 100 : first.unit_price,
+    });
+  }
+  return merged;
+}
+
 // ── Gemini extraction ────────────────────────────────────────────────────────
 // Proxied through the extract-delivery Edge Function so the API key stays
 // server-side. reconcileUnitPrice stays client-side (see above).
@@ -158,7 +185,7 @@ async function extractFromFile(file, _onRetry) {
 
   return {
     supplier: data.supplier || null,
-    items: (data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
+    items: mergeExtractedItems((data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) }))),
   };
 }
 
@@ -283,6 +310,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [supplierMismatch, setSupplierMismatch] = useState(null);
   const [openSupplierOrder, setOpenSupplierOrder] = useState(null); // loaded supplier_order record
   const [shortages, setShortages] = useState([]); // [{name, ordered, received}]
+  const [linkingIdx, setLinkingIdx] = useState(null);
+  const [linkSearch, setLinkSearch] = useState("");
   const openSupplierOrderRef = useRef(null);
   const fileInputRef = useRef();
   const cameraInputRef = useRef();
@@ -322,6 +351,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setSupplierMismatch(null);
     setOpenSupplierOrder(null);
     setShortages([]);
+    setLinkingIdx(null);
+    setLinkSearch("");
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -396,6 +427,23 @@ export default function DeliveryModal({ supplier, open, onClose }) {
 
   const updateItem = (i, field, val) => {
     setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+  };
+
+  const linkToProduct = (rowIdx, product) => {
+    setItems(prev => prev.map((item, idx) => {
+      if (idx !== rowIdx) return item;
+      const priceChanged = !!(item.unit_price != null && product.buy_price != null && Math.abs(Number(item.unit_price) - Number(product.buy_price)) > 0.01);
+      return { ...item, matched: product, linkedProduct: product, priceChanged };
+    }));
+    setLinkingIdx(null);
+    setLinkSearch("");
+  };
+
+  const unlinkProduct = (rowIdx) => {
+    setItems(prev => prev.map((item, idx) => {
+      if (idx !== rowIdx) return item;
+      return { ...item, matched: null, linkedProduct: null, priceChanged: false };
+    }));
   };
 
   // ── Approve ───────────────────────────────────────────────────────────────
@@ -704,15 +752,34 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                         />
                       </td>
                       <td className="px-3 py-2">
+                        <Input
+                          value={item.product_name || ""}
+                          onChange={e => updateItem(i, "product_name", e.target.value)}
+                          className="h-7 text-sm mb-1"
+                        />
                         <div className="flex flex-wrap gap-1">
-                          {item.matched ? (
+                          {item.linkedProduct ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
+                              <Link2 className="w-3 h-3" /> ← {item.linkedProduct.name}
+                              <button type="button" onClick={() => unlinkProduct(i)} className="mr-1 hover:text-red-500"><X className="w-3 h-3" /></button>
+                            </span>
+                          ) : item.matched ? (
                             <span className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 border ${item.priceChanged ? "text-red-700 bg-red-50 border-red-200" : "text-green-700 bg-green-50 border-green-200"}`}>
                               <CheckCircle className="w-3 h-3" /> {item.matched.name}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
-                              <AlertTriangle className="w-3 h-3" /> מוצר חדש
-                            </span>
+                            <>
+                              <span className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
+                                <AlertTriangle className="w-3 h-3" /> מוצר חדש
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setLinkingIdx(i); setLinkSearch(""); }}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:bg-blue-50 rounded px-2 py-0.5"
+                              >
+                                <Link2 className="w-3 h-3" /> שייך למוצר
+                              </button>
+                            </>
                           )}
                           {rowShortage?.type === "shortage" && (
                             <span className="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 border border-red-300 rounded px-2 py-0.5 font-semibold">
@@ -730,6 +797,47 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                             </span>
                           )}
                         </div>
+                        {linkingIdx === i && (
+                          <div className="mt-1 border border-blue-200 rounded-lg bg-white p-2 shadow-md">
+                            <Input
+                              autoFocus
+                              placeholder="חפש מוצר לפי שם או מק״ט..."
+                              value={linkSearch}
+                              onChange={e => setLinkSearch(e.target.value)}
+                              className="h-7 text-sm mb-1"
+                            />
+                            <div className="max-h-32 overflow-y-auto space-y-0.5">
+                              {products
+                                .filter(p => {
+                                  if (!linkSearch.trim()) return true;
+                                  const q = linkSearch.toLowerCase().trim();
+                                  return (p.name || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+                                })
+                                .slice(0, 20)
+                                .map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => linkToProduct(i, p)}
+                                    className="w-full flex justify-between items-center text-right text-sm px-2 py-1 rounded hover:bg-blue-50"
+                                  >
+                                    <span className="truncate">{p.name}</span>
+                                    <span className="text-xs text-muted-foreground shrink-0 mr-2">{p.sku || ""}</span>
+                                  </button>
+                                ))}
+                              {products.filter(p => {
+                                if (!linkSearch.trim()) return true;
+                                const q = linkSearch.toLowerCase().trim();
+                                return (p.name || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+                              }).length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-2">לא נמצאו מוצרים</p>
+                              )}
+                            </div>
+                            <button type="button" onClick={() => setLinkingIdx(null)} className="text-xs text-muted-foreground hover:text-foreground mt-1">
+                              ביטול
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <input
