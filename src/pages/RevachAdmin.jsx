@@ -171,8 +171,8 @@ export default function RevachAdmin() {
                           <TableCell className="font-medium whitespace-nowrap">
                             {c.business_name || "—"}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap">{c.contact_name || "—"}</TableCell>
-                          <TableCell className="whitespace-nowrap">{c.email || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.owner_name || c.contact_name || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.owner_email || c.email || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{c.plan_id || "—"}</TableCell>
                           <TableCell>{statusBadge(c.status)}</TableCell>
                           <TableCell className="whitespace-nowrap">
@@ -225,8 +225,8 @@ export default function RevachAdmin() {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap">{c.contact_name || "—"}</TableCell>
-                          <TableCell className="whitespace-nowrap">{c.email || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.owner_name || c.contact_name || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.owner_email || c.email || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{c.plan_id || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">
                             {c.billing_cycle === "yearly"
