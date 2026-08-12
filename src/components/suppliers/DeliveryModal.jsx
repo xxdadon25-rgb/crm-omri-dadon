@@ -312,6 +312,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const [shortages, setShortages] = useState([]); // [{name, ordered, received}]
   const [linkingIdx, setLinkingIdx] = useState(null);
   const [linkSearch, setLinkSearch] = useState("");
+  const [skuConflict, setSkuConflict] = useState(null);
   const openSupplierOrderRef = useRef(null);
   const fileInputRef = useRef();
   const cameraInputRef = useRef();
@@ -353,6 +354,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setShortages([]);
     setLinkingIdx(null);
     setLinkSearch("");
+    setSkuConflict(null);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -429,20 +431,32 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
   };
 
-  const linkToProduct = (rowIdx, product) => {
+  const finalizeLinkToProduct = (rowIdx, product, chosenSku) => {
     setItems(prev => prev.map((item, idx) => {
       if (idx !== rowIdx) return item;
       const priceChanged = !!(item.unit_price != null && product.buy_price != null && Math.abs(Number(item.unit_price) - Number(product.buy_price)) > 0.01);
-      return { ...item, matched: product, linkedProduct: product, priceChanged };
+      return { ...item, matched: product, linkedProduct: product, priceChanged, skuOverride: chosenSku };
     }));
     setLinkingIdx(null);
     setLinkSearch("");
+    setSkuConflict(null);
+  };
+
+  const linkToProduct = (rowIdx, product) => {
+    const item = items[rowIdx];
+    const invSku = (item.sku || "").trim();
+    const existSku = (product.sku || "").trim();
+    if (!invSku || !existSku || invSku.toLowerCase() === existSku.toLowerCase()) {
+      finalizeLinkToProduct(rowIdx, product, invSku || existSku || null);
+      return;
+    }
+    setSkuConflict({ rowIdx, product, invoiceSku: invSku, existingSku: existSku });
   };
 
   const unlinkProduct = (rowIdx) => {
     setItems(prev => prev.map((item, idx) => {
       if (idx !== rowIdx) return item;
-      return { ...item, matched: null, linkedProduct: null, priceChanged: false };
+      return { ...item, matched: null, linkedProduct: null, priceChanged: false, skuOverride: undefined };
     }));
   };
 
@@ -518,6 +532,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
           const price = Number(item.unit_price) || 0;
           const newQty = (Number(item.matched.quantity) || 0) + qty;
           const updatePayload = { quantity: newQty };
+          if (item.skuOverride != null && item.skuOverride !== (item.matched.sku || "")) {
+            updatePayload.sku = item.skuOverride;
+          }
           if (item.priceChanged && decisions[item.matched.id] === true) {
             updatePayload.buy_price = price;
             priceChanges++;
@@ -958,6 +975,26 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         <AlertDialogFooter className="flex-row-reverse gap-2">
           <Button onClick={() => handleSave(true)}>הוסף למלאי</Button>
           <Button variant="outline" onClick={() => handleSave(false)}>דלג</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* ── SKU conflict dialog ── */}
+    <AlertDialog open={!!skuConflict} onOpenChange={(o) => { if (!o) setSkuConflict(null); }}>
+      <AlertDialogContent dir="rtl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>בחירת מק״ט</AlertDialogTitle>
+          <AlertDialogDescription>
+            המוצר <strong>{skuConflict?.product?.name}</strong> קיים במערכת עם מק״ט שונה.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex-row-reverse gap-2 flex-wrap">
+          <Button onClick={() => finalizeLinkToProduct(skuConflict.rowIdx, skuConflict.product, skuConflict.invoiceSku)}>
+            השתמש במק״ט מהחשבונית: {skuConflict?.invoiceSku}
+          </Button>
+          <Button variant="outline" onClick={() => finalizeLinkToProduct(skuConflict.rowIdx, skuConflict.product, skuConflict.existingSku)}>
+            השאר את המק״ט הקיים: {skuConflict?.existingSku}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
