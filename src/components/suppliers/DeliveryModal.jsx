@@ -31,22 +31,127 @@ function reconcileUnitPrice({ quantity, unit_price, total }) {
   return unit_price;
 }
 
-// Gemini extraction is proxied through the extract-delivery Edge Function so
-// the API key stays server-side (Supabase Secret GEMINI_API_KEY). The client
-// only sends the file bytes + mime type; retry/parse/MAX_TOKENS recovery all
-// live in the function. reconcileUnitPrice stays client-side (see above).
-// onRetry is kept in the signature for backward compatibility with callers,
-// but is no longer invoked — server-side retries are silent.
-async function extractFromFile(file, _onRetry) {
-  const base64 = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result.split(",")[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
+// ── Image preprocessing (ported from Revach Plus) ────────────────────────────
+// Grayscale + adaptive contrast + sharpen before sending to Gemini.
+// Falls back to the raw file if any step fails.
+
+const MAX_EDGE = 2048;
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
   });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      const mimeType = file.type || "image/jpeg";
+      resolve({ base64, mimeType });
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function preprocessImage(file) {
+  if (file.type === "application/pdf") return fileToBase64(file);
+
+  try {
+    const img = await loadImage(file);
+
+    let w = img.naturalWidth;
+    let h = img.naturalHeight;
+    if (Math.max(w, h) > MAX_EDGE) {
+      const scale = MAX_EDGE / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(img.src);
+
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const pixels = imageData.data;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      const gray = Math.round(pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+      pixels[i] = gray;
+      pixels[i + 1] = gray;
+      pixels[i + 2] = gray;
+    }
+
+    const blockSize = 64;
+    for (let by = 0; by < h; by += blockSize) {
+      for (let bx = 0; bx < w; bx += blockSize) {
+        const bw = Math.min(blockSize, w - bx);
+        const bh = Math.min(blockSize, h - by);
+        let lo = 255, hi = 0;
+        for (let y = by; y < by + bh; y++) {
+          for (let x = bx; x < bx + bw; x++) {
+            const v = pixels[(y * w + x) * 4];
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+          }
+        }
+        const range = hi - lo;
+        if (range < 30) continue;
+        const scale = 255 / range;
+        for (let y = by; y < by + bh; y++) {
+          for (let x = bx; x < bx + bw; x++) {
+            const idx = (y * w + x) * 4;
+            const v = Math.min(255, Math.max(0, Math.round((pixels[idx] - lo) * scale)));
+            pixels[idx] = v;
+            pixels[idx + 1] = v;
+            pixels[idx + 2] = v;
+          }
+        }
+      }
+    }
+
+    const src = new Uint8ClampedArray(pixels);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const idx = (y * w + x) * 4;
+        const v = 5 * src[idx]
+          - src[((y - 1) * w + x) * 4]
+          - src[((y + 1) * w + x) * 4]
+          - src[(y * w + x - 1) * 4]
+          - src[(y * w + x + 1) * 4];
+        const clamped = Math.min(255, Math.max(0, v));
+        pixels[idx] = clamped;
+        pixels[idx + 1] = clamped;
+        pixels[idx + 2] = clamped;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const base64 = dataUrl.split(",")[1];
+    return { base64, mimeType: "image/jpeg" };
+  } catch (err) {
+    console.warn("[preprocess] failed, using original:", err);
+    return fileToBase64(file);
+  }
+}
+
+// ── Gemini extraction ────────────────────────────────────────────────────────
+// Proxied through the extract-delivery Edge Function so the API key stays
+// server-side. reconcileUnitPrice stays client-side (see above).
+async function extractFromFile(file, _onRetry) {
+  const { base64, mimeType } = await preprocessImage(file);
 
   const { data, error } = await supabase.functions.invoke("extract-delivery", {
-    body: { base64, mimeType: file.type },
+    body: { base64, mimeType },
   });
   if (error) throw new Error(error.message || "שגיאה בקריאה לשרת החילוץ");
   if (!data?.ok) throw new Error(data?.error || "שגיאה בחילוץ הנתונים");
