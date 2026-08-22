@@ -1,7 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { usePortalPWAMeta } from "@/hooks/usePortalPWAMeta";
+
+// One page of ALLOWED products shown to the customer.
+const PAGE_SIZE = 30;
+// Rows read from the server per round trip. Larger than PAGE_SIZE so that
+// removing blocked products does not produce a short page.
+const SOURCE_CHUNK = 60;
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -279,6 +285,32 @@ export default function PortalCatalog() {
   const [minOrderAmount, setMinOrderAmount] = useState(0);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("הכל");
+
+  // ── Paging ────────────────────────────────────────────────────────────────
+  // The catalog used to fetch every active product in one query and render all
+  // of them. It now pages 30 allowed products at a time, and search and the
+  // category filter run in the DATABASE, so a product that has not been loaded
+  // yet is still findable.
+  const [categories, setCategories] = useState(["הכל"]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Blocked ids are fetched once and applied client-side, exactly as before, so
+  // the existing customer_blocked_products rule is unchanged.
+  const blockedIdsRef = useRef(new Set());
+  // Raw category values per trimmed label: the column may hold untrimmed text
+  // and the UI has always compared trimmed values.
+  const categoryValuesRef = useRef(new Map());
+  // How far into the SERVER result set we have read. Advanced by rows actually
+  // consumed, never by chunk size, so nothing is skipped.
+  const sourceOffsetRef = useRef(0);
+  const seenIdsRef = useRef(new Set());
+  // Incremented on every reset; a resolving fetch whose id no longer matches is
+  // discarded, which is what makes a mid-flight search or category change safe.
+  const requestIdRef = useRef(0);
+  const loadingRef = useRef(false);
+  const sentinelRef = useRef(null);
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // null | "success" | "error"
@@ -305,6 +337,106 @@ export default function PortalCatalog() {
     } catch { /* ignore */ }
   }, [cart, customerId]);
 
+  // ── Category list ─────────────────────────────────────────────────────────
+  // Read once from the whole catalog, so every category stays visible even
+  // though only 30 products are loaded. The column may hold untrimmed values
+  // and the UI has always compared trimmed ones, so each trimmed label keeps
+  // the raw variants it came from and the filter matches on all of them.
+  const loadCategories = useCallback(async () => {
+    const { data } = await supabase
+      .from("products")
+      .select("category")
+      .eq("is_active", true);
+
+    const map = new Map();
+    for (const row of data || []) {
+      const raw = row?.category;
+      if (raw === null || raw === undefined) continue;
+      const label = String(raw).trim();
+      if (!label) continue;
+      const list = map.get(label) || [];
+      if (!list.includes(raw)) list.push(raw);
+      map.set(label, list);
+    }
+    categoryValuesRef.current = map;
+    setCategories(["הכל", ...[...map.keys()].sort()]);
+  }, []);
+
+  // ── One page of allowed products ──────────────────────────────────────────
+  // Search and category run in the database, so a product that has never been
+  // loaded is still reachable. Blocked products are removed after the read, and
+  // the loop keeps reading source rows until PAGE_SIZE allowed products are
+  // collected or the server runs out — a page is never short just because
+  // blocked items were filtered out.
+  const loadBatch = useCallback(async (reset) => {
+    if (loadingRef.current) return;
+
+    if (reset) {
+      // Invalidate anything already in flight: its result is stale.
+      requestIdRef.current += 1;
+      sourceOffsetRef.current = 0;
+      seenIdsRef.current = new Set();
+    }
+    const runId = requestIdRef.current;
+
+    loadingRef.current = true;
+    setLoadingMore(true);
+
+    const collected = [];
+    let exhausted = false;
+
+    try {
+      while (collected.length < PAGE_SIZE && !exhausted) {
+        const from = sourceOffsetRef.current;
+
+        let q = supabase
+          .from("products")
+          .select("id, name, sell_price, quantity, unit, image_url, category, description")
+          .eq("is_active", true)
+          // Deterministic order, with id as a tiebreaker so equal names cannot
+          // shuffle between pages and duplicate or skip a row.
+          .order("name", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + SOURCE_CHUNK - 1);
+
+        if (activeCategory !== "הכל") {
+          const raws = categoryValuesRef.current.get(activeCategory) || [activeCategory];
+          q = q.in("category", raws);
+        }
+        if (debouncedSearch) q = q.ilike("name", `%${debouncedSearch}%`);
+
+        const { data, error } = await q;
+
+        // A newer search or category change happened while this was running.
+        if (requestIdRef.current !== runId) return;
+        if (error) { exhausted = true; break; }
+
+        const rows = data || [];
+        let consumed = 0;
+        for (const row of rows) {
+          consumed++;
+          if (blockedIdsRef.current.has(row.id)) continue;
+          if (seenIdsRef.current.has(row.id)) continue;
+          seenIdsRef.current.add(row.id);
+          collected.push(row);
+          if (collected.length >= PAGE_SIZE) break;
+        }
+        // Advance by rows actually consumed, never by the chunk size, so the
+        // rows after an early break are read again on the next call.
+        sourceOffsetRef.current = from + consumed;
+
+        if (rows.length < SOURCE_CHUNK) exhausted = true;
+      }
+
+      if (requestIdRef.current !== runId) return;
+      setProducts(prev => (reset ? collected : [...prev, ...collected]));
+      setHasMore(!exhausted);
+    } finally {
+      if (requestIdRef.current === runId) setLoadingMore(false);
+      loadingRef.current = false;
+    }
+  }, [activeCategory, debouncedSearch]);
+
   // Load page data
   useEffect(() => {
     let cancelled = false;
@@ -328,17 +460,14 @@ export default function PortalCatalog() {
 
         if (!staff) { if (!cancelled) navigate("/portal/login", { replace: true }); return; }
 
-        // Demo mode: load all active products, no discount, no blocked filter
-        const { data: allProducts } = await supabase
-          .from("products")
-          .select("id, name, sell_price, quantity, unit, image_url, category, description")
-          .eq("is_active", true);
-
+        // Demo mode: no discount and no blocked filter. Products themselves are
+        // loaded by the paging effect below, exactly like the customer path.
         if (!cancelled) {
+          blockedIdsRef.current = new Set();
+          await loadCategories();
           setIsDemo(true);
           setDiscount(0);
           setMinOrderAmount(0);
-          setProducts(allProducts || []);
           setStatus("ready");
         }
         return;
@@ -352,23 +481,54 @@ export default function PortalCatalog() {
         effectiveDiscount = customer?.discount_percent || 0;
       }
 
-      const [{ data: allProducts }, { data: blocked }] = await Promise.all([
-        supabase.from("products").select("id, name, sell_price, quantity, unit, image_url, category, description").eq("is_active", true),
-        supabase.from("customer_blocked_products").select("product_id").eq("customer_id", access.customer_id),
-      ]);
+      // Blocked ids are read once for this customer — the same rule as before,
+      // just no longer bundled with a full product download.
+      const { data: blocked } = await supabase
+        .from("customer_blocked_products")
+        .select("product_id")
+        .eq("customer_id", access.customer_id);
 
       if (!cancelled) {
-        const blockedIds = new Set((blocked || []).map(b => b.product_id));
+        blockedIdsRef.current = new Set((blocked || []).map(b => b.product_id));
+        await loadCategories();
         setCustomerId(access.customer_id);
         setMinOrderAmount(access.min_order_amount || 0);
         setDiscount(effectiveDiscount);
-        setProducts((allProducts || []).filter(p => !blockedIds.has(p.id)));
         setStatus("ready");
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, [navigate, loadCategories]);
+
+  // ── Debounce the search box ───────────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // ── Reset and load the first page whenever the query changes ──────────────
+  useEffect(() => {
+    if (status !== "ready") return;
+    loadBatch(true);
+  }, [status, debouncedSearch, activeCategory, loadBatch]);
+
+  // ── Infinite scroll ───────────────────────────────────────────────────────
+  // IntersectionObserver rather than scroll maths: it is the reliable option on
+  // mobile Safari, and rootMargin starts the next fetch before the user reaches
+  // the very bottom.
+  useEffect(() => {
+    if (status !== "ready" || !hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadBatch(false); },
+      { rootMargin: "400px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [status, hasMore, loadBatch, products.length]);
 
   // Cart helpers
   const addToCart = useCallback((product, discountedPrice) => {
@@ -435,17 +595,10 @@ export default function PortalCatalog() {
     }
   };
 
-  const categories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category?.trim()).filter(Boolean))].sort();
-    return ["הכל", ...cats];
-  }, [products]);
-
-  const filtered = useMemo(() => {
-    let list = products;
-    if (activeCategory !== "הכל") list = list.filter(p => p.category?.trim() === activeCategory);
-    if (search.trim()) { const q = search.trim().toLowerCase(); list = list.filter(p => p.name?.toLowerCase().includes(q)); }
-    return list;
-  }, [products, activeCategory, search]);
+  // `products` already holds exactly what should be shown: the server applied
+  // the search and the category, and blocked items were removed as they were
+  // read. There is no client-side filtering left to do.
+  const filtered = products;
 
   const cartItemCount = cart.reduce((s, i) => s + i.quantity, 0);
 
@@ -581,7 +734,7 @@ export default function PortalCatalog() {
           )}
 
           {/* Product grid */}
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && !loadingMore ? (
             <div style={{ textAlign: "center", padding: "64px 0", color: MUTED, fontSize: 15 }}>לא נמצאו מוצרים</div>
           ) : (
             <div className="portal-product-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14 }}>
@@ -593,6 +746,13 @@ export default function PortalCatalog() {
                 );
               })}
             </div>
+          )}
+
+          {/* Infinite-scroll sentinel: observed only while more results exist. */}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+
+          {loadingMore && (
+            <div style={{ textAlign: "center", padding: "24px 0", color: MUTED, fontSize: 13 }}>טוען מוצרים נוספים…</div>
           )}
         </div>
 
