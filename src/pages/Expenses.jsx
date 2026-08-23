@@ -180,6 +180,19 @@ export default function Expenses() {
   // leave the blob held in memory.
   useEffect(() => releaseBlob, []);
 
+  // The same thing Suppliers and DocumentCenter do with a supplier document:
+  // give the URL to the browser and let it (or the OS) take over. Used for the
+  // formats no browser can render.
+  const openExternally = (fileUrl) => {
+    const win = window.open(fileUrl, "_blank");
+    if (!win) {
+      setViewer({ open: true, loading: false, url: null, type: null, error: "הדפדפן חסם את פתיחת החלון" });
+      return;
+    }
+    try { win.opener = null; } catch (e) { /* cross-origin guard */ }
+    closeViewer();
+  };
+
   const openDocument = async (url) => {
     const runId = ++viewerReqRef.current;
     releaseBlob();
@@ -202,30 +215,13 @@ export default function Expenses() {
         await sniffType(bytes);
       if (viewerReqRef.current !== runId) return;
 
-      if (type === HEIF_TYPE) {
-        // No browser outside Safari can paint HEIC, so the already-fetched
-        // bytes are decoded to a JPEG in memory purely for display. The decoder
-        // is pulled in only at this point — every other document loads the page
-        // without it — and the stored HEIC is never touched.
-        try {
-          const { default: heic2any } = await import("heic2any");
-          const converted = await heic2any({ blob: bytes, toType: "image/jpeg", quality: 0.9 });
-          // Live Photos and bursts decode to several frames; the first is the page.
-          const jpeg = Array.isArray(converted) ? converted[0] : converted;
-          // Decoding a large photo takes seconds, so the viewer may have been
-          // closed or moved on by now — that result is thrown away unused.
-          if (viewerReqRef.current !== runId) return;
-          const heicUrl = URL.createObjectURL(jpeg);
-          blobUrlRef.current = heicUrl;
-          setViewer({ open: true, loading: false, url: heicUrl, type: "image/jpeg", error: "" });
-        } catch (convErr) {
-          if (viewerReqRef.current !== runId) return;
-          setViewer({ open: true, loading: false, url: null, type, error: "לא ניתן להציג את קובץ ה-HEIC" });
-        }
-        return;
-      }
-      if (type !== "application/pdf" && !DISPLAYABLE_IMAGES.includes(type)) {
-        setViewer({ open: true, loading: false, url: null, type, error: "לא ניתן להציג סוג קובץ זה" });
+      // HEIC/HEIF, and anything whose type could not be resolved, cannot be
+      // painted by the browser. Rather than decoding it here, the stored URL is
+      // handed to the browser exactly as the supplier screens already do, and
+      // the operating system opens it. Nothing is fetched a second time — this
+      // is a plain navigation to the same public file_url.
+      if (type === HEIF_TYPE || (type !== "application/pdf" && !DISPLAYABLE_IMAGES.includes(type))) {
+        openExternally(url);
         return;
       }
 
