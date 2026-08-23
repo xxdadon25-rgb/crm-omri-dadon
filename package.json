@@ -55,6 +55,7 @@
     "dom-to-image-more": "^3.10.0",
     "embla-carousel-react": "^8.5.2",
     "framer-motion": "^11.16.4",
+    "heic2any": "^0.0.4",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",

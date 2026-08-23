@@ -203,7 +203,25 @@ export default function Expenses() {
       if (viewerReqRef.current !== runId) return;
 
       if (type === HEIF_TYPE) {
-        setViewer({ open: true, loading: false, url: null, type, error: "הדפדפן אינו תומך בתצוגת קובץ HEIC/HEIF" });
+        // No browser outside Safari can paint HEIC, so the already-fetched
+        // bytes are decoded to a JPEG in memory purely for display. The decoder
+        // is pulled in only at this point — every other document loads the page
+        // without it — and the stored HEIC is never touched.
+        try {
+          const { default: heic2any } = await import("heic2any");
+          const converted = await heic2any({ blob: bytes, toType: "image/jpeg", quality: 0.9 });
+          // Live Photos and bursts decode to several frames; the first is the page.
+          const jpeg = Array.isArray(converted) ? converted[0] : converted;
+          // Decoding a large photo takes seconds, so the viewer may have been
+          // closed or moved on by now — that result is thrown away unused.
+          if (viewerReqRef.current !== runId) return;
+          const heicUrl = URL.createObjectURL(jpeg);
+          blobUrlRef.current = heicUrl;
+          setViewer({ open: true, loading: false, url: heicUrl, type: "image/jpeg", error: "" });
+        } catch (convErr) {
+          if (viewerReqRef.current !== runId) return;
+          setViewer({ open: true, loading: false, url: null, type, error: "לא ניתן להציג את קובץ ה-HEIC" });
+        }
         return;
       }
       if (type !== "application/pdf" && !DISPLAYABLE_IMAGES.includes(type)) {
