@@ -1,5 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
+
+// Rows fetched per page, and the chunk size used by the reads that must cover
+// the whole table (dropdown options and the CSV export).
+const PAGE_SIZE = 30;
+const OPTION_CHUNK = 1000;
 
 // Seed from sessionStorage so module-level set is populated after page refresh
 const _rawSS = (() => { try { return JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]"); } catch { return []; } })();
@@ -11,8 +16,9 @@ const getPendingDeletedProductIds = () => {
 const setPendingDeletedProductIds = (set) => {
   sessionStorage.setItem("pendingDeletedProducts", JSON.stringify([...set]));
 };
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Plus, Search, Trash2, Pencil, AlertTriangle, Download, Upload, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
@@ -42,26 +48,211 @@ export default function Inventory() {
     queryClient.resetQueries({ queryKey: ["products"] });
   }, []);
 
-  const { data: products = [], isLoading } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")),
-    refetchOnMount: "always",
-    select: (data) => {
+  // ── Paged product list ────────────────────────────────────────────────────
+  // The screen used to download the whole products table on every visit. It now
+  // reads 30 rows at a time and appends the next 30 as the list is scrolled.
+  // The rows live in local state on purpose: the shared ["products"] cache is
+  // read by a dozen other screens that need the COMPLETE catalog, so a paged
+  // result must never be written into it.
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [supplierNames, setSupplierNames] = useState([]);
+
+  const offsetRef = useRef(0);
+  const seenIdsRef = useRef(new Set());
+  // Bumped on every reset so a slow response from a previous search or category
+  // can never overwrite the rows of the current one.
+  const requestIdRef = useRef(0);
+  const loadingRef = useRef(false);
+  const sentinelRef = useRef(null);
+
+  // Debounce the search box so typing does not fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // The search box has always matched name, sku and barcode. PostgREST splits an
+  // `or` expression on commas and parentheses, so each value is quoted and the
+  // quote/backslash characters inside it are escaped — otherwise a comma typed
+  // into the box would break the filter apart.
+  const buildSearchExpr = (term) => {
+    const value = `"%${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}%"`;
+    return ["name", "sku", "barcode"].map(f => `${f}.ilike.${value}`).join(",");
+  };
+
+  const applyFilters = (q, term, cat) => {
+    if (cat !== "all") q = q.eq("category", cat);
+    if (term) q = q.or(buildSearchExpr(term));
+    return q;
+  };
+
+  // Read-only twin of the delete and update guards in fetchProductsWithPending,
+  // used for the pages that infinite scroll appends. It reads exactly the same
+  // session-storage entries and applies exactly the same rules, but writes
+  // nothing back, so _confirmCount is left untouched. The create guard is
+  // deliberately absent: a pending product is the newest row and therefore
+  // belongs to the first page, which the shared helper still handles.
+  const applyPendingGuardsReadOnly = (rows) => {
+    const sessionDeleted = getPendingDeletedProductIds();
+    let out = rows.filter(p => !deletedProductIds.has(p.id) && !sessionDeleted.has(p.id));
+
+    const rawUpdate = sessionStorage.getItem("pendingProductUpdates");
+    if (rawUpdate) {
+      try {
+        const pendingUpdates = JSON.parse(rawUpdate);
+        out = out.map(p => {
+          const pending = pendingUpdates.find(u => u.id === p.id);
+          if (!pending) return p;
+          const backendCaughtUp = p.updated_date && pending._savedAt &&
+            new Date(p.updated_date).getTime() >= pending._savedAt;
+          if (backendCaughtUp) return p;
+          // Backend still stale — show the version saved locally.
+
+          const { _confirmCount, _savedAt, ...cleanPending } = pending;
+          return cleanPending;
+        });
+      } catch (e) { /* malformed entry — fall back to the backend rows */ }
+    }
+    return out;
+  };
+
+  const loadBatch = useCallback(async (reset) => {
+    // A reset is never dropped: typing while a page is still in flight must
+    // start the new search, and the older run is discarded by its run id below.
+    if (!reset && (loadingRef.current || !hasMore)) return;
+    loadingRef.current = true;
+
+    const runId = reset ? ++requestIdRef.current : requestIdRef.current;
+    if (reset) {
+      offsetRef.current = 0;
+      seenIdsRef.current = new Set();
+      setIsLoading(true);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    const term = debouncedSearch;
+    const cat = categoryFilter;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const from = offsetRef.current;
+
+      // The secondary id key keeps the order stable, so two products sharing a
+      // created_date cannot swap between pages and appear twice or not at all.
+      let q = supabase.from("products").select("*").eq("user_id", user?.id);
+      q = applyFilters(q, term, cat)
+        .order("created_date", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      const { data, error } = await q;
+      if (error) throw error;
+      if (requestIdRef.current !== runId) return;
+
+      const batch = data || [];
+      // Same session-storage guards the screen has always applied: locally
+      // deleted rows stay hidden, locally saved edits win over a stale row, and
+      // a just-created product is shown until the backend returns it.
+      //
+      // The shared helper also keeps the _confirmCount bookkeeping, and that
+      // must advance once per list load exactly as it did before paging — so it
+      // runs only on a reset. Scrolling to the next page applies the very same
+      // guards read-only, and can never nudge a pending entry towards expiry.
+      const merged = reset
+        ? await fetchProductsWithPending(() => Promise.resolve([...batch]))
+        : applyPendingGuardsReadOnly(batch);
       const sessionDeleted = getPendingDeletedProductIds();
-      return data.filter(p => !deletedProductIds.has(p.id) && !sessionDeleted.has(p.id));
-    },
-  });
+      const fresh = merged.filter(p =>
+        !deletedProductIds.has(p.id) &&
+        !sessionDeleted.has(p.id) &&
+        !seenIdsRef.current.has(p.id) &&
+        (!term || [p.name, p.sku, p.barcode].some(f => f?.toLowerCase().includes(term.toLowerCase()))) &&
+        (cat === "all" || p.category === cat)
+      );
+      fresh.forEach(p => seenIdsRef.current.add(p.id));
 
-  const categories = useMemo(() => [...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
-  const supplierNames = useMemo(() => [...new Set(products.map((p) => p.supplier).filter(Boolean))], [products]);
+      offsetRef.current = from + batch.length;
+      // A short page means the server has nothing left for this filter.
+      setHasMore(batch.length === PAGE_SIZE);
+      setProducts(prev => (reset ? fresh : [...prev, ...fresh]));
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const matchSearch = !search || [p.name, p.sku, p.barcode].some((f) => f?.toLowerCase().includes(search.toLowerCase()));
-      const matchCat = categoryFilter === "all" || p.category === categoryFilter;
-      return matchSearch && matchCat;
-    });
-  }, [products, search, categoryFilter]);
+      if (reset) {
+        let cq = supabase.from("products").select("id", { count: "exact", head: true }).eq("user_id", user?.id);
+        const { count } = await applyFilters(cq, term, cat);
+        if (requestIdRef.current === runId) setTotalCount(count || 0);
+      }
+    } catch (error) {
+      if (requestIdRef.current === runId) {
+        setHasMore(false);
+        toast.error("שגיאה בטעינת המוצרים");
+      }
+    } finally {
+      // Only the current run clears the flags — a superseded run finishing late
+      // must not unlock loading while its replacement is still fetching.
+      if (requestIdRef.current === runId) {
+        setIsLoading(false);
+        setLoadingMore(false);
+        loadingRef.current = false;
+      }
+    }
+  }, [debouncedSearch, categoryFilter, hasMore]);
+
+  // A search or category change restarts paging from the first page.
+  useEffect(() => {
+    loadBatch(true);
+
+  }, [debouncedSearch, categoryFilter]);
+
+  // Infinite scroll: load the next page slightly before the list runs out.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingRef.current) loadBatch(false);
+    }, { rootMargin: "400px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+    // isLoading and the row count are dependencies because the sentinel is
+    // unmounted while the first page loads — the observer has to re-attach to
+    // the new node once the table is rendered again.
+  }, [hasMore, loadBatch, isLoading, products.length]);
+
+  // The dropdown here and the ones inside ProductDialog must keep offering every
+  // existing value, so these are read from the whole table rather than from the
+  // rows that happen to be loaded.
+  useEffect(() => {
+    let cancelled = false;
+    const loadOptions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const cats = new Set();
+        const sups = new Set();
+        for (let from = 0; ; from += OPTION_CHUNK) {
+          const { data, error } = await supabase
+            .from("products").select("category, supplier").eq("user_id", user?.id)
+            .range(from, from + OPTION_CHUNK - 1);
+          if (error) throw error;
+          const rows = data || [];
+          rows.forEach(r => { if (r.category) cats.add(r.category); if (r.supplier) sups.add(r.supplier); });
+          if (rows.length < OPTION_CHUNK) break;
+        }
+        if (!cancelled) { setCategories([...cats]); setSupplierNames([...sups]); }
+      } catch (e) { /* dropdowns stay as they are */ }
+    };
+    loadOptions();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Rows are already filtered by the server; nothing left to filter client-side.
+  const filtered = products;
 
   const isAllSelected = filtered.length > 0 && filtered.every(p => selectedProducts.has(p.id));
   const selectedCount = selectedProducts.size;
@@ -98,6 +289,9 @@ export default function Inventory() {
     setPendingDeletedProductIds(pendingDeleted);
 
     queryClient.setQueryData(["products"], (old = []) => old.filter(p => p.id !== idToDelete));
+    // The rendered rows are local state now, so drop it here too.
+    setProducts(prev => prev.filter(p => p.id !== idToDelete));
+    setTotalCount(c => Math.max(0, c - 1));
 
     try {
       await base44.entities.Product.delete(idToDelete);
@@ -119,6 +313,8 @@ export default function Inventory() {
     ids.forEach(id => pendingDeleted.add(id));
     setPendingDeletedProductIds(pendingDeleted);
     queryClient.setQueryData(["products"], (old = []) => old.filter(p => !deletedProductIds.has(p.id)));
+    setProducts(prev => prev.filter(p => !deletedProductIds.has(p.id)));
+    setTotalCount(c => Math.max(0, c - ids.length));
     setSelectedProducts(new Set());
     setBulkDeleteOpen(false);
     await Promise.allSettled(ids.map(id => base44.entities.Product.delete(id)));
@@ -127,9 +323,36 @@ export default function Inventory() {
     setDeleting(false);
   };
 
-  const handleExport = () => {
+  // Export keeps covering the COMPLETE inventory. It reads the whole table
+  // itself rather than the rows currently paged into the screen, so what lands
+  // in the CSV does not depend on how far the list was scrolled.
+  const handleExport = async () => {
+    let all = [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      for (let from = 0; ; from += OPTION_CHUNK) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("name, sku, barcode, category, supplier, buy_price, sell_price, quantity, min_quantity, id")
+          .eq("user_id", user?.id)
+          .order("created_date", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, from + OPTION_CHUNK - 1);
+        if (error) throw error;
+        const rows = data || [];
+        all = all.concat(rows);
+        if (rows.length < OPTION_CHUNK) break;
+      }
+    } catch (e) {
+      toast.error("שגיאה בייצוא המוצרים");
+      return;
+    }
+
+    const sessionDeleted = getPendingDeletedProductIds();
+    all = all.filter(p => !deletedProductIds.has(p.id) && !sessionDeleted.has(p.id));
+
     const headers = ["שם מוצר", "מק״ט", "ברקוד", "קטגוריה", "ספק", "מחיר קנייה", "מחיר מכירה", "כמות", "מינימום"];
-    const rows = products.map((p) => [p.name, p.sku, p.barcode, p.category, p.supplier, p.buy_price, p.sell_price, p.quantity, p.min_quantity]);
+    const rows = all.map((p) => [p.name, p.sku, p.barcode, p.category, p.supplier, p.buy_price, p.sell_price, p.quantity, p.min_quantity]);
     const csv = "\uFEFF" + [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
@@ -175,7 +398,7 @@ export default function Inventory() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: DARK, margin: 0 }}>ניהול מלאי</h1>
-          <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{products.length} מוצרים</p>
+          <p style={{ fontSize: 13, color: MUTED, margin: "2px 0 0" }}>{totalCount} מוצרים</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button style={outlineBtn} onClick={() => navigate("/inventory-dashboard")}
@@ -289,7 +512,7 @@ export default function Inventory() {
                       {/* OLD: <TableCell><div className="flex items-center gap-2">{p.image_url && <img .../>}<span className="font-medium">{p.name}</span></div></TableCell> */}
                       <td style={{ padding: "14px 20px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          {p.image_url && <img src={p.image_url} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />}
+                          {p.image_url && <img src={p.image_url} alt="" loading="lazy" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />}
                           <span style={{ fontWeight: 500, fontSize: 13, color: DARK }}>{p.name}</span>
                         </div>
                       </td>
@@ -339,6 +562,14 @@ export default function Inventory() {
             </table>
           </div>
 
+          {/* Infinite scroll sentinel — loads the next 30 before the list ends */}
+          <div ref={sentinelRef} style={{ height: 1 }} />
+          {loadingMore && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "18px 0" }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+            </div>
+          )}
+
           {/* Bottom bulk bar */}
           {selectedCount > 0 && (
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.04)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -365,11 +596,20 @@ export default function Inventory() {
             const filtered = existingUpdates.filter(p => p.id !== savedProduct.id);
             filtered.unshift({ ...savedProduct, _confirmCount: 0, _savedAt: Date.now() });
             sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
+            // Mirror into the rendered rows, which are local state now.
+            setProducts(prev => prev.map(p => p.id === savedProduct.id ? savedProduct : p));
           } else {
             queryClient.setQueryData(["products"], (old = []) => [savedProduct, ...(Array.isArray(old) ? old : [])]);
             const existing = JSON.parse(sessionStorage.getItem("pendingProducts") || "[]");
             existing.unshift({ ...savedProduct, _confirmCount: 0 });
             sessionStorage.setItem("pendingProducts", JSON.stringify(existing));
+            // A new product is the newest row, so it belongs at the top of the
+            // created_date DESC list the screen is paging through.
+            if (!seenIdsRef.current.has(savedProduct.id)) {
+              seenIdsRef.current.add(savedProduct.id);
+              setProducts(prev => [savedProduct, ...prev]);
+              setTotalCount(c => c + 1);
+            }
           }
         }}
         categories={categories}
