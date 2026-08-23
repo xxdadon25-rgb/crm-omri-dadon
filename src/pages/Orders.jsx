@@ -258,6 +258,49 @@ export default function Orders() {
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
+  // ── Customer-specific product prices ───────────────────────────────────────
+  // The last unit price saved for a customer becomes that customer's price for
+  // that product, and the portal shows it instead of sell_price. One row per
+  // customer+product, overwritten on every later save — no history.
+  //
+  // products.sell_price is NEVER written here. Orders with no customer, and
+  // items with no product_id or no usable price, are skipped.
+  const saveCustomerProductPrices = async (updated, order) => {
+    const customerId = updated?.customer_id || order?.customer_id;
+    if (!customerId) return;
+
+    const items = updated?.items || order?.items || [];
+    const rows = [];
+    const seen = new Set();
+
+    for (const item of items) {
+      const productId = item?.product_id;
+      if (!productId || seen.has(productId)) continue;
+
+      const price = Number(item?.unit_price);
+      if (!Number.isFinite(price) || price < 0) continue;
+
+      seen.add(productId);
+      rows.push({
+        customer_id: customerId,
+        product_id: productId,
+        unit_price: price,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (rows.length === 0) return;
+
+    // Latest price wins for an existing pair.
+    const { error } = await supabase
+      .from("customer_product_prices")
+      .upsert(rows, { onConflict: "customer_id,product_id" });
+
+    // Non-fatal: the order itself is already saved, and failing here must not
+    // make a successful order look like a failure.
+    if (error) console.warn("customer price not saved:", error.message);
+  };
+
   const commitEditSave = async (updates, order, restoreStock = false) => {
     setSaving(true);
     try {
@@ -280,6 +323,12 @@ export default function Orders() {
       }
 
       const updated = await base44.entities.Order.update(order.id, updates);
+
+      // Remember this customer's price for each product. Runs ONLY after the
+      // order update above has succeeded, and never touches products.sell_price:
+      // the catalogue price is unchanged, this is a separate per-customer record.
+      await saveCustomerProductPrices(updated, order);
+
       sessionStorage.setItem("pendingOrderUpdate", JSON.stringify(updated));
       queryClient.setQueryData(["orders"], (old = []) => old.map(o => o.id === updated.id ? updated : o));
       setEditOrder(null);

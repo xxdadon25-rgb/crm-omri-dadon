@@ -33,12 +33,22 @@ function Spinner() {
 }
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-function ProductCard({ product, discount, cartQty, onAdd }) {
+function ProductCard({ product, discount, customerPrice, cartQty, onAdd }) {
   const [imgError, setImgError] = useState(false);
   const imageUrl = product.image_url ? product.image_url.split(",")[0].trim() : null;
   const showImage = imageUrl && !imgError;
   const originalPrice = product.sell_price || 0;
-  const discountedPrice = originalPrice * (1 - discount / 100);
+
+  // A price saved for this customer in the CRM is the FINAL price: the
+  // percentage discount is deliberately NOT applied on top of it, because that
+  // price was already set by hand for this customer. With no saved price the
+  // original behaviour is untouched — sell_price with the customer discount.
+  const hasCustomerPrice = typeof customerPrice === "number" && Number.isFinite(customerPrice);
+  const discountedPrice = hasCustomerPrice
+    ? customerPrice
+    : originalPrice * (1 - discount / 100);
+  // The struck-through original is only meaningful when a discount was applied.
+  const showOriginal = !hasCustomerPrice && discount > 0;
 
   return (
     <div style={{ background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -63,7 +73,7 @@ function ProductCard({ product, discount, cartQty, onAdd }) {
         )}
         <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span className="card-price" style={{ fontSize: 18, fontWeight: 800, color: ACCENT }}>₪{fmt(discountedPrice)}</span>
-          {discount > 0 && <span className="card-price-orig" style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
+          {showOriginal && <span className="card-price-orig" style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₪{fmt(originalPrice)}</span>}
           <span className="card-unit" style={{ fontSize: 12, color: MUTED, marginRight: "auto" }}>{product.unit || "יחידה"}</span>
         </div>
         <button
@@ -282,6 +292,8 @@ export default function PortalCatalog() {
   const [discount, setDiscount] = useState(0);
   const [products, setProducts] = useState([]);
   const [customerId, setCustomerId] = useState(null);
+  // product_id -> price saved for this customer in the CRM. Empty in demo mode.
+  const [customerPrices, setCustomerPrices] = useState({});
   const [minOrderAmount, setMinOrderAmount] = useState(0);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("הכל");
@@ -488,8 +500,24 @@ export default function PortalCatalog() {
         .select("product_id")
         .eq("customer_id", access.customer_id);
 
+      // Prices this customer was last charged in the CRM. Read once, like the
+      // blocked ids: there is at most one row per product this customer has
+      // actually been quoted, so this stays small even for a large catalogue.
+      // A missing row simply means "no special price" and the product keeps its
+      // normal sell_price + discount.
+      const { data: savedPrices } = await supabase
+        .from("customer_product_prices")
+        .select("product_id, unit_price")
+        .eq("customer_id", access.customer_id);
+
       if (!cancelled) {
         blockedIdsRef.current = new Set((blocked || []).map(b => b.product_id));
+        const priceMap = {};
+        for (const row of savedPrices || []) {
+          const price = Number(row.unit_price);
+          if (Number.isFinite(price)) priceMap[row.product_id] = price;
+        }
+        setCustomerPrices(priceMap);
         await loadCategories();
         setCustomerId(access.customer_id);
         setMinOrderAmount(access.min_order_amount || 0);
@@ -742,6 +770,7 @@ export default function PortalCatalog() {
                 const cartItem = cart.find(i => i.product_id === product.id);
                 return (
                   <ProductCard key={product.id} product={product} discount={discount}
+                    customerPrice={customerPrices[product.id]}
                     cartQty={cartItem?.quantity || 0} onAdd={addToCart} />
                 );
               })}
