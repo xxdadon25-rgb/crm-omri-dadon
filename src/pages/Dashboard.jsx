@@ -450,6 +450,21 @@ export default function Dashboard() {
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
   const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date") });
 
+  // Only the two columns the monthly card needs. Its own key, like the other
+  // dashboard-scoped queries above, so the Expenses page cache is untouched.
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["dashboard-expenses"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("date, amount_net")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const currentMonthNum = new Date().getMonth() + 1;
   const currentYearNum = new Date().getFullYear();
   const { data: monthlyGoal } = useQuery({
@@ -493,6 +508,27 @@ export default function Dashboard() {
   const monthlyProfit = getMonthlyProfit(orders, products);
 
   const now = new Date();
+
+  // ── This month, before VAT ────────────────────────────────────────────────
+  // Both date columns are DATE, so PostgREST hands them over as "YYYY-MM-DD".
+  // Matching on the month prefix avoids parsing them into Date objects at all:
+  // `new Date("2026-08-01")` is UTC midnight while getMonth() reads local time,
+  // which slips a day either side of a month boundary in some zones. A string
+  // comparison cannot slip. The prefix itself comes from the local clock, so
+  // "this month" is the month the user is actually in.
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const inThisMonth = (d) => typeof d === "string" && d.startsWith(monthPrefix);
+
+  // subtotal and amount_net are the stored before-VAT amounts. Nothing here
+  // divides by a VAT rate or derives a net figure from a gross one.
+  const incomeNetThisMonth = invoices
+    .filter(inv => inThisMonth(inv.date))
+    .reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+  const expensesNetThisMonth = expenses
+    .filter(e => inThisMonth(e.date))
+    .reduce((sum, e) => sum + (Number(e.amount_net) || 0), 0);
+  const profitNetThisMonth = incomeNetThisMonth - expensesNetThisMonth;
+
   const newCustomersThisMonth = customers
     .filter(c => {
       const d = c.created_date ? new Date(c.created_date) : null;
@@ -748,6 +784,22 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Monthly result — last in the grid, so RTL places it to the left of
+            the low-stock card, in the space that was empty. */}
+        <div style={CARD_STYLE}>
+          <h3 style={{ fontWeight: 600, fontSize: 14, color: DARK, margin: "0 0 12px" }}>סיכום חודשי</h3>
+          {[
+            { label: "סה״כ הכנסות ללא מע״מ החודש", value: incomeNetThisMonth, color: DARK },
+            { label: "סה״כ הוצאות ללא מע״מ החודש", value: expensesNetThisMonth, color: DARK },
+            { label: "רווח החודש", value: profitNetThisMonth, color: profitNetThisMonth < 0 ? "#ef4444" : "#16a34a", strong: true },
+          ].map(({ label, value, color, strong }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+              <span style={{ fontSize: 13, color: MUTED }}>{label}</span>
+              <span style={{ fontSize: strong ? 17 : 15, fontWeight: strong ? 800 : 600, color }}>{formatCurrency(value)}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Section 5: Goal vs Actual ────────────────────────────────────── */}
