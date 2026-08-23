@@ -144,6 +144,89 @@ async function preprocessImage(file) {
   }
 }
 
+// ── Optional expense metadata ────────────────────────────────────────────────
+//
+// The same extraction call may also return document-level financial fields.
+// Everything here is best-effort and additive: if the function does not return
+// them, or returns something unexpected, every field comes back null and the
+// goods-receipt flow proceeds exactly as it always has.
+//
+// Nothing is derived. A missing amount stays missing — inventing one would put
+// a number the document never stated into the books.
+
+const EXPENSE_CATEGORY = "רכישות ספקים";
+
+// Only a document that says what it is may default to creating an expense.
+const FINANCIAL_DOC_TYPES = ["tax_invoice", "invoice", "receipt"];
+
+// Accepts YYYY-MM-DD only, and only if it is a real calendar date. Round-tripping
+// through Date catches 2026-02-30 and 2026-13-01, which the pattern alone lets
+// through. Anything else is treated as "no date".
+function validDocumentDate(v) {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10) === s ? s : null;
+}
+
+function readExpenseMetadata(data) {
+  const empty = {
+    document_type: "unknown",
+    document_date: null,
+    document_number: null,
+    amount_net: null,
+    vat_amount: null,
+    amount_gross: null,
+  };
+  try {
+    const num = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    // Normalised so "Invoice" and "TAX_INVOICE" are still recognised.
+    const type = str(data?.document_type)?.toLowerCase();
+    return {
+      document_type: type || "unknown",
+      document_date: validDocumentDate(data?.document_date),
+      document_number: str(data?.document_number),
+      amount_net: num(data?.amount_net),
+      vat_amount: num(data?.vat_amount),
+      amount_gross: num(data?.amount_gross),
+    };
+  } catch (e) {
+    return empty;
+  }
+}
+
+// An expense can only be created from an amount the document actually stated.
+function canCreateExpense(meta) {
+  return !!meta && meta.amount_net != null && meta.amount_net >= 0;
+}
+
+// Only checked when all three amounts are present. Rounding on real documents
+// is why this tolerates 2 agorot rather than demanding exact equality.
+function amountsInconsistent(meta) {
+  if (!meta) return false;
+  const { amount_net: net, vat_amount: vat, amount_gross: gross } = meta;
+  if (net == null || vat == null || gross == null) return false;
+  return Math.abs(net + vat - gross) > 0.02;
+}
+
+// Every condition that must hold before a document may become an expense. A
+// document that fails any of them is shown with the reason and cannot be
+// recorded — bad totals must never reach the books silently.
+function expenseEligible(meta) {
+  return canCreateExpense(meta)
+    && FINANCIAL_DOC_TYPES.includes(meta.document_type)
+    // The expense is dated by the document, never by the day it was received.
+    && !!meta.document_date
+    && !amountsInconsistent(meta);
+}
+
 // ── Auto-merge duplicate rows ────────────────────────────────────────────────
 
 function mergeExtractedItems(items) {
@@ -186,6 +269,8 @@ async function extractFromFile(file, _onRetry) {
   return {
     supplier: data.supplier || null,
     items: mergeExtractedItems((data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) }))),
+    // Additive. Ignored entirely by the goods-receipt path.
+    metadata: readExpenseMetadata(data),
   };
 }
 
@@ -318,6 +403,12 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const cameraInputRef = useRef();
   const matchedResultRef = useRef([]);
   const fileUrlRef = useRef(null);
+  // Optional expense metadata from the same extraction. Held in a ref so it
+  // survives the multi-step dialog, mirrored into state only for display.
+  const expenseMetaRef = useRef(null);
+  const createExpenseRef = useRef(false);
+  const [expenseMeta, setExpenseMeta] = useState(null);
+  const [createExpense, setCreateExpense] = useState(false);
 
   // Load products and open supplier order every time the modal opens
   useEffect(() => {
@@ -355,6 +446,10 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     setLinkingIdx(null);
     setLinkSearch("");
     setSkuConflict(null);
+    expenseMetaRef.current = null;
+    createExpenseRef.current = false;
+    setExpenseMeta(null);
+    setCreateExpense(false);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -396,6 +491,18 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       if (!extractedItems.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
       fileUrlRef.current = uploadedUrl;
+
+      // Additive: remember the optional financial metadata. Wrapped so that a
+      // failure here can never stop a goods receipt that already extracted fine.
+      try {
+        const meta = result.metadata || null;
+        expenseMetaRef.current = meta;
+        setExpenseMeta(meta);
+        // Defaults on only for a financial document whose totals reconcile.
+        const on = expenseEligible(meta);
+        createExpenseRef.current = on;
+        setCreateExpense(on);
+      } catch (e) { /* metadata is optional — ignore */ }
 
       // Only warn if Gemini found supplier info AND it doesn't match
       const hasExtractedInfo = extractedSupplier?.name || extractedSupplier?.tax_id;
@@ -585,6 +692,29 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       if (openSupplierOrderRef.current?.id) {
         await supabase.from("supplier_orders").update({ status: "הושלם" }).eq("id", openSupplierOrderRef.current.id);
       }
+
+      // ── Optional expense record ──────────────────────────────────────────
+      // Runs only after the goods receipt above has fully succeeded, and is
+      // sealed in its own try/catch: a failure here — a missing table, an RLS
+      // refusal, the duplicate guard, anything — leaves stock, prices, price
+      // history and the supplier order exactly as they were just saved, and the
+      // user still sees the normal success screen.
+      try {
+        const meta = expenseMetaRef.current;
+        if (createExpenseRef.current && expenseEligible(meta) && delivery?.id) {
+          await supabase.from("expenses").upsert({
+            user_id: user?.id,
+            date: meta.document_date,
+            category: EXPENSE_CATEGORY,
+            payee: supplier?.name || null,
+            amount_net: meta.amount_net,
+            vat_amount: meta.vat_amount,
+            amount_gross: meta.amount_gross,
+            document_number: meta.document_number,
+            supplier_delivery_id: delivery.id,
+          }, { onConflict: "supplier_delivery_id", ignoreDuplicates: true });
+        }
+      } catch (e) { /* never blocks the goods receipt */ }
 
       setSummary({ updatedCount, priceChanges, addedCount });
       queryClient.removeQueries({ queryKey: ["products"] });
@@ -869,6 +999,42 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Optional expense record ──────────────────────────────────
+                Shown only when the document actually stated an amount before
+                VAT. Purely informational: unticking it changes nothing about
+                the goods receipt. */}
+            {canCreateExpense(expenseMeta) && (
+              <div className="border border-border rounded-lg p-3 text-sm space-y-2 bg-muted/20">
+                <label className={`flex items-center gap-2 font-medium ${expenseEligible(expenseMeta) ? "cursor-pointer" : "opacity-60"}`}>
+                  <input
+                    type="checkbox"
+                    checked={createExpense}
+                    disabled={!expenseEligible(expenseMeta)}
+                    onChange={e => { setCreateExpense(e.target.checked); createExpenseRef.current = e.target.checked; }}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  רישום כהוצאה
+                </label>
+                <div className="text-muted-foreground text-xs space-y-0.5 pr-6">
+                  <p>לפני מע״מ: ₪{expenseMeta.amount_net}
+                    {expenseMeta.vat_amount != null && <> · מע״מ: ₪{expenseMeta.vat_amount}</>}
+                    {expenseMeta.amount_gross != null && <> · כולל מע״מ: ₪{expenseMeta.amount_gross}</>}
+                  </p>
+                  {expenseMeta.document_number && <p>מספר מסמך: {expenseMeta.document_number}</p>}
+                  {expenseMeta.document_date && <p>תאריך המסמך: {expenseMeta.document_date}</p>}
+                  {!FINANCIAL_DOC_TYPES.includes(expenseMeta.document_type) && (
+                    <p className="text-amber-600">המסמך אינו מזוהה כחשבונית או קבלה — לא תירשם הוצאה. ניתן להזין אותה ידנית.</p>
+                  )}
+                  {!expenseMeta.document_date && (
+                    <p className="text-amber-600">לא זוהה תאריך תקין במסמך — לא תירשם הוצאה. ניתן להזין אותה ידנית.</p>
+                  )}
+                  {amountsInconsistent(expenseMeta) && (
+                    <p className="text-amber-600">הסכומים במסמך אינם מסתדרים (לפני מע״מ + מע״מ ≠ כולל מע״מ) — לא תירשם הוצאה. יש לבדוק את המסמך.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setStep("upload")}>חזרה</Button>
