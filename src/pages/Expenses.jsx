@@ -9,6 +9,26 @@ import EmptyState from "@/components/shared/EmptyState";
 import ExpenseDialog from "@/components/expenses/ExpenseDialog";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { formatDate } from "@/lib/dateUtils";
+
+// Extensions whose media type is unambiguous from the name alone. Anything not
+// listed here is opened as-is rather than guessed at — a wrong type would make
+// the browser render a file as garbage instead of downloading it honestly.
+const VIEWABLE_TYPES = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+function viewableTypeOf(url) {
+  const path = String(url).split("?")[0].split("#")[0];
+  const dot = path.lastIndexOf(".");
+  if (dot === -1) return null;
+  return VIEWABLE_TYPES[path.slice(dot + 1).toLowerCase()] || null;
+}
 
 // Suggestions only — category stays free text, so anything typed is kept.
 const DEFAULT_CATEGORIES = [
@@ -90,6 +110,43 @@ export default function Expenses() {
     () => filtered.reduce((sum, e) => sum + (Number(e.amount_net) || 0), 0),
     [filtered]
   );
+
+  // The stored object is served with headers that make the browser download it
+  // rather than display it. Re-serving the same bytes through a blob URL with an
+  // explicit media type shows the document instead. The stored file is only
+  // read — never replaced, copied or re-uploaded.
+  const openDocument = async (url) => {
+    const type = viewableTypeOf(url);
+    // The tab is opened synchronously, before any await, so the click is still
+    // what the popup blocker sees. `noopener` in the features string would make
+    // window.open return null, so the handle is severed manually instead.
+    const tab = window.open("", "_blank");
+    if (!tab) { toast.error("הדפדפן חסם את פתיחת החלון"); return; }
+    try { tab.opener = null; } catch (e) { /* cross-origin guard */ }
+
+    if (!type) {
+      // Unknown extension — send the tab to the original URL and let the
+      // browser decide, exactly as before.
+      tab.location.replace(url);
+      return;
+    }
+
+    let blobUrl;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const bytes = await res.blob();
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type }));
+      tab.location.replace(blobUrl);
+    } catch (err) {
+      tab.close();
+      toast.error("שגיאה בפתיחת המסמך");
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      return;
+    }
+    // Released once the new tab has had time to load it.
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  };
 
   const handleDelete = async () => {
     const id = deleteId;
@@ -199,7 +256,7 @@ export default function Expenses() {
                   const fileUrl = e.supplier_delivery_id ? deliveryFiles[e.supplier_delivery_id] : null;
                   return (
                     <tr key={e.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
-                      <td style={{ ...td, whiteSpace: "nowrap" }}>{e.date}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>{formatDate(e.date)}</td>
                       <td style={td}>
                         {e.category && (
                           <span style={{ borderRadius: 99, fontSize: 11, fontWeight: 600, padding: "3px 10px", background: "rgba(0,0,0,0.05)", color: DARK, display: "inline-block", whiteSpace: "nowrap" }}>{e.category}</span>
@@ -212,10 +269,10 @@ export default function Expenses() {
                       <td style={{ ...td, fontSize: 12, color: MUTED }}>{e.document_number || "—"}</td>
                       <td style={td}>
                         {fileUrl ? (
-                          <a href={fileUrl} target="_blank" rel="noopener noreferrer"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2563eb", textDecoration: "none", whiteSpace: "nowrap" }}>
+                          <button onClick={() => openDocument(fileUrl)}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2563eb", background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: "'Heebo', sans-serif", whiteSpace: "nowrap" }}>
                             <ExternalLink style={{ width: 13, height: 13 }} /> צפה במסמך
-                          </a>
+                          </button>
                         ) : (
                           <span style={{ fontSize: 12, color: MUTED }}>—</span>
                         )}
