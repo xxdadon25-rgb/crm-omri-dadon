@@ -1,9 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { Plus, Search, Trash2, Pencil, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import EmptyState from "@/components/shared/EmptyState";
 import ExpenseDialog from "@/components/expenses/ExpenseDialog";
@@ -111,41 +113,59 @@ export default function Expenses() {
     [filtered]
   );
 
+  // ── Document viewer ───────────────────────────────────────────────────────
   // The stored object is served with headers that make the browser download it
-  // rather than display it. Re-serving the same bytes through a blob URL with an
-  // explicit media type shows the document instead. The stored file is only
-  // read — never replaced, copied or re-uploaded.
+  // rather than display it, so the same bytes are re-served through a blob URL
+  // carrying an explicit media type and rendered inside this page. The stored
+  // file is only read — never replaced, copied or re-uploaded — and the user
+  // never leaves the Expenses page, so filters and scroll position survive.
+  const [viewer, setViewer] = useState({ open: false, loading: false, url: null, type: null, error: "" });
+  const blobUrlRef = useRef(null);
+  // Guards against a slow first document overwriting a second one opened after it.
+  const viewerReqRef = useRef(0);
+
+  const releaseBlob = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+  };
+
+  // Last line of defence: navigating away while the viewer is open must not
+  // leave the blob held in memory.
+  useEffect(() => releaseBlob, []);
+
   const openDocument = async (url) => {
     const type = viewableTypeOf(url);
-    // The tab is opened synchronously, before any await, so the click is still
-    // what the popup blocker sees. `noopener` in the features string would make
-    // window.open return null, so the handle is severed manually instead.
-    const tab = window.open("", "_blank");
-    if (!tab) { toast.error("הדפדפן חסם את פתיחת החלון"); return; }
-    try { tab.opener = null; } catch (e) { /* cross-origin guard */ }
+    const runId = ++viewerReqRef.current;
+    releaseBlob();
 
     if (!type) {
-      // Unknown extension — send the tab to the original URL and let the
-      // browser decide, exactly as before.
-      tab.location.replace(url);
+      // The extension does not identify the media type, and guessing one could
+      // render the file as garbage. Say so rather than showing something wrong.
+      setViewer({ open: true, loading: false, url: null, type: null, error: "לא ניתן להציג סוג קובץ זה" });
       return;
     }
 
-    let blobUrl;
+    setViewer({ open: true, loading: true, url: null, type, error: "" });
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
       const bytes = await res.blob();
-      blobUrl = URL.createObjectURL(new Blob([bytes], { type }));
-      tab.location.replace(blobUrl);
+      if (viewerReqRef.current !== runId) return;
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type }));
+      blobUrlRef.current = blobUrl;
+      setViewer({ open: true, loading: false, url: blobUrl, type, error: "" });
     } catch (err) {
-      tab.close();
-      toast.error("שגיאה בפתיחת המסמך");
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-      return;
+      if (viewerReqRef.current !== runId) return;
+      setViewer({ open: true, loading: false, url: null, type, error: "שגיאה בטעינת המסמך" });
     }
-    // Released once the new tab has had time to load it.
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  };
+
+  const closeViewer = () => {
+    viewerReqRef.current++;
+    releaseBlob();
+    setViewer({ open: false, loading: false, url: null, type: null, error: "" });
   };
 
   const handleDelete = async () => {
@@ -309,6 +329,37 @@ export default function Expenses() {
         categories={categories}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["expenses"] })}
       />
+
+      {/* ── Document viewer ─────────────────────────────────────────────── */}
+      <Dialog open={viewer.open} onOpenChange={(o) => { if (!o) closeViewer(); }}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-4 sm:p-6" dir="rtl">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>צפייה במסמך</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 mt-2 rounded-lg border border-border bg-muted/20 overflow-auto flex items-center justify-center">
+            {viewer.loading ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.08)", borderTopColor: ACCENT, animation: "spin 1s linear infinite" }} />
+                <span style={{ fontSize: 13, color: MUTED }}>טוען מסמך...</span>
+              </div>
+            ) : viewer.error ? (
+              <p style={{ fontSize: 14, color: "#dc2626", padding: 24, textAlign: "center" }}>{viewer.error}</p>
+            ) : viewer.type === "application/pdf" ? (
+              // The browser's built-in PDF viewer, pointed at the blob rather
+              // than the stored URL, so nothing is downloaded.
+              <iframe src={viewer.url} title="מסמך" style={{ width: "100%", height: "100%", border: "none" }} />
+            ) : viewer.url ? (
+              // Fits the viewer without cropping or distorting the document.
+              <img src={viewer.url} alt="מסמך" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block", margin: "auto" }} />
+            ) : null}
+          </div>
+
+          <div className="flex-shrink-0 flex justify-end pt-3">
+            <Button variant="outline" onClick={closeViewer}>סגור</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent dir="rtl">
