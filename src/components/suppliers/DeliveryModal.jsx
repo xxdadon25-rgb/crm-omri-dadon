@@ -702,7 +702,12 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       try {
         const meta = expenseMetaRef.current;
         if (createExpenseRef.current && expenseEligible(meta) && delivery?.id) {
-          await supabase.from("expenses").upsert({
+          // No conflict target: supplier_delivery_id is covered by a PARTIAL
+          // unique index, which Postgres cannot infer from ON CONFLICT (col) —
+          // that raised 42P10 and silently dropped every expense. A bare
+          // DO NOTHING needs no arbiter index and still honours the partial
+          // index, so a repeated save for the same delivery is ignored.
+          const { error: expErr } = await supabase.from("expenses").upsert({
             user_id: user?.id,
             date: meta.document_date,
             category: EXPENSE_CATEGORY,
@@ -712,7 +717,9 @@ export default function DeliveryModal({ supplier, open, onClose }) {
             amount_gross: meta.amount_gross,
             document_number: meta.document_number,
             supplier_delivery_id: delivery.id,
-          }, { onConflict: "supplier_delivery_id", ignoreDuplicates: true });
+          }, { ignoreDuplicates: true });
+          // Logged, never thrown — the goods receipt above is already saved.
+          if (expErr) console.warn("expense not saved:", expErr.message);
         }
       } catch (e) { /* never blocks the goods receipt */ }
 
