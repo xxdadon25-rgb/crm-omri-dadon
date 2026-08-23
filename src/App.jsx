@@ -33,6 +33,7 @@ import Quotes from "@/pages/Quotes";
 import QuoteEditor from "@/pages/QuoteEditor";
 import Orders from "@/pages/Orders";
 import Invoices from "@/pages/Invoices";
+import Expenses from "@/pages/Expenses";
 import Reports from "@/pages/Reports";
 import Alerts from "@/pages/Alerts";
 import Settings from "@/pages/Settings";
@@ -92,6 +93,7 @@ const AuthenticatedApp = () => {
           <Route path="/import-products" element={<ImportProducts />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/invoices" element={<Invoices />} />
+          <Route path="/expenses" element={<Expenses />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/settings" element={<Settings />} />

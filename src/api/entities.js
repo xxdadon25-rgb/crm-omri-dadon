@@ -106,6 +106,7 @@ const entities = {
   InvoiceLog:         makeEntityMethods('invoice_logs'),
   CreditNote:         makeEntityMethods('credit_notes'),
   BusinessSettings:   makeEntityMethods('business_settings'),
+  Expense:            makeEntityMethods('expenses'),
 };
 
 // ─── auth ─────────────────────────────────────────────────────────────────────
