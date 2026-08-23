@@ -32,6 +32,51 @@ function viewableTypeOf(url) {
   return VIEWABLE_TYPES[path.slice(dot + 1).toLowerCase()] || null;
 }
 
+// Types the browser can actually paint. HEIC is a real, identifiable format
+// with no browser decoder, so it gets its own message rather than a generic one.
+const DISPLAYABLE_IMAGES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const HEIF_TYPE = "image/heic";
+
+// A media type is only useful if it names a real format. Servers fall back to
+// octet-stream whenever they do not know, so that value carries no information.
+function usableType(v) {
+  if (!v) return null;
+  const t = String(v).split(";")[0].trim().toLowerCase();
+  if (!t || t === "application/octet-stream" || t === "binary/octet-stream") return null;
+  return t;
+}
+
+// Reads the file's own signature. This identifies the format from the bytes
+// themselves rather than from a filename or a header, so it is the last resort
+// and also the most reliable one.
+async function sniffType(blob) {
+  let bytes;
+  try {
+    bytes = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
+  } catch (e) {
+    return null;
+  }
+  const at = (offset, sig) => sig.every((b, i) => bytes[offset + i] === b);
+  const ascii = (offset, len) =>
+    String.fromCharCode(...bytes.slice(offset, offset + len));
+
+  // %PDF
+  if (at(0, [0x25, 0x50, 0x44, 0x46])) return "application/pdf";
+  if (at(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (ascii(0, 6) === "GIF87a" || ascii(0, 6) === "GIF89a") return "image/gif";
+  // RIFF....WEBP — the four size bytes between the two markers are skipped.
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
+  // ISO base media container: ....ftyp<brand>. Only the HEIF brands matter here.
+  if (ascii(4, 4) === "ftyp") {
+    const brand = ascii(8, 4).toLowerCase();
+    if (["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"].includes(brand)) {
+      return HEIF_TYPE;
+    }
+  }
+  return null;
+}
+
 // Suggestions only — category stays free text, so anything typed is kept.
 const DEFAULT_CATEGORIES = [
   "רכישות ספקים", "דלק", "שכירות", "חשמל", "פרסום",
@@ -136,29 +181,44 @@ export default function Expenses() {
   useEffect(() => releaseBlob, []);
 
   const openDocument = async (url) => {
-    const type = viewableTypeOf(url);
     const runId = ++viewerReqRef.current;
     releaseBlob();
+    setViewer({ open: true, loading: true, url: null, type: null, error: "" });
 
-    if (!type) {
-      // The extension does not identify the media type, and guessing one could
-      // render the file as garbage. Say so rather than showing something wrong.
-      setViewer({ open: true, loading: false, url: null, type: null, error: "לא ניתן להציג סוג קובץ זה" });
-      return;
-    }
-
-    setViewer({ open: true, loading: true, url: null, type, error: "" });
     try {
+      // The one and only request for this document.
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
       const bytes = await res.blob();
       if (viewerReqRef.current !== runId) return;
+
+      // Header first, then what the Blob reports, then the file name, and only
+      // then the bytes. The document is never judged before it is read — a
+      // missing or unknown extension says nothing about the file itself.
+      const type =
+        usableType(res.headers.get("content-type")) ||
+        usableType(bytes.type) ||
+        viewableTypeOf(url) ||
+        await sniffType(bytes);
+      if (viewerReqRef.current !== runId) return;
+
+      if (type === HEIF_TYPE) {
+        setViewer({ open: true, loading: false, url: null, type, error: "הדפדפן אינו תומך בתצוגת קובץ HEIC/HEIF" });
+        return;
+      }
+      if (type !== "application/pdf" && !DISPLAYABLE_IMAGES.includes(type)) {
+        setViewer({ open: true, loading: false, url: null, type, error: "לא ניתן להציג סוג קובץ זה" });
+        return;
+      }
+
+      // Re-typed from the same bytes already fetched — nothing is requested,
+      // uploaded or stored again.
       const blobUrl = URL.createObjectURL(new Blob([bytes], { type }));
       blobUrlRef.current = blobUrl;
       setViewer({ open: true, loading: false, url: blobUrl, type, error: "" });
     } catch (err) {
       if (viewerReqRef.current !== runId) return;
-      setViewer({ open: true, loading: false, url: null, type, error: "שגיאה בטעינת המסמך" });
+      setViewer({ open: true, loading: false, url: null, type: null, error: "שגיאה בטעינת המסמך" });
     }
   };
 
