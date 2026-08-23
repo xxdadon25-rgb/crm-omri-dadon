@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle } from "lucide-react";
@@ -15,6 +16,11 @@ const EDITABLE_STATUSES = ["טיוטה", "ממתין לאישור", "בהכנה"
 
 export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [] }) {
   const [form, setForm] = useState({ status: "", notes: "", items: [], fulfilled: false });
+  // True once a unit price was edited in the read-only items table. Totals are
+  // only rewritten from the items when this is set (or when the items are fully
+  // editable), so editing just the status or the notes still leaves the stored
+  // totals exactly as they are.
+  const [pricesTouched, setPricesTouched] = useState(false);
 
   useEffect(() => {
     if (order) {
@@ -24,6 +30,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
         items: order.items || [],
         fulfilled: !!order.fulfilled,
       });
+      setPricesTouched(false);
     }
   }, [order]);
 
@@ -49,9 +56,25 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
   const vatAmount = netSubtotal * (vatRate / 100);
   const grandTotal = netSubtotal + vatAmount;
 
+  // Price-only edit for the read-only items table. Name and quantity stay as
+  // they are; the line total is recalculated with the same formula ItemsEditor
+  // uses, including its fallback to 0 when the line carries no discount.
+  const updateUnitPrice = (index, value) => {
+    setForm(prev => {
+      const items = [...prev.items];
+      items[index] = { ...items[index], unit_price: value };
+      const qty = parseFloat(items[index].quantity) || 0;
+      const price = parseFloat(items[index].unit_price) || 0;
+      const disc = parseFloat(items[index].discount) || 0;
+      items[index].total = qty * price * (1 - disc / 100);
+      return { ...prev, items };
+    });
+    setPricesTouched(true);
+  };
+
   const handleSave = async () => {
     const updates = { status: form.status, notes: form.notes, items: form.items, fulfilled: form.fulfilled };
-    if (canEditItems) {
+    if (canEditItems || pricesTouched) {
       updates.subtotal = netSubtotal;
       updates.gross_total = grossTotal;
       updates.discount_amount = discountTotal;
@@ -175,7 +198,15 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                           <TableCell className="text-right text-sm">{item.name}</TableCell>
                           <TableCell className="text-center text-sm">{item.quantity}</TableCell>
                           {/* <TableCell className="text-center text-sm">₪{(item.unit_price || 0).toFixed(2)}</TableCell> */}
-                          <TableCell className="text-center text-sm">{formatCurrency(item.unit_price)}</TableCell>
+                          {/* Price is the one editable field here — an invoiced
+                              order keeps the plain text it has always shown. */}
+                          <TableCell className="text-center text-sm">
+                            {hasInvoice ? formatCurrency(item.unit_price) : (
+                              <Input type="number" inputMode="decimal" step="0.01" value={item.unit_price}
+                                onChange={(e) => updateUnitPrice(idx, parseFloat(e.target.value) || 0)}
+                                className="h-8 w-28 mx-auto text-center" />
+                            )}
+                          </TableCell>
                           {/* <TableCell className="text-center text-sm font-medium">₪{(item.total || 0).toFixed(2)}</TableCell> */}
                           <TableCell className="text-center text-sm font-medium">{formatCurrency(item.total)}</TableCell>
                         </TableRow>
