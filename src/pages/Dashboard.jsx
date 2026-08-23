@@ -424,6 +424,13 @@ function KpiCard({ title, value, icon: Icon }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  // Month shown in the summary card, as "YYYY-MM" — the same shape <input
+  // type="month"> uses and the same prefix the date columns are matched on.
+  // Defaults to the month the user is currently in, read from the local clock.
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   // ── Data fetching (unchanged) ──
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")) });
@@ -509,25 +516,25 @@ export default function Dashboard() {
 
   const now = new Date();
 
-  // ── This month, before VAT ────────────────────────────────────────────────
+  // ── Selected month, before VAT ────────────────────────────────────────────
   // Both date columns are DATE, so PostgREST hands them over as "YYYY-MM-DD".
   // Matching on the month prefix avoids parsing them into Date objects at all:
   // `new Date("2026-08-01")` is UTC midnight while getMonth() reads local time,
   // which slips a day either side of a month boundary in some zones. A string
-  // comparison cannot slip. The prefix itself comes from the local clock, so
-  // "this month" is the month the user is actually in.
-  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const inThisMonth = (d) => typeof d === "string" && d.startsWith(monthPrefix);
+  // comparison cannot slip. selectedMonth is already "YYYY-MM", so it is the
+  // prefix directly.
+  const inSelectedMonth = (d) =>
+    typeof d === "string" && !!selectedMonth && d.startsWith(selectedMonth);
 
   // subtotal and amount_net are the stored before-VAT amounts. Nothing here
   // divides by a VAT rate or derives a net figure from a gross one.
-  const incomeNetThisMonth = invoices
-    .filter(inv => inThisMonth(inv.date))
+  const incomeNetSelected = invoices
+    .filter(inv => inSelectedMonth(inv.date))
     .reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
-  const expensesNetThisMonth = expenses
-    .filter(e => inThisMonth(e.date))
+  const expensesNetSelected = expenses
+    .filter(e => inSelectedMonth(e.date))
     .reduce((sum, e) => sum + (Number(e.amount_net) || 0), 0);
-  const profitNetThisMonth = incomeNetThisMonth - expensesNetThisMonth;
+  const profitNetSelected = incomeNetSelected - expensesNetSelected;
 
   const newCustomersThisMonth = customers
     .filter(c => {
@@ -788,11 +795,19 @@ export default function Dashboard() {
         {/* Monthly result — last in the grid, so RTL places it to the left of
             the low-stock card, in the space that was empty. */}
         <div style={CARD_STYLE}>
-          <h3 style={{ fontWeight: 600, fontSize: 14, color: DARK, margin: "0 0 12px" }}>סיכום חודשי</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 12px", flexWrap: "wrap" }}>
+            <h3 style={{ fontWeight: 600, fontSize: 14, color: DARK, margin: 0 }}>סיכום חודשי</h3>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 10, height: 32, padding: "0 10px", fontSize: 12, color: DARK, fontFamily: "'Heebo', sans-serif", outline: "none" }}
+            />
+          </div>
           {[
-            { label: "סה״כ הכנסות ללא מע״מ החודש", value: incomeNetThisMonth, color: DARK },
-            { label: "סה״כ הוצאות ללא מע״מ החודש", value: expensesNetThisMonth, color: DARK },
-            { label: "רווח החודש", value: profitNetThisMonth, color: profitNetThisMonth < 0 ? "#ef4444" : "#16a34a", strong: true },
+            { label: "סה״כ הכנסות ללא מע״מ", value: incomeNetSelected, color: DARK },
+            { label: "סה״כ הוצאות ללא מע״מ", value: expensesNetSelected, color: DARK },
+            { label: "רווח", value: profitNetSelected, color: profitNetSelected < 0 ? "#ef4444" : "#16a34a", strong: true },
           ].map(({ label, value, color, strong }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
               <span style={{ fontSize: 13, color: MUTED }}>{label}</span>
