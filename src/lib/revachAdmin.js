@@ -16,3 +16,6 @@ export const approveCustomer = (business_id) => callProxy({ action: "approve", b
 export const blockCustomer = (business_id) => callProxy({ action: "block", business_id });
 export const cancelCustomer = (business_id) => callProxy({ action: "cancel", business_id });
 export const deleteCustomer = (business_id) => callProxy({ action: "delete_customer", business_id });
+// Removes a single support message from the "הודעות תמיכה" panel. The customer
+// it came from is untouched.
+export const deleteSupportMessage = (id) => callProxy({ action: "delete_support_message", id });

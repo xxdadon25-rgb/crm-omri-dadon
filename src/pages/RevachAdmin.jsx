@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare, Trash2 } from "lucide-react";
-import { listCustomers, approveCustomer, blockCustomer, cancelCustomer, deleteCustomer } from "@/lib/revachAdmin";
+import { listCustomers, approveCustomer, blockCustomer, cancelCustomer, deleteCustomer, deleteSupportMessage } from "@/lib/revachAdmin";
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -34,6 +34,7 @@ export default function RevachAdmin() {
   const [customers, setCustomers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [actingId, setActingId] = useState(null);
+  const [deletingMsgId, setDeletingMsgId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +87,26 @@ export default function RevachAdmin() {
       toast.error(err.message || "אירעה שגיאה בביצוע הפעולה");
     } finally {
       setActingId(null);
+    }
+  };
+
+  // Deletes one support message. Its own in-flight id, separate from actingId,
+  // so deleting a message never disables the customer-row buttons and vice
+  // versa. Holding the id also blocks a double-click on the same message.
+  const removeMessage = async (msg) => {
+    if (deletingMsgId) return;
+    if (!window.confirm("למחוק את הודעת התמיכה?")) return;
+    setDeletingMsgId(msg.id);
+    try {
+      await deleteSupportMessage(msg.id);
+      // Dropped from local state rather than reloading, so the page keeps its
+      // scroll position and the customer table is not refetched.
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      toast.success("ההודעה נמחקה");
+    } catch (err) {
+      toast.error(err.message || "שגיאה במחיקת ההודעה");
+    } finally {
+      setDeletingMsgId(null);
     }
   };
 
@@ -327,7 +348,19 @@ export default function RevachAdmin() {
                     <div key={m.id} className="rounded-lg border border-border p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                         <span className="font-medium">{m.full_name || "—"}</span>
-                        <span className="text-xs text-muted-foreground">{fmtDate(m.created_at)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{fmtDate(m.created_at)}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            title="מחק הודעה"
+                            disabled={deletingMsgId === m.id}
+                            onClick={() => removeMessage(m)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
                       {m.email && <p className="text-xs text-muted-foreground mb-2">{m.email}</p>}
                       <p className="text-sm whitespace-pre-wrap">{m.message}</p>

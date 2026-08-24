@@ -47,6 +47,7 @@ const ALLOWED_ACTIONS = new Set([
   "block",
   "delete_price_history",
   "delete_supplier",
+  "delete_support_message",
 ]);
 
 // revachAdmin.js reads `data.ok` and throws on `data.error`, so every failure
