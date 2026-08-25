@@ -690,7 +690,6 @@ export default function PortalCustomerAccess() {
   const [linkingRow, setLinkingRow] = useState(null); // pending access row being linked
   const [creatingForRow, setCreatingForRow] = useState(null); // pending access row for new customer creation
   const [deletingAccessId, setDeletingAccessId] = useState(null); // portal access row being deleted
-  const [restoringAccessId, setRestoringAccessId] = useState(null); // removed row being restored
 
   // Tab 1 data
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
@@ -751,13 +750,11 @@ export default function PortalCustomerAccess() {
     () => accessRows.filter(r => !r.portal_deleted_at),
     [accessRows]
   );
-  const removedAccessRows = useMemo(
-    () => accessRows.filter(r => r.portal_deleted_at),
-    [accessRows]
-  );
   const removedCustomerIds = useMemo(
-    () => new Set(removedAccessRows.map(r => r.customer_id).filter(Boolean)),
-    [removedAccessRows]
+    () => new Set(
+      accessRows.filter(r => r.portal_deleted_at).map(r => r.customer_id).filter(Boolean)
+    ),
+    [accessRows]
   );
 
   const accessByCustomer = useMemo(() => {
@@ -829,12 +826,9 @@ export default function PortalCustomerAccess() {
       });
       if (error) throw error;
 
-      // Partial failure: the mapping is already gone, so portal access really
-      // has been removed. The row must leave the list — pretending otherwise
-      // would show access that no longer exists — but the admin is told plainly
-      // that the login account still needs cleaning up.
-      // The row is kept and stamped, not dropped: it moves out of the normal
-      // list and into "לקוחות שהוסרו מהפורטל".
+      // Stamping the cached row rather than dropping it mirrors what the server
+      // did: the access row survives as a tombstone, and portal_deleted_at is
+      // what removes the customer from this screen.
       const markRemoved = () => qc.setQueryData(["customer-portal-access-all"], (old = []) =>
         old.map(r => r.id === accessRow.id
           ? { ...r, portal_deleted_at: new Date().toISOString(), auth_user_id: null, is_active: false, phone_or_email: null }
@@ -854,29 +848,6 @@ export default function PortalCustomerAccess() {
       toast.error("שגיאה במחיקת לקוח הפורטל: " + (err.message || err));
     } finally {
       setDeletingAccessId(null);
-    }
-  };
-
-  // Puts a removed customer back into the normal list. It restores visibility
-  // only — auth_user_id, is_active and first_login_completed stay cleared, so
-  // the customer regains nothing until staff run the normal access flow again.
-  const handleRestoreAccess = async (accessRow) => {
-    if (!accessRow?.id || restoringAccessId) return;
-    setRestoringAccessId(accessRow.id);
-    try {
-      const { error } = await supabase
-        .from("customer_portal_access")
-        .update({ portal_deleted_at: null })
-        .eq("id", accessRow.id);
-      if (error) throw error;
-      qc.setQueryData(["customer-portal-access-all"], (old = []) =>
-        old.map(r => r.id === accessRow.id ? { ...r, portal_deleted_at: null } : r)
-      );
-      toast.success("הלקוח הוחזר לרשימה — יש להפעיל גישה לפורטל מחדש");
-    } catch (err) {
-      toast.error("שגיאה בהחזרת הלקוח: " + (err.message || err));
-    } finally {
-      setRestoringAccessId(null);
     }
   };
 
@@ -915,7 +886,6 @@ export default function PortalCustomerAccess() {
   const TABS = [
     { key: "access", label: "ניהול גישת לקוחות" },
     { key: "orders", label: "הזמנות ממתינות", badge: pendingCount },
-    { key: "removed", label: "לקוחות שהוסרו מהפורטל", badge: removedAccessRows.length },
   ];
 
   return (
@@ -1228,56 +1198,6 @@ export default function PortalCustomerAccess() {
 
       {/* Tab 2: Pending orders */}
       {tab === "orders" && <PendingOrdersTab />}
-
-      {/* Removed portal customers — the CRM customer still exists untouched;
-          only their portal identity was cleared. */}
-      {tab === "removed" && (
-        <div style={{ ...CARD, padding: "20px 24px" }}>
-          {removedAccessRows.length === 0 ? (
-            <p style={{ textAlign: "center", padding: "40px 0", color: MUTED, fontSize: 14, fontFamily: "'Heebo', sans-serif" }}>
-              אין לקוחות שהוסרו מהפורטל
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {removedAccessRows.map(row => {
-                const cust = customers.find(c => c.id === row.customer_id);
-                return (
-                  <div key={row.id} style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
-                    background: "#FAFAFA", borderRadius: 14, border: "1px solid rgba(0,0,0,0.06)",
-                    flexWrap: "wrap",
-                  }}>
-                    <div style={{ flex: 1, minWidth: 160 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: DARK, fontFamily: "'Heebo', sans-serif" }}>
-                        {cust?.name || "לקוח לא מקושר"}
-                      </div>
-                      <div style={{ fontSize: 12, color: MUTED, fontFamily: "'Heebo', sans-serif" }}>
-                        הוסר בתאריך {new Date(row.portal_deleted_at).toLocaleDateString("he-IL")}
-                        {row.min_order_amount > 0 ? ` · מינימום הזמנה קודם: ₪${row.min_order_amount}` : ""}
-                        {row.custom_discount_percent > 0 ? ` · הנחה קודמת: ${row.custom_discount_percent}%` : ""}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRestoreAccess(row)}
-                      disabled={restoringAccessId === row.id}
-                      style={{
-                        height: 34, background: ACCENT, color: "#FFFFFF", border: "none",
-                        borderRadius: 10, padding: "0 14px", fontSize: 13, fontWeight: 600,
-                        fontFamily: "'Heebo', sans-serif",
-                        cursor: restoringAccessId === row.id ? "not-allowed" : "pointer",
-                        opacity: restoringAccessId === row.id ? 0.5 : 1,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      החזר לפורטל
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Edit modal */}
       {editing && (
