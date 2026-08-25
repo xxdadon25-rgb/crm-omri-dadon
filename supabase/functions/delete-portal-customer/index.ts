@@ -1,8 +1,8 @@
 /**
  * Supabase Edge Function: delete-portal-customer
  *
- * Deletes a portal customer's PORTAL IDENTITY ONLY — the customer_portal_access
- * mapping row and, when one exists, the Supabase Auth user behind it.
+ * Removes a portal customer's PORTAL IDENTITY ONLY — it blanks the
+ * customer_portal_access row and deletes the Supabase Auth user behind it.
  * Only callable by authenticated staff members.
  *
  * WHAT IS NOT TOUCHED
@@ -11,19 +11,24 @@
  *   expenses. The CRM record and the whole commercial history survive: the only
  *   thing removed is the ability to log in to the portal.
  *
- * WHY THE MAPPING ROW MUST BE DELETED EXPLICITLY
- *   customer_portal_access.auth_user_id references auth.users ON DELETE SET
- *   NULL. Deleting only the Auth user would therefore leave the mapping behind
- *   with auth_user_id = NULL — and the signup trigger
- *   link_portal_customer_on_signup() re-links exactly such a row to the next
- *   person who registers with that email, when the row is still is_active.
- *   Deleting the Auth user alone would hand portal access straight back.
+ * WHY THE ROW IS BLANKED AND KEPT, NOT DELETED
+ *   The portal-access screen lists CRM customers and LEFT JOINs their access
+ *   row, so a missing row renders as "אין גישה / הפעל גישה לפורטל" — the same
+ *   as a customer who was never configured. Deleting the row therefore could
+ *   not express "this one was removed on purpose", and a removed customer
+ *   reappeared as an un-configured one.
  *
- * WHY THE SAME EMAIL BEHAVES AS BRAND NEW AFTERWARDS
- *   With the mapping gone, a later signup fires handle_new_portal_user(), which
- *   inserts a fresh row with customer_id NULL and is_active false — a pending
- *   registration for staff to link. link_portal_customer_on_signup() finds
- *   nothing to re-link, because no active row with a NULL auth_user_id remains.
+ *   The row is kept, cleared, and stamped with portal_deleted_at. The screen
+ *   hides those rows and lists them under "לקוחות שהוסרו מהפורטל", where staff
+ *   can restore them by clearing the stamp.
+ *
+ * WHY phone_or_email IS CLEARED
+ *   customer_portal_access.auth_user_id references auth.users ON DELETE SET
+ *   NULL, so deleting the Auth user leaves the row with auth_user_id = NULL —
+ *   and link_portal_customer_on_signup() re-links exactly such a row to whoever
+ *   next registers with that email, when phone_or_email still matches and
+ *   is_active is true. Clearing the address AND is_active removes both halves
+ *   of that predicate, so a removed customer can never be silently re-linked.
  *
  * Deploy via Supabase Dashboard → Edge Functions → "Deploy a new function"
  * → name it exactly: delete-portal-customer
@@ -151,19 +156,27 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── 5. Delete the mapping row FIRST ───────────────────────────────────────
+  // ── 5. Blank the mapping row FIRST ────────────────────────────────────────
   // Order is deliberate. If the Auth deletion fails afterwards, the customer is
-  // already locked out of the portal, which is the safe direction. The reverse
-  // order could leave a row with auth_user_id NULL that the signup trigger
-  // would later re-link.
-  const { error: deleteAccessError } = await adminClient
+  // already locked out of the portal, which is the safe direction.
+  //
+  // customer_id is deliberately NOT cleared: it is what ties the removed row to
+  // its CRM customer, so the removed-customers view can still name them and a
+  // restore puts the right customer back in the list.
+  const { error: blankAccessError } = await adminClient
     .from("customer_portal_access")
-    .delete()
+    .update({
+      auth_user_id: null,
+      is_active: false,
+      first_login_completed: false,
+      phone_or_email: null,
+      portal_deleted_at: new Date().toISOString(),
+    })
     .eq("id", accessId);
 
-  if (deleteAccessError) {
+  if (blankAccessError) {
     return json(
-      { success: false, error: "שגיאה במחיקת גישת הפורטל" },
+      { success: false, error: "שגיאה בהסרת גישת הפורטל" },
       500,
     );
   }
@@ -180,9 +193,10 @@ Deno.serve(async (req: Request) => {
   );
 
   if (deleteUserError) {
-    // Deliberately NOT recreating the mapping row. Portal access really is
-    // gone, and re-inserting it would restore the customer's access. The
-    // caller is told the exact truth so an admin can finish the cleanup.
+    // Deliberately NOT restoring the row. Portal access really is gone, and
+    // undoing the blanking would give the customer their access back.
+    // portal_deleted_at stays set. The caller is told the exact truth so an
+    // admin can finish removing the login account by hand.
     return json(
       {
         success: false,
