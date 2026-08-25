@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { base44 } from "@/api/base44Client";
-import { Search, X, Globe, ChevronDown, ChevronUp, MessageCircle, KeyRound, Eye, EyeOff, UserPlus, Link2 } from "lucide-react";
+import { Search, X, Globe, ChevronDown, ChevronUp, MessageCircle, KeyRound, Eye, EyeOff, UserPlus, Link2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import CustomerDialog from "@/components/customers/CustomerDialog";
 
@@ -689,6 +689,7 @@ export default function PortalCustomerAccess() {
   const [resetting, setResetting] = useState(null); // { customer, authUserId }
   const [linkingRow, setLinkingRow] = useState(null); // pending access row being linked
   const [creatingForRow, setCreatingForRow] = useState(null); // pending access row for new customer creation
+  const [deletingAccessId, setDeletingAccessId] = useState(null); // portal access row being deleted
 
   // Tab 1 data
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
@@ -778,6 +779,55 @@ export default function PortalCustomerAccess() {
       old.map(r => r.id === access.id ? { ...r, is_active: !currentValue } : r)
     );
     toast.success(!currentValue ? "גישה הופעלה" : "גישה הושבתה");
+  };
+
+  // Deletes a portal identity: the customer_portal_access row and, when one
+  // exists, the Auth user behind it. The CRM customer, its orders, invoices and
+  // every other commercial record are untouched — this only removes the ability
+  // to log in to the portal.
+  //
+  // access_id is the ONLY thing sent. auth_user_id is read server-side from the
+  // targeted row, so the browser can never point the deletion at another
+  // account.
+  const handleDeleteAccess = async (accessRow, displayName) => {
+    if (!accessRow?.id || deletingAccessId) return;
+    const name = displayName || accessRow.phone_or_email || "לקוח זה";
+    const confirmed = window.confirm(
+      `למחוק את לקוח הפורטל ${name}?\n` +
+      `הפעולה קבועה ולא ניתנת לשחזור.\n` +
+      `הלקוח יצטרך להירשם מחדש כדי לקבל גישה לפורטל.`
+    );
+    if (!confirmed) return;
+
+    setDeletingAccessId(accessRow.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-portal-customer", {
+        body: { access_id: accessRow.id },
+      });
+      if (error) throw error;
+
+      // Partial failure: the mapping is already gone, so portal access really
+      // has been removed. The row must leave the list — pretending otherwise
+      // would show access that no longer exists — but the admin is told plainly
+      // that the login account still needs cleaning up.
+      if (data?.success === false && data?.partial) {
+        qc.setQueryData(["customer-portal-access-all"], (old = []) =>
+          old.filter(r => r.id !== accessRow.id)
+        );
+        toast.error("גישת הפורטל הוסרה, אך מחיקת חשבון ההתחברות נכשלה — נדרש טיפול ידני");
+        return;
+      }
+      if (data?.success === false) throw new Error(data.error || "שגיאה לא ידועה");
+
+      qc.setQueryData(["customer-portal-access-all"], (old = []) =>
+        old.filter(r => r.id !== accessRow.id)
+      );
+      toast.success("לקוח הפורטל נמחק");
+    } catch (err) {
+      toast.error("שגיאה במחיקת לקוח הפורטל: " + (err.message || err));
+    } finally {
+      setDeletingAccessId(null);
+    }
   };
 
   const handleSaved = () => {
@@ -967,6 +1017,25 @@ export default function PortalCustomerAccess() {
                       <UserPlus style={{ width: 14, height: 14 }} />
                       צור לקוח חדש
                     </button>
+                    {/* A registration that should never have happened — reject
+                        it here rather than linking it to a customer first. */}
+                    <button
+                      onClick={() => handleDeleteAccess(row, row.phone_or_email)}
+                      disabled={deletingAccessId === row.id}
+                      title="מחק לקוח פורטל"
+                      style={{
+                        height: 34, width: 34, background: "rgba(239,68,68,0.1)",
+                        border: "none", borderRadius: 10,
+                        cursor: deletingAccessId === row.id ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, transition: "background 0.15s",
+                        opacity: deletingAccessId === row.id ? 0.45 : 1,
+                      }}
+                      onMouseEnter={e => { if (deletingAccessId !== row.id) e.currentTarget.style.background = "rgba(239,68,68,0.2)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; }}
+                    >
+                      <Trash2 style={{ width: 15, height: 15, color: "#ef4444" }} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -1059,6 +1128,25 @@ export default function PortalCustomerAccess() {
                                 onMouseLeave={e => { e.currentTarget.style.background = access.auth_user_id ? "rgba(99,102,241,0.1)" : "rgba(0,0,0,0.04)"; }}
                               >
                                 <KeyRound style={{ width: 15, height: 15, color: access.auth_user_id ? "#6366f1" : MUTED }} />
+                              </button>
+                            )}
+                            {hasAccess && (
+                              <button
+                                onClick={() => handleDeleteAccess(access, customer.name)}
+                                disabled={deletingAccessId === access.id}
+                                title="מחק לקוח פורטל"
+                                style={{
+                                  height: 34, width: 34, background: "rgba(239,68,68,0.1)",
+                                  border: "none", borderRadius: 10,
+                                  cursor: deletingAccessId === access.id ? "not-allowed" : "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, transition: "background 0.15s",
+                                  opacity: deletingAccessId === access.id ? 0.45 : 1,
+                                }}
+                                onMouseEnter={e => { if (deletingAccessId !== access.id) e.currentTarget.style.background = "rgba(239,68,68,0.2)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; }}
+                              >
+                                <Trash2 style={{ width: 15, height: 15, color: "#ef4444" }} />
                               </button>
                             )}
                             <button
