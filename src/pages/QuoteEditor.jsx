@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 const STATUSES = ["טיוטה", "נשלח", "אושר", "נדחה", "פגה תוקף", "הומרה להזמנה", "הומרה לחשבונית"];
 const AGENTS = ["עומרי דדון", "בן אסידו"];
+const GUEST_CUSTOMER_VALUE = "__guest_customer__";
 
 export default function QuoteEditor() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -65,6 +66,7 @@ export default function QuoteEditor() {
     agent: "",
   });
   const [saving, setSaving] = useState(false);
+  const [isGuestCustomer, setIsGuestCustomer] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [accessCodeOpen, setAccessCodeOpen] = useState(false);
   const [profitabilityModalOpen, setProfitabilityModalOpen] = useState(false);
@@ -73,12 +75,20 @@ export default function QuoteEditor() {
     if (quoteId && !loaded) {
       base44.entities.Quote.filter({ id: quoteId }, null, 1).then(results => {
         const q = results[0];
-        if (q) { setForm({ ...q, vat_rate: q.vat_rate || 17 }); setLoaded(true); }
+        if (q) {
+          setForm({ ...q, vat_rate: q.vat_rate || 17 });
+          setIsGuestCustomer(!q.customer_id && !!q.customer_name);
+          setLoaded(true);
+        }
       }).catch(() => {
         // Fallback to list scan if filter by id is unsupported
         base44.entities.Quote.list().then(quotes => {
           const q = quotes.find(x => x.id === quoteId);
-          if (q) { setForm({ ...q, vat_rate: q.vat_rate || 17 }); setLoaded(true); }
+          if (q) {
+            setForm({ ...q, vat_rate: q.vat_rate || 17 });
+            setIsGuestCustomer(!q.customer_id && !!q.customer_name);
+            setLoaded(true);
+          }
         });
       });
     }
@@ -129,6 +139,18 @@ export default function QuoteEditor() {
   };
 
   const handleCustomerChange = (id) => {
+    if (id === GUEST_CUSTOMER_VALUE) {
+      setIsGuestCustomer(true);
+      setForm(prev => ({
+        ...prev,
+        customer_id: "",
+        customer_name: "",
+        customer_type: "פרטי",
+      }));
+      return;
+    }
+
+    setIsGuestCustomer(false);
     const c = customers.find(x => x.id === id);
     if (c?.is_blocked) {
       const debt = invoices
@@ -141,7 +163,7 @@ export default function QuoteEditor() {
   };
 
   const handleSave = async () => {
-    if (!form.customer_id) { toast.error("יש לבחור לקוח"); return; }
+    if (!form.customer_name?.trim()) { toast.error(isGuestCustomer ? "יש להזין שם לקוח" : "יש לבחור לקוח"); return; }
     if (!form.agent) { toast.error("יש לבחור סוכן"); return; }
     setSaving(true);
     try {
@@ -236,9 +258,10 @@ export default function QuoteEditor() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <Label>לקוח *</Label>
-              <Select value={form.customer_id} onValueChange={handleCustomerChange}>
+              <Select value={isGuestCustomer ? GUEST_CUSTOMER_VALUE : form.customer_id} onValueChange={handleCustomerChange}>
                 <SelectTrigger><SelectValue placeholder="בחר לקוח" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={GUEST_CUSTOMER_VALUE}>➕ לקוח מזדמן / לא רשום</SelectItem>
                   {customers.map(c => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} {c.customer_type === "עסקי" ? "🏢" : "👤"}
@@ -246,7 +269,18 @@ export default function QuoteEditor() {
                   ))}
                 </SelectContent>
               </Select>
-              {form.customer_id && (
+              {isGuestCustomer && (
+                <div className="pt-1.5">
+                  <Input
+                    value={form.customer_name || ""}
+                    onChange={(e) => setForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                    placeholder="הקלד שם לקוח מזדמן"
+                    autoFocus
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">הלקוח לא יתווסף לרשימת הלקוחות.</p>
+                </div>
+              )}
+              {!isGuestCustomer && form.customer_id && (
                 <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${isBusiness ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                   {isBusiness ? "לקוח עסקי" : "לקוח פרטי"}
                 </span>
