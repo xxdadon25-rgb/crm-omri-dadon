@@ -167,7 +167,7 @@ export default function QuoteEditor() {
     if (!form.agent) { toast.error("יש לבחור סוכן"); return; }
     setSaving(true);
     try {
-      const data = { ...form, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal };
+      const data = { ...form, customer_id: form.customer_id || null, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal };
       ['date', 'valid_until'].forEach(f => { if (!data[f]) data[f] = null; });
       if (quoteId) {
         const updated = await base44.entities.Quote.update(quoteId, data);
@@ -193,13 +193,13 @@ export default function QuoteEditor() {
     if (!quoteId) return;
     setSaving(true);
     // Save latest state first
-    await base44.entities.Quote.update(quoteId, { ...form, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal });
+    await base44.entities.Quote.update(quoteId, { ...form, customer_id: form.customer_id || null, subtotal, vat_amount: vatAmount, total, gross_total: grossTotal, discount_amount: discountTotal });
     const customer = customers.find(c => c.id === form.customer_id);
     const counter = (businessSettings?.order_counter || 1000) + 1;
     const orderData = {
       order_number: counter,
       quote_id: quoteId,
-      customer_id: form.customer_id,
+      customer_id: form.customer_id || null,
       customer_name: form.customer_name,
       customer_tax_id: customer?.tax_id || "",
       date: new Date().toISOString().split("T")[0],
