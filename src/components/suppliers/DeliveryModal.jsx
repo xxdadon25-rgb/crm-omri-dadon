@@ -227,48 +227,42 @@ function expenseEligible(meta) {
     && !amountsInconsistent(meta);
 }
 
-// ── Auto-merge duplicate rows ────────────────────────────────────────────────
+// ── Multi-page scanning ──────────────────────────────────────────────────────
+// One supplier document may be several photographed pages. A single image or a
+// single PDF is simply a list of length one, so the previous behaviour is a
+// special case of this one rather than a separate path.
 
-function mergeExtractedItems(items) {
-  const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-  const groups = new Map();
-  for (const item of items) {
-    const key = norm(item.sku) || norm(item.product_name);
-    if (!key) { groups.set(Symbol(), [item]); continue; }
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  }
-  const merged = [];
-  for (const group of groups.values()) {
-    if (group.length === 1) { merged.push(group[0]); continue; }
-    const first = group[0];
-    const totalQty = group.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-    const totalSum = group.reduce((s, i) => s + (Number(i.total) || 0), 0);
-    merged.push({
-      ...first,
-      quantity: totalQty,
-      total: totalSum,
-      unit_price: totalQty > 0 ? Math.round((totalSum / totalQty) * 100) / 100 : first.unit_price,
-    });
-  }
-  return merged;
-}
+const MAX_PAGES = 10;
+
+// Server error codes are technical on purpose; the user gets Hebrew.
+const EXTRACTION_ERRORS = {
+  extraction_incomplete:
+    "המסמך ארוך מדי והחילוץ נקטע — לא כל המוצרים זוהו. צלם את המסמך בכמה עמודים נפרדים ונסה שוב.",
+  too_many_pages: `ניתן לצרף עד ${10} עמודים למסמך אחד.`,
+};
 
 // ── Gemini extraction ────────────────────────────────────────────────────────
 // Proxied through the extract-delivery Edge Function so the API key stays
 // server-side. reconcileUnitPrice stays client-side (see above).
-async function extractFromFile(file, _onRetry) {
-  const { base64, mimeType } = await preprocessImage(file);
+async function extractFromPages(files) {
+  const pages = [];
+  for (const file of files) {
+    pages.push(await preprocessImage(file));
+  }
 
   const { data, error } = await supabase.functions.invoke("extract-delivery", {
-    body: { base64, mimeType },
+    body: { pages },
   });
   if (error) throw new Error(error.message || "שגיאה בקריאה לשרת החילוץ");
-  if (!data?.ok) throw new Error(data?.error || "שגיאה בחילוץ הנתונים");
+  if (!data?.ok) throw new Error(EXTRACTION_ERRORS[data?.error] || data?.error || "שגיאה בחילוץ הנתונים");
 
   return {
     supplier: data.supplier || null,
-    items: mergeExtractedItems((data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) }))),
+    // ONE extracted line = ONE review line. Nothing is merged or dropped here:
+    // two rows for the same product stay two rows, and the user decides what to
+    // skip using the existing controls. Only the unit price is reconciled,
+    // which changes no row count.
+    items: (data.items || []).map((i) => ({ ...i, unit_price: reconcileUnitPrice(i) })),
     // Additive. Ignored entirely by the goods-receipt path.
     metadata: readExpenseMetadata(data),
   };
@@ -381,8 +375,8 @@ function matchProducts(extractedItems, products) {
 export default function DeliveryModal({ supplier, open, onClose }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState("upload"); // upload | processing | review | saving | done
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  // Ordered pages of ONE supplier document.
+  const [pages, setPages] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -433,8 +427,7 @@ export default function DeliveryModal({ supplier, open, onClose }) {
 
   const reset = () => {
     setStep("upload");
-    setFile(null);
-    setPreview(null);
+    setPages(prev => { prev.forEach(pg => pg.previewUrl && URL.revokeObjectURL(pg.previewUrl)); return []; });
     setItems([]);
     setSummary(null);
     matchedResultRef.current = [];
@@ -457,11 +450,52 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   // ── File pick ─────────────────────────────────────────────────────────────
 
   const handleFilePick = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    if (f.type.startsWith("image/")) setPreview(URL.createObjectURL(f));
-    else setPreview(null);
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    setPages(prev => {
+      const next = [...prev];
+      for (const f of selected) {
+        if (next.length >= MAX_PAGES) {
+          toast.error(EXTRACTION_ERRORS.too_many_pages);
+          break;
+        }
+        // A PDF is a whole document: it cannot be mixed with loose pages, and
+        // only one may be attached.
+        const isPdf = f.type === "application/pdf";
+        if ((isPdf && next.length > 0) || next.some(pg => pg.file.type === "application/pdf")) {
+          toast.error("לא ניתן לשלב קובץ PDF עם עמודים נוספים");
+          break;
+        }
+        next.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file: f,
+          previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+        });
+      }
+      return next;
+    });
+
+    e.target.value = "";
+  };
+
+  const removePage = (id) => {
+    setPages(prev => {
+      const target = prev.find(pg => pg.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter(pg => pg.id !== id);
+    });
+  };
+
+  // Order matters: the document is read front to back.
+  const movePage = (index, direction) => {
+    setPages(prev => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   };
 
   // ── Process ───────────────────────────────────────────────────────────────
@@ -477,16 +511,18 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   };
 
   const handleProcess = async () => {
-    if (!file) return;
+    if (pages.length === 0) return;
     setStep("processing");
     setRetryMsg("");
     try {
-      const [result, uploadedUrl] = await Promise.all([
-        extractFromFile(file, (attempt, max) => {
-          setRetryMsg(`השרת עמוס, מנסה שוב (${attempt}/${max})...`);
-        }),
-        uploadFileToStorage(file, supplier.id).catch(() => null),
+      const files = pages.map(pg => pg.file);
+      // Every page is uploaded; supplier_deliveries stores one URL, so the
+      // first page is the one it points at.
+      const [result, uploadedUrls] = await Promise.all([
+        extractFromPages(files),
+        Promise.all(files.map(f => uploadFileToStorage(f, supplier.id).catch(() => null))),
       ]);
+      const uploadedUrl = uploadedUrls.find(Boolean) ?? null;
       const { supplier: extractedSupplier, items: extractedItems } = result;
       if (!extractedItems.length) throw new Error("לא נמצאו פריטים במסמך");
       setRetryMsg("");
@@ -752,12 +788,17 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                <p className="font-medium">גרור קובץ לכאן או לחץ להעלאה</p>
-                <p className="text-sm text-muted-foreground mt-1">תמונה (JPG, PNG) או PDF</p>
+                <p className="font-medium">
+                  {pages.length === 0 ? "גרור קובץ לכאן או לחץ להעלאה" : "הוסף עמוד נוסף"}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  תמונה (JPG, PNG) או PDF · עד {MAX_PAGES} עמודים למסמך אחד
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*,application/pdf"
+                  multiple
                   className="hidden"
                   onChange={handleFilePick}
                 />
@@ -777,24 +818,39 @@ export default function DeliveryModal({ supplier, open, onClose }) {
               </div>
             </>
 
-            {preview && (
-              <div className="relative">
-                <img src={preview} alt="תצוגה מקדימה" className="w-full max-h-56 object-contain rounded-lg border border-border" />
-                <Button size="icon" variant="ghost" className="absolute top-1 left-1" onClick={() => { setFile(null); setPreview(null); }}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            {file && !preview && (
-              <div className="flex items-center gap-2 bg-muted rounded-lg px-4 py-3 text-sm">
-                <PackagePlus className="w-4 h-4 shrink-0" />
-                <span className="truncate">{file.name}</span>
+            {/* Selected pages, in the order they will be read. */}
+            {pages.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  {pages.length === 1 ? "עמוד אחד נבחר" : `${pages.length} עמודים נבחרו`}
+                </p>
+                {pages.map((pg, idx) => (
+                  <div key={pg.id} className="flex items-center gap-3 border border-border rounded-lg p-2">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-muted text-xs font-semibold flex items-center justify-center">
+                      {idx + 1}
+                    </span>
+                    {pg.previewUrl ? (
+                      <img src={pg.previewUrl} alt={`עמוד ${idx + 1}`} className="w-14 h-14 object-cover rounded border border-border shrink-0" />
+                    ) : (
+                      <PackagePlus className="w-5 h-5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="flex-1 truncate text-sm">{pg.file.name}</span>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="הזז למעלה"
+                      disabled={idx === 0} onClick={() => movePage(idx, -1)}>▲</Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="הזז למטה"
+                      disabled={idx === pages.length - 1} onClick={() => movePage(idx, 1)}>▼</Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="הסר עמוד"
+                      onClick={() => removePage(pg.id)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={handleClose}>ביטול</Button>
-              <Button disabled={!file} onClick={handleProcess}>
+              <Button disabled={pages.length === 0} onClick={handleProcess}>
                 <Loader2 className="w-4 h-4 ml-1 hidden" /> ניתוח מסמך
               </Button>
             </div>
