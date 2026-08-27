@@ -216,15 +216,35 @@ function amountsInconsistent(meta) {
   return Math.abs(net + vat - gross) > 0.02;
 }
 
-// Every condition that must hold before a document may become an expense. A
-// document that fails any of them is shown with the reason and cannot be
-// recorded — bad totals must never reach the books silently.
+// Raw text from a numeric input -> number or null. An empty or half-typed field
+// is null rather than 0, so clearing a box never silently records a zero.
+function toAmount(raw) {
+  if (raw === "" || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+// The exact monetary gap, shown to the user so the decision is informed rather
+// than a yes/no on an unexplained warning.
+function amountsDifference(meta) {
+  if (!meta) return 0;
+  const { amount_net: net, vat_amount: vat, amount_gross: gross } = meta;
+  if (net == null || vat == null || gross == null) return 0;
+  return Math.abs(net + vat - gross);
+}
+
+// Every condition that must hold before a document may become an expense.
+//
+// Inconsistent totals are deliberately NOT one of them. A document whose
+// amounts do not add up is usually a real document with one misread digit, and
+// refusing outright left the user with no way to record a genuine purchase.
+// The mismatch is surfaced with its exact size and the user decides — see the
+// review panel. Nothing is ever corrected automatically.
 function expenseEligible(meta) {
   return canCreateExpense(meta)
     && FINANCIAL_DOC_TYPES.includes(meta.document_type)
     // The expense is dated by the document, never by the day it was received.
-    && !!meta.document_date
-    && !amountsInconsistent(meta);
+    && !!meta.document_date;
 }
 
 // ── Multi-page scanning ──────────────────────────────────────────────────────
@@ -403,6 +423,14 @@ export default function DeliveryModal({ supplier, open, onClose }) {
   const createExpenseRef = useRef(false);
   const [expenseMeta, setExpenseMeta] = useState(null);
   const [createExpense, setCreateExpense] = useState(false);
+  // The three expense amounts as raw input text, so a half-typed number is not
+  // fought by the field. They start as whatever was extracted and are used ONLY
+  // for the expense record — no product line, price or stock reads them.
+  const [expenseAmounts, setExpenseAmounts] = useState({ net: "", vat: "", gross: "" });
+  // Whether the document offered an amount at all, captured once at extraction.
+  // Panel visibility keys on this so clearing a field cannot make the panel
+  // vanish mid-edit.
+  const [expenseAvailable, setExpenseAvailable] = useState(false);
 
   // Load products and open supplier order every time the modal opens
   useEffect(() => {
@@ -443,6 +471,8 @@ export default function DeliveryModal({ supplier, open, onClose }) {
     createExpenseRef.current = false;
     setExpenseMeta(null);
     setCreateExpense(false);
+    setExpenseAmounts({ net: "", vat: "", gross: "" });
+    setExpenseAvailable(false);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -534,8 +564,15 @@ export default function DeliveryModal({ supplier, open, onClose }) {
         const meta = result.metadata || null;
         expenseMetaRef.current = meta;
         setExpenseMeta(meta);
+        setExpenseAvailable(canCreateExpense(meta));
+        setExpenseAmounts({
+          net: meta?.amount_net ?? "",
+          vat: meta?.vat_amount ?? "",
+          gross: meta?.amount_gross ?? "",
+        });
         // Defaults on only for a financial document whose totals reconcile.
-        const on = expenseEligible(meta);
+        // An inconsistent document starts OFF and waits for an explicit choice.
+        const on = expenseEligible(meta) && !amountsInconsistent(meta);
         createExpenseRef.current = on;
         setCreateExpense(on);
       } catch (e) { /* metadata is optional — ignore */ }
@@ -767,6 +804,30 @@ export default function DeliveryModal({ supplier, open, onClose }) {
       toast.error("שגיאה בשמירה: " + err.message);
       setStep("review");
     }
+  };
+
+  // ── Expense amounts (edit-only, expense record only) ──────────────────────
+  // The document's own values are what was extracted; these are what will be
+  // saved. They diverge only if the user corrects a misread figure, and the
+  // correction reaches nothing but the expenses row.
+  const liveExpenseMeta = expenseMeta
+    ? {
+        ...expenseMeta,
+        amount_net: toAmount(expenseAmounts.net),
+        vat_amount: toAmount(expenseAmounts.vat),
+        amount_gross: toAmount(expenseAmounts.gross),
+      }
+    : null;
+
+  // executeSave reads the ref, so the edited figures must land there too.
+  // Nothing else in the receipt reads this ref.
+  useEffect(() => {
+    if (liveExpenseMeta) expenseMetaRef.current = liveExpenseMeta;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenseAmounts, expenseMeta]);
+
+  const setExpenseAmount = (field, raw) => {
+    setExpenseAmounts(prev => ({ ...prev, [field]: raw }));
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1067,35 +1128,103 @@ export default function DeliveryModal({ supplier, open, onClose }) {
                 Shown only when the document actually stated an amount before
                 VAT. Purely informational: unticking it changes nothing about
                 the goods receipt. */}
-            {canCreateExpense(expenseMeta) && (
+            {expenseAvailable && liveExpenseMeta && (
               <div className="border border-border rounded-lg p-3 text-sm space-y-2 bg-muted/20">
-                <label className={`flex items-center gap-2 font-medium ${expenseEligible(expenseMeta) ? "cursor-pointer" : "opacity-60"}`}>
-                  <input
-                    type="checkbox"
-                    checked={createExpense}
-                    disabled={!expenseEligible(expenseMeta)}
-                    onChange={e => { setCreateExpense(e.target.checked); createExpenseRef.current = e.target.checked; }}
-                    className="w-4 h-4 cursor-pointer"
-                  />
-                  רישום כהוצאה
-                </label>
+                {/* A mismatch is a question, not a refusal. While it stands the
+                    checkbox is replaced by an explicit choice; the moment the
+                    amounts add up the plain checkbox returns. */}
+                {expenseEligible(liveExpenseMeta) && amountsInconsistent(liveExpenseMeta) ? (
+                  <p className="font-medium">רישום כהוצאה</p>
+                ) : (
+                  <label className={`flex items-center gap-2 font-medium ${expenseEligible(liveExpenseMeta) ? "cursor-pointer" : "opacity-60"}`}>
+                    <input
+                      type="checkbox"
+                      checked={createExpense}
+                      disabled={!expenseEligible(liveExpenseMeta)}
+                      onChange={e => { setCreateExpense(e.target.checked); createExpenseRef.current = e.target.checked; }}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    רישום כהוצאה
+                  </label>
+                )}
                 <div className="text-muted-foreground text-xs space-y-0.5 pr-6">
-                  <p>לפני מע״מ: ₪{expenseMeta.amount_net}
-                    {expenseMeta.vat_amount != null && <> · מע״מ: ₪{expenseMeta.vat_amount}</>}
-                    {expenseMeta.amount_gross != null && <> · כולל מע״מ: ₪{expenseMeta.amount_gross}</>}
+                  <p>לפני מע״מ: ₪{liveExpenseMeta.amount_net ?? "—"}
+                    {liveExpenseMeta.vat_amount != null && <> · מע״מ: ₪{liveExpenseMeta.vat_amount}</>}
+                    {liveExpenseMeta.amount_gross != null && <> · כולל מע״מ: ₪{liveExpenseMeta.amount_gross}</>}
                   </p>
-                  {expenseMeta.document_number && <p>מספר מסמך: {expenseMeta.document_number}</p>}
-                  {expenseMeta.document_date && <p>תאריך המסמך: {expenseMeta.document_date}</p>}
-                  {!FINANCIAL_DOC_TYPES.includes(expenseMeta.document_type) && (
+                  {liveExpenseMeta.document_number && <p>מספר מסמך: {liveExpenseMeta.document_number}</p>}
+                  {liveExpenseMeta.document_date && <p>תאריך המסמך: {liveExpenseMeta.document_date}</p>}
+                  {!FINANCIAL_DOC_TYPES.includes(liveExpenseMeta.document_type) && (
                     <p className="text-amber-600">המסמך אינו מזוהה כחשבונית או קבלה — לא תירשם הוצאה. ניתן להזין אותה ידנית.</p>
                   )}
-                  {!expenseMeta.document_date && (
+                  {!liveExpenseMeta.document_date && (
                     <p className="text-amber-600">לא זוהה תאריך תקין במסמך — לא תירשם הוצאה. ניתן להזין אותה ידנית.</p>
                   )}
-                  {amountsInconsistent(expenseMeta) && (
-                    <p className="text-amber-600">הסכומים במסמך אינם מסתדרים (לפני מע״מ + מע״מ ≠ כולל מע״מ) — לא תירשם הוצאה. יש לבדוק את המסמך.</p>
+                  {liveExpenseMeta.amount_net == null && (
+                    <p className="text-amber-600">יש להזין סכום לפני מע״מ כדי לרשום הוצאה.</p>
                   )}
                 </div>
+
+                {/* Correction + explicit decision, shown only while the totals
+                    do not add up. The fields are pre-filled with what was
+                    extracted and are never auto-corrected; they feed the expense
+                    row and nothing else. */}
+                {amountsInconsistent(liveExpenseMeta) && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-3">
+                    <p className="text-amber-900 text-sm">
+                      הסכומים במסמך אינם מסתדרים.<br />
+                      לפני מע״מ + מע״מ שונים מהסה״כ ב-₪{amountsDifference(liveExpenseMeta).toFixed(2)}.<br />
+                      ניתן לתקן את הסכומים כאן, או לרשום את ההוצאה כפי שחולצה.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {[
+                        { key: "net", label: "סכום לפני מע״מ" },
+                        { key: "vat", label: "מע״מ" },
+                        { key: "gross", label: "סה״כ כולל מע״מ" },
+                      ].map(({ key, label }) => (
+                        <div key={key} className="space-y-1">
+                          <label className="text-xs text-amber-900 block">{label}</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={expenseAmounts[key]}
+                            onChange={e => setExpenseAmount(key, e.target.value)}
+                            className="h-8 text-sm bg-white"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-xs text-amber-800">
+                      הפרש נוכחי: ₪{amountsDifference(liveExpenseMeta).toFixed(2)}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant={createExpense ? "default" : "outline"}
+                        disabled={!expenseEligible(liveExpenseMeta)}
+                        onClick={() => { setCreateExpense(true); createExpenseRef.current = true; }}
+                      >
+                        רשום כהוצאה בכל זאת
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={createExpense ? "outline" : "default"}
+                        onClick={() => { setCreateExpense(false); createExpenseRef.current = false; }}
+                      >
+                        אל תרשום כהוצאה
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-amber-800">
+                      {createExpense
+                        ? "ההוצאה תירשם עם הסכומים המוצגים למעלה, ללא תיקון אוטומטי."
+                        : "לא תירשם הוצאה עבור מסמך זה."}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
