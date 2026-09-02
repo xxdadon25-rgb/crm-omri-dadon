@@ -19,3 +19,8 @@ export const deleteCustomer = (business_id) => callProxy({ action: "delete_custo
 // Removes a single support message from the "הודעות תמיכה" panel. The customer
 // it came from is untouched.
 export const deleteSupportMessage = (id) => callProxy({ action: "delete_support_message", id });
+// Attaches a Grow standing order to a business after the admin has confirmed
+// the match in Grow. The business is always chosen by a human — the system
+// never infers it from the amount or the payer's details.
+export const bindRecurringContract = (charge_id, business_id) =>
+  callProxy({ action: "bind_recurring_contract", charge_id, business_id });

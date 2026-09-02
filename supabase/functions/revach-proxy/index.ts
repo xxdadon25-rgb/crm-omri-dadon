@@ -48,6 +48,9 @@ const ALLOWED_ACTIONS = new Set([
   "delete_price_history",
   "delete_supplier",
   "delete_support_message",
+  // Attaches a Grow standing order to a business after an admin has confirmed
+  // the match in Grow. Never grants access on its own.
+  "bind_recurring_contract",
 ]);
 
 // revachAdmin.js reads `data.ok` and throws on `data.error`, so every failure

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { toast } from "sonner";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
@@ -6,8 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare, Trash2 } from "lucide-react";
-import { listCustomers, approveCustomer, blockCustomer, cancelCustomer, deleteCustomer, deleteSupportMessage } from "@/lib/revachAdmin";
+import { Users, Clock, CheckCircle2, Ban, RefreshCw, MessageSquare, Trash2, SearchX, Link2 } from "lucide-react";
+import { listCustomers, approveCustomer, blockCustomer, cancelCustomer, deleteCustomer, deleteSupportMessage, bindRecurringContract } from "@/lib/revachAdmin";
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -33,6 +33,14 @@ export default function RevachAdmin() {
   const [error, setError] = useState("");
   const [customers, setCustomers] = useState([]);
   const [messages, setMessages] = useState([]);
+  // Unverified checkouts and unattributed recurring charges. Kept in their own
+  // state, never merged into `customers`, so the approval queue is unaffected.
+  const [stuckIntents, setStuckIntents] = useState([]);
+  const [unresolvedCharges, setUnresolvedCharges] = useState([]);
+  const [bindingId, setBindingId] = useState(null);
+  // Which charge is being bound, and the business the admin picked for it.
+  const [bindTarget, setBindTarget] = useState(null);
+  const [bindBusinessId, setBindBusinessId] = useState("");
   const [actingId, setActingId] = useState(null);
   const [deletingMsgId, setDeletingMsgId] = useState(null);
 
@@ -43,6 +51,8 @@ export default function RevachAdmin() {
       const data = await listCustomers();
       setCustomers(Array.isArray(data.customers) ? data.customers : []);
       setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setStuckIntents(Array.isArray(data.stuck_intents) ? data.stuck_intents : []);
+      setUnresolvedCharges(Array.isArray(data.unresolved_charges) ? data.unresolved_charges : []);
     } catch (err) {
       setError(err.message || "שגיאה בטעינת הנתונים");
     } finally {
@@ -107,6 +117,49 @@ export default function RevachAdmin() {
       toast.error(err.message || "שגיאה במחיקת ההודעה");
     } finally {
       setDeletingMsgId(null);
+    }
+  };
+
+  // The admin has already confirmed in Grow which business this standing order
+  // belongs to. Nothing here infers it: the id comes from a human, and the
+  // server refuses the bind unless that business has a verified monthly intent.
+  // The admin picks the business from the known customer list — never by typing
+  // an id. A mistyped uuid would attach someone else's standing order to this
+  // customer and extend their subscription with another person's money, and a
+  // raw uuid gives the admin nothing to sanity-check against. The confirmation
+  // names the business so the choice is verified in words, not in hex.
+  const confirmBind = async (charge) => {
+    const chosen = customers.find((c) => c.business_id === bindBusinessId);
+    if (!chosen) {
+      toast.error("יש לבחור עסק מהרשימה");
+      return;
+    }
+
+    const label = chosen.business_name || chosen.owner_name || chosen.business_id;
+    const okToBind = window.confirm(
+      `לשייך את הוראת הקבע לעסק "${label}"?\n\n` +
+      `מזהה Grow: ${charge.grow_identifier}\n` +
+      `סכום: ${charge.amount ?? "—"}\n\n` +
+      "יש לוודא בממשק Grow שהוראת הקבע אכן שייכת לעסק זה. " +
+      "שיוך שגוי יאריך את המנוי של הלקוח הלא נכון."
+    );
+    if (!okToBind) return;
+
+    setBindingId(charge.id);
+    try {
+      const res = await bindRecurringContract(charge.id, chosen.business_id);
+      if (res.settled === false) {
+        toast.warning(`הוראת הקבע שויכה, אך החיוב טרם הוחל: ${res.applied || "—"}`);
+      } else {
+        toast.success(`הוראת הקבע שויכה ל-${label}. תוצאה: ${res.applied || "—"}`);
+      }
+      setBindTarget(null);
+      setBindBusinessId("");
+      await load();
+    } catch (err) {
+      toast.error(err.message || "שיוך הוראת הקבע נכשל");
+    } finally {
+      setBindingId(null);
     }
   };
 
@@ -330,6 +383,171 @@ export default function RevachAdmin() {
               )}
             </CardContent>
           </Card>
+
+          {/* Unverified checkouts.
+              NOT customers and NOT an approval queue. A row here means a
+              checkout was started and never verified — which may be an
+              abandoned checkout OR a payment we failed to record. We store no
+              Grow-side payment status, so the two cannot be told apart here.
+              Deliberately offers no approve action. */}
+          {stuckIntents.length > 0 && (
+            <Card className="border-amber-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700">
+                  <SearchX className="w-5 h-5" />
+                  תשלומים שלא הושלמו — נדרשת בדיקה ב-Grow
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                  התשלומים הבאים <strong>לא אומתו</strong>. ייתכן שהלקוח נטש את התשלום,
+                  וייתכן שהתשלום בוצע ולא התקבל אישור. אין לאשר לקוח על סמך רשומה זו —
+                  יש לבדוק תחילה בממשק Grow אם הכסף נגבה בפועל.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>עסק</TableHead>
+                        <TableHead>חבילה</TableHead>
+                        <TableHead>סכום צפוי</TableHead>
+                        <TableHead>ממתין</TableHead>
+                        <TableHead>Grow Process ID</TableHead>
+                        <TableHead>מזהה תשלום</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stuckIntents.map((s) => (
+                        <TableRow key={s.intent_id}>
+                          <TableCell className="font-medium">{s.business_name || "—"}</TableCell>
+                          <TableCell>
+                            {s.plan_id || "—"}
+                            <span className="text-muted-foreground text-xs">
+                              {" "}({s.billing_cycle === "yearly" ? "שנתי" : "חודשי"})
+                            </span>
+                          </TableCell>
+                          <TableCell>{s.expected_amount ?? "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="border-amber-400 text-amber-700">
+                              {s.minutes_pending >= 60
+                                ? `${Math.floor(s.minutes_pending / 60)} שעות`
+                                : `${s.minutes_pending} דקות`}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">{s.grow_process_id || "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{s.intent_id}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recurring charges that matched no standing order.
+              Money HAS moved for these — Grow charged the card — but we cannot
+              tell which business without a human checking Grow. The system
+              never guesses from amount, name or phone. */}
+          {unresolvedCharges.length > 0 && (
+            <Card className="border-orange-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <Link2 className="w-5 h-5" />
+                  חיובים חוזרים ללא שיוך
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-orange-800 bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  התקבלו חיובים חוזרים מ-Grow שלא נמצאה עבורם הוראת קבע במערכת.
+                  יש לזהות בממשק Grow לאיזה עסק שייך כל חיוב ולשייך אותו כאן.
+                  המערכת לעולם אינה מנחשת את העסק לפי סכום או פרטי לקוח.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>מזהה Grow</TableHead>
+                        <TableHead>סיבה</TableHead>
+                        <TableHead>סכום</TableHead>
+                        <TableHead>אסמכתה</TableHead>
+                        <TableHead>תאריך</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {unresolvedCharges.map((c) => (
+                        <Fragment key={c.id}>
+                        <TableRow>
+                          <TableCell className="font-mono text-xs">{c.grow_identifier}</TableCell>
+                          <TableCell className="text-xs">
+                            {c.reason === "ambiguous_identifier"
+                              ? "מזהה תואם יותר מהוראת קבע אחת"
+                              : "לא נמצאה הוראת קבע"}
+                          </TableCell>
+                          <TableCell>{c.amount ?? "—"}</TableCell>
+                          <TableCell className="text-xs">{c.asmachta || "—"}</TableCell>
+                          <TableCell>{fmtDate(c.created_at)}</TableCell>
+                          <TableCell className="text-left">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={bindingId === c.id}
+                              onClick={() => {
+                                setBindTarget(bindTarget === c.id ? null : c.id);
+                                setBindBusinessId("");
+                              }}
+                            >
+                              {bindTarget === c.id ? "ביטול" : "שייך לעסק"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {bindTarget === c.id && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="bg-muted/30">
+                              <div className="flex flex-wrap items-center gap-2 py-1">
+                                <span className="text-sm">בחר את העסק שאליו שייכת הוראת הקבע:</span>
+                                <select
+                                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                                  value={bindBusinessId}
+                                  onChange={(e) => setBindBusinessId(e.target.value)}
+                                >
+                                  <option value="">— בחר עסק —</option>
+                                  {[...regularCustomers]
+                                    .sort((a, b) =>
+                                      String(a.business_name || "").localeCompare(
+                                        String(b.business_name || ""), "he"
+                                      )
+                                    )
+                                    .map((cust) => (
+                                      <option key={cust.business_id} value={cust.business_id}>
+                                        {cust.business_name || cust.owner_name || cust.business_id}
+                                        {cust.plan_id ? ` · ${cust.plan_id}` : ""}
+                                      </option>
+                                    ))}
+                                </select>
+                                <Button
+                                  size="sm"
+                                  disabled={!bindBusinessId || bindingId === c.id}
+                                  onClick={() => confirmBind(c)}
+                                >
+                                  אישור שיוך
+                                </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  יש לוודא תחילה בממשק Grow למי שייכת הוראת הקבע.
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        </Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Support messages */}
           <Card>
