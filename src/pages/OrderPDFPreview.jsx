@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { generateDocumentPDF } from "@/lib/pdfGenerator";
 import { Printer, FileText, Loader2 } from "lucide-react";
@@ -37,10 +36,24 @@ export default function OrderPDFPreview() {
         }
         setOrder(orderResponse.order);
 
-        const settingsRecords = await base44.entities.BusinessSettings.list();
-        setBusinessSettings(settingsRecords[0] || {});
-      } catch (err) {
-        setError(err.message);
+        // Read directly rather than through base44.entities.BusinessSettings.
+        // That helper scopes every list() to `.eq('user_id', user?.id)`, and on
+        // this public page there is no user — so it sent the literal string
+        // "undefined" as a uuid and Postgres rejected the request. The failure
+        // was invisible before, because the orders query used to fail first.
+        //
+        // business_settings has a public SELECT policy, and only the eight
+        // fields the PDF actually renders are requested.
+        const { data: settingsRows } = await supabase
+          .from("business_settings")
+          .select("business_name, address, phone, fax, email, tax_id, logo_url, payment_terms")
+          .limit(1);
+        setBusinessSettings(settingsRows?.[0] || {});
+      } catch {
+        // The viewer is a customer, not a developer: a database message must
+        // never reach this page. Any failure reads as the same thing it always
+        // did — the order could not be shown.
+        setError("Order not found");
       } finally {
         setLoading(false);
       }
