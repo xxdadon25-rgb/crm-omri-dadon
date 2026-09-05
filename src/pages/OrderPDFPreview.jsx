@@ -19,16 +19,23 @@ export default function OrderPDFPreview() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const { data: orderData, error: orderError } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
-        if (orderError || !orderData) {
+        // This page is a PUBLIC link: it is sent to customers by WhatsApp, so
+        // the viewer has no session. Reading public.orders directly meant RLS
+        // (authenticated + auth.uid() = user_id) hid the row from everyone but
+        // the staff member who created it, which is why the same URL worked on
+        // the office desktop and failed on the customer's phone.
+        //
+        // public-order-pdf reads the row server-side and returns only the
+        // fields this PDF renders. RLS is unchanged.
+        const { data: orderResponse, error: orderError } = await supabase.functions.invoke(
+          "public-order-pdf",
+          { body: { order_id: orderId } },
+        );
+        if (orderError || !orderResponse?.ok || !orderResponse.order) {
           setError("Order not found");
           return;
         }
-        setOrder(orderData);
+        setOrder(orderResponse.order);
 
         const settingsRecords = await base44.entities.BusinessSettings.list();
         setBusinessSettings(settingsRecords[0] || {});
