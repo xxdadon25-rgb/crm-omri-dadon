@@ -53,6 +53,39 @@ const orderSaveErrorMessage = (error) => {
   return key ? ORDER_SAVE_ERRORS[key] : ORDER_SAVE_ERROR;
 };
 
+// The Inventory screen shows the version of a product held in
+// pendingProductUpdates in preference to the row it just read from the
+// database, and that entry has no working expiry — nothing writes
+// products.updated_date, so the guard's "backend caught up" test never becomes
+// true. deductInventory/restoreInventory used to delete the entry for every
+// product they touched, which is what kept the screen honest; the RPC moves
+// stock in the database and cannot know about the browser's copy, so that
+// cleanup is done here instead.
+//
+// Only the products this save could have moved are cleared — the union of the
+// pre-edit and post-edit item sets — so a pending edit for an unrelated product
+// is left alone. Lines with no product_id are ignored: they never affect stock.
+const clearPendingProductUpdates = (order, updates) => {
+  try {
+    const raw = sessionStorage.getItem("pendingProductUpdates");
+    if (!raw) return;
+
+    const touched = new Set(
+      [...(order?.items || []), ...(updates?.items || [])]
+        .map(i => i?.product_id)
+        .filter(Boolean)
+    );
+    if (touched.size === 0) return;
+
+    const remaining = JSON.parse(raw).filter(p => !touched.has(p?.id));
+    if (remaining.length === 0) sessionStorage.removeItem("pendingProductUpdates");
+    else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(remaining));
+  } catch {
+    // A malformed entry, or storage that refuses to be written, must never turn
+    // a successful save into a failed one. The order is already committed.
+  }
+};
+
 export default function Orders() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -330,6 +363,7 @@ export default function Orders() {
 
       // The RPC may have moved stock. deductInventory/restoreInventory used to
       // refresh this cache and no longer run on this path, so it is done here.
+      clearPendingProductUpdates(order, updates);
       queryClient.removeQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
 
