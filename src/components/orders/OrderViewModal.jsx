@@ -1,11 +1,15 @@
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, FileText, Loader2, Link2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Link2, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { supabase } from "@/api/supabaseClient";
 import DocumentActions from "@/components/documents/DocumentActions";
 import DocumentTotals from "@/components/documents/DocumentTotals";
+import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
+import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
 
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
@@ -18,6 +22,50 @@ import DocumentTotals from "@/components/documents/DocumentTotals";
 import { getOrderStatusColor } from "@/utils/statusColors";
 
 export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDocument, onBackToQuote, onCreateInvoice, creatingInvoice, customers, quotes, businessSettings }) {
+  // ── Profitability ─────────────────────────────────────────────────────────
+  // Same behaviour as the Invoices and Quotes screens, reusing the same two
+  // generic components. Every hook below sits ABOVE the `if (!order)` guard:
+  // that early return is a conditional path, and a hook declared after it would
+  // change hook order between renders.
+  const [accessCodeOpen, setAccessCodeOpen] = useState(false);
+  const [profitabilityModalOpen, setProfitabilityModalOpen] = useState(false);
+  const [enrichedItems, setEnrichedItems] = useState([]);
+
+  // Older documents can carry items with no buy_price. Where the item still
+  // knows its product, the cost is read from the catalog and merged into a COPY
+  // — order.items is never mutated.
+  useEffect(() => {
+    if (!order?.id) { setEnrichedItems([]); return; }
+    const enrichItems = async () => {
+      const items = order.items || [];
+      const missingIds = items
+        .filter(i => (i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id)
+        .map(i => i.product_id);
+      if (missingIds.length === 0) { setEnrichedItems(items); return; }
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, buy_price")
+        .in("id", missingIds);
+      const priceMap = {};
+      (products || []).forEach(p => { priceMap[p.id] = p.buy_price; });
+      setEnrichedItems(items.map(i => {
+        if ((i.buy_price === undefined || i.buy_price === null || i.buy_price === "") && i.product_id && priceMap[i.product_id] != null) {
+          return { ...i, buy_price: priceMap[i.product_id] };
+        }
+        return i;
+      }));
+    };
+    enrichItems();
+  }, [order?.id, order?.items]);
+
+  // Identical formulas to Invoices.jsx — margin is over COST, not revenue.
+  const totalCostNet = useMemo(() => enrichedItems.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [enrichedItems]);
+  const totalSalesNet = useMemo(() => enrichedItems.reduce((s, i) => s + (i.total || 0), 0), [enrichedItems]);
+  const totalProfit = totalSalesNet - totalCostNet;
+  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
+  const profitItemCount = enrichedItems.reduce((s, i) => s + (i.quantity || 0), 0);
+  const avgProfitPerItem = profitItemCount > 0 ? totalProfit / profitItemCount : 0;
+
   if (!order) return null;
 
   const customer = customers?.find(c => c.id === order.customer_id);
@@ -159,6 +207,15 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setAccessCodeOpen(true)}
+              className="w-full text-green-700 border-green-200 hover:bg-green-50"
+            >
+              <TrendingUp className="w-4 h-4 ml-1" /> רווחיות
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onCreateInvoice}
               disabled={creatingInvoice}
               className="w-full text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
@@ -175,6 +232,25 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
             )}
           </div>
         </div>
+
+        {/* Same two-step gate as Invoices and Quotes: the code unlocks the
+            figures, and the fallback code matches the existing screens. */}
+        <ProfitabilityAccessDialog
+          open={accessCodeOpen}
+          onOpenChange={setAccessCodeOpen}
+          correctCode={businessSettings?.profitability_access_code || "1234"}
+          onSuccess={() => { setAccessCodeOpen(false); setProfitabilityModalOpen(true); }}
+        />
+        <ProfitabilityModal
+          open={profitabilityModalOpen}
+          onOpenChange={setProfitabilityModalOpen}
+          totalCostNet={totalCostNet}
+          totalSalesNet={totalSalesNet}
+          totalProfit={totalProfit}
+          profitMargin={profitMargin}
+          itemCount={profitItemCount}
+          avgProfitPerItem={avgProfitPerItem}
+        />
       </DialogContent>
     </Dialog>
   );
