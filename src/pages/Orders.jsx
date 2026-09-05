@@ -258,6 +258,59 @@ export default function Orders() {
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
+  // ── Inventory reconciliation on edit ───────────────────────────────────────
+  // An order that is already supplied stays supplied while its items are
+  // edited. Before, that combination matched none of the fulfilled-state
+  // branches below, so an added product or an increased quantity was written to
+  // the order and never taken from stock.
+  //
+  // The fix compares what was already deducted (the pre-edit items) with what
+  // the order now holds, and applies ONLY the difference. Nothing is re-deducted
+  // and nothing is double-restored, so a price-only edit — or saving the same
+  // order again unchanged — produces no inventory write at all.
+
+  // ONLY product_id identifies a catalogue row. The `|| item.id` fallback used
+  // by deductInventory/restoreInventory above is NOT repeated here: no order
+  // item is ever built with an `id` (every producer — ProductCatalogModal,
+  // SalesCatalog's cart, QuoteEditor, the portal approval — writes product_id
+  // and nothing else), while `id` on an item object elsewhere in this codebase
+  // means the LINE row, not the product: portal_order_items is read with
+  // select("*") and its rows carry both. Keying on that would send a line id to
+  // products.id.
+  //
+  // A line with no product_id is therefore skipped entirely — it triggers no
+  // read and no write. Free-text lines have never affected stock.
+  const inventoryKey = (item) => item?.product_id || null;
+
+  const quantitiesByProduct = (items) => {
+    const map = new Map();
+    for (const item of items || []) {
+      const key = inventoryKey(item);
+      if (!key) continue;
+      map.set(key, (map.get(key) || 0) + (item.quantity || 0));
+    }
+    return map;
+  };
+
+  // prevItems = what stock was taken for; nextItems = what the order now holds.
+  const reconcileInventory = async (prevItems, nextItems) => {
+    const prev = quantitiesByProduct(prevItems);
+    const next = quantitiesByProduct(nextItems);
+
+    const toDeduct = [];
+    const toRestore = [];
+    for (const key of new Set([...prev.keys(), ...next.keys()])) {
+      const delta = (next.get(key) || 0) - (prev.get(key) || 0);
+      if (delta > 0) toDeduct.push({ product_id: key, quantity: delta });
+      else if (delta < 0) toRestore.push({ product_id: key, quantity: -delta });
+    }
+
+    // A removed product appears only in prev, a new one only in next, so both
+    // are handled by the same difference — no special case is needed.
+    if (toDeduct.length > 0) await deductInventory(toDeduct);
+    if (toRestore.length > 0) await restoreInventory(toRestore);
+  };
+
   // ── Customer-specific product prices ───────────────────────────────────────
   // The last unit price saved for a customer becomes that customer's price for
   // that product, and the portal shows it instead of sell_price. One row per
@@ -304,22 +357,32 @@ export default function Orders() {
   const commitEditSave = async (updates, order, restoreStock = false) => {
     setSaving(true);
     try {
-      const items = order.items || [];
+      // prevItems is what stock was actually taken for; nextItems is what the
+      // order will hold after this save. A save that does not carry items at
+      // all leaves the set unchanged, so its delta is empty.
+      const prevItems = order.items || [];
+      const nextItems = updates.items || prevItems;
       const wasFulfilled = !!order.inventory_deducted;
       const willBeCancelled = updates.status === "בוטל";
       const willBeFulfilled = !!updates.fulfilled;
 
       if (willBeCancelled && wasFulfilled) {
         if (restoreStock) {
-          await restoreInventory(items);
+          // Give back exactly what was taken, not the edited quantities.
+          await restoreInventory(prevItems);
           updates.inventory_deducted = false;
         }
       } else if (willBeFulfilled && !wasFulfilled) {
-        await deductInventory(items);
+        // Nothing was deducted yet, so the full NEW set is taken — the old
+        // snapshot would have deducted the pre-edit quantities.
+        await deductInventory(nextItems);
         updates.inventory_deducted = true;
       } else if (!willBeFulfilled && wasFulfilled && !willBeCancelled) {
-        await restoreInventory(items);
+        await restoreInventory(prevItems);
         updates.inventory_deducted = false;
+      } else if (willBeFulfilled && wasFulfilled) {
+        // Still supplied, items may have changed: apply only the difference.
+        await reconcileInventory(prevItems, nextItems);
       }
 
       const updated = await base44.entities.Order.update(order.id, updates);
