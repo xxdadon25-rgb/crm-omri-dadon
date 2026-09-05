@@ -6,6 +6,109 @@ import { Printer, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { buildDocumentHTML } from "@/lib/pdfGenerator";
 
+// Mobile-only reflow for the preview.
+//
+// buildDocumentHTML emits an A4 sheet: a fixed 794px box with inline pixel
+// sizes throughout (10px sections, 8–9px table cells, fixed column widths).
+// That is correct for the PDF and correct on a desktop screen. On a phone it is
+// roughly twice the viewport, and shrinking the whole sheet to fit would leave
+// 9px text rendering at about 4px — legible only by pinching.
+//
+// So the sheet is REFLOWED rather than scaled: it fills the phone's width, the
+// side-by-side blocks stack, the fixed table columns are released so long
+// product names wrap, and every small font size is stepped up to something
+// readable. No information is removed — the same header, customer block, items,
+// totals, notes and signature area are all present.
+//
+// HOW IT TARGETS GENERATED MARKUP
+//   The document is injected as HTML with inline styles, and an inline style
+//   beats a stylesheet rule. Each rule therefore matches on the inline style it
+//   needs to override — [style*="margin:0 16px"] and so on — and uses
+//   !important. That is surgical, and it means pdfGenerator.js is untouched.
+//
+// WHY DESKTOP CANNOT BE AFFECTED
+//   Every rule lives inside @media (max-width: 820px) AND under .qs-order-doc,
+//   a class used only on this page. Above that width not one rule applies, so
+//   the desktop preview keeps exactly the styles the generator emitted.
+//
+// PRINT AND DOWNLOAD ARE UNTOUCHED
+//   Both call generateDocumentPDF, which rebuilds the document from the data.
+//   Neither reads this DOM node, so the output is identical at any screen size.
+const MOBILE_DOC_CSS = `
+@media (max-width: 820px) {
+  /* The sheet itself: fill the phone, drop the A4 height floor. */
+  .qs-order-doc > div {
+    width: 100% !important;
+    min-height: 0 !important;
+    font-size: 13px !important;
+  }
+
+  /* 16px side gutters are a print margin; a phone cannot spare them. */
+  .qs-order-doc [style*="margin:0 16px"]     { margin-left: 6px !important; margin-right: 6px !important; }
+  .qs-order-doc [style*="margin:8px 16px 0"] { margin: 6px 6px 0 !important; }
+  .qs-order-doc [style*="margin:6px 16px 0"] { margin: 6px 6px 0 !important; }
+  .qs-order-doc [style*="margin:4px 16px 8px"] { margin: 4px 6px 8px !important; }
+
+  /* Company header: stack the business block above the contact block. */
+  .qs-order-doc [style*="height:66px"] {
+    height: auto !important;
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+  .qs-order-doc [style*="width:220px"] {
+    width: auto !important;
+    border-left: none !important;
+    border-top: 1px solid #ddd !important;
+  }
+
+  /* Title bar: let the three cells wrap instead of squeezing to 28px. */
+  .qs-order-doc [style*="height:28px"] {
+    height: auto !important;
+    min-height: 28px !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Customer + meta, and Notes + totals: stack the side-by-side columns. */
+  .qs-order-doc [style*="min-height:60px"],
+  .qs-order-doc [style*="min-height:80px"] { flex-direction: column !important; }
+  .qs-order-doc [style*="flex:6"] {
+    border-left: none !important;
+    border-bottom: 1px solid #ddd !important;
+  }
+  .qs-order-doc [style*="width:270px"] { width: 100% !important; }
+  .qs-order-doc [style*="border-left:1px solid #ddd"] { border-left: none !important; }
+
+  /* Items table: release the fixed A4 column widths so descriptions wrap
+     instead of forcing the sheet wider than the screen. */
+  .qs-order-doc table { table-layout: auto !important; width: 100% !important; }
+  .qs-order-doc col   { width: auto !important; }
+  .qs-order-doc th,
+  .qs-order-doc td {
+    padding: 5px 4px !important;
+    height: auto !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+  .qs-order-doc tr { height: auto !important; line-height: 1.4 !important; }
+
+  /* Step every print-size font up to something readable on a phone. */
+  .qs-order-doc [style*="font-size:8px"]   { font-size: 11px !important; }
+  .qs-order-doc [style*="font-size:8.5px"] { font-size: 11px !important; }
+  .qs-order-doc [style*="font-size:9px"]   { font-size: 12px !important; }
+  .qs-order-doc [style*="font-size:9.5px"] { font-size: 12px !important; }
+  .qs-order-doc [style*="font-size:10px"]  { font-size: 13px !important; }
+  .qs-order-doc [style*="font-size:11px"]  { font-size: 13px !important; }
+  .qs-order-doc [style*="font-size:12px"]  { font-size: 14px !important; }
+
+  /* Signature line: three fields that no longer fit on one row. */
+  .qs-order-doc [style*="justify-content:space-between"] {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .qs-order-doc [style*="gap:24px"] { gap: 10px !important; flex-wrap: wrap !important; }
+}
+`;
+
 export default function OrderPDFPreview() {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
@@ -145,10 +248,18 @@ export default function OrderPDFPreview() {
         </div>
       </div>
 
+      {/* Mobile-only reflow. Scoped to .qs-order-doc and to a max-width media
+          query, so it cannot reach the desktop preview or any other page. */}
+      <style>{MOBILE_DOC_CSS}</style>
+
       {/* Document View */}
       <div className="p-4 pb-12">
-        <div className="max-w-6xl mx-auto bg-white shadow-lg">
+        {/* overflow-x-auto is a safety net, not the layout: the rules above are
+            meant to make the sheet fit. If some future content still cannot,
+            it pans instead of being clipped. */}
+        <div className="max-w-6xl mx-auto bg-white shadow-lg overflow-x-auto">
           <div
+            className="qs-order-doc"
             dangerouslySetInnerHTML={{ __html: documentHTML }}
             style={{ direction: "rtl" }}
           />
