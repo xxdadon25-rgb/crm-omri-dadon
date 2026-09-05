@@ -36,6 +36,23 @@ import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 // };
 import { getOrderStatusColor } from "@/utils/statusColors";
 
+// Stable identifiers raised by save_order_with_inventory, mapped to Hebrew.
+// The raw Postgres message is logged for us and NEVER rendered: a database
+// error must not reach a CRM user, and the previous code discarded it entirely,
+// which is why the production failure could not be diagnosed from the UI.
+const ORDER_SAVE_ERROR = "שגיאה בעדכון ההזמנה";
+const ORDER_SAVE_ERRORS = {
+  not_authenticated: "החיבור פג. יש להתחבר מחדש ולנסות שוב.",
+  order_not_found: "ההזמנה לא נמצאה או שאינה שייכת למשתמש זה.",
+  product_not_found: "אחד המוצרים בהזמנה לא נמצא במלאי.",
+  inventory_update_failed: "עדכון המלאי נכשל — ההזמנה לא נשמרה.",
+};
+const orderSaveErrorMessage = (error) => {
+  const raw = String(error?.message ?? "");
+  const key = Object.keys(ORDER_SAVE_ERRORS).find(k => raw.includes(k));
+  return key ? ORDER_SAVE_ERRORS[key] : ORDER_SAVE_ERROR;
+};
+
 export default function Orders() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -237,79 +254,10 @@ export default function Orders() {
     queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
-  const restoreInventory = async (items) => {
-    for (const item of items) {
-      const pid = item.product_id || item.id;
-      if (!pid) continue;
-      const { data: product } = await supabase.from("products").select("id,quantity").eq("id", pid).single();
-      if (!product) continue;
-      const newQty = (product.quantity || 0) + (item.quantity || 0);
-      await supabase.from("products").update({ quantity: newQty }).eq("id", pid);
-      const raw = sessionStorage.getItem("pendingProductUpdates");
-      if (raw) {
-        try {
-          const filtered = JSON.parse(raw).filter(p => p.id !== pid);
-          if (filtered.length === 0) sessionStorage.removeItem("pendingProductUpdates");
-          else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
-        } catch (e) {}
-      }
-    }
-    queryClient.removeQueries({ queryKey: ["products"] });
-    queryClient.invalidateQueries({ queryKey: ["products"] });
-  };
-
-  // ── Inventory reconciliation on edit ───────────────────────────────────────
-  // An order that is already supplied stays supplied while its items are
-  // edited. Before, that combination matched none of the fulfilled-state
-  // branches below, so an added product or an increased quantity was written to
-  // the order and never taken from stock.
-  //
-  // The fix compares what was already deducted (the pre-edit items) with what
-  // the order now holds, and applies ONLY the difference. Nothing is re-deducted
-  // and nothing is double-restored, so a price-only edit — or saving the same
-  // order again unchanged — produces no inventory write at all.
-
-  // ONLY product_id identifies a catalogue row. The `|| item.id` fallback used
-  // by deductInventory/restoreInventory above is NOT repeated here: no order
-  // item is ever built with an `id` (every producer — ProductCatalogModal,
-  // SalesCatalog's cart, QuoteEditor, the portal approval — writes product_id
-  // and nothing else), while `id` on an item object elsewhere in this codebase
-  // means the LINE row, not the product: portal_order_items is read with
-  // select("*") and its rows carry both. Keying on that would send a line id to
-  // products.id.
-  //
-  // A line with no product_id is therefore skipped entirely — it triggers no
-  // read and no write. Free-text lines have never affected stock.
-  const inventoryKey = (item) => item?.product_id || null;
-
-  const quantitiesByProduct = (items) => {
-    const map = new Map();
-    for (const item of items || []) {
-      const key = inventoryKey(item);
-      if (!key) continue;
-      map.set(key, (map.get(key) || 0) + (item.quantity || 0));
-    }
-    return map;
-  };
-
-  // prevItems = what stock was taken for; nextItems = what the order now holds.
-  const reconcileInventory = async (prevItems, nextItems) => {
-    const prev = quantitiesByProduct(prevItems);
-    const next = quantitiesByProduct(nextItems);
-
-    const toDeduct = [];
-    const toRestore = [];
-    for (const key of new Set([...prev.keys(), ...next.keys()])) {
-      const delta = (next.get(key) || 0) - (prev.get(key) || 0);
-      if (delta > 0) toDeduct.push({ product_id: key, quantity: delta });
-      else if (delta < 0) toRestore.push({ product_id: key, quantity: -delta });
-    }
-
-    // A removed product appears only in prev, a new one only in next, so both
-    // are handled by the same difference — no special case is needed.
-    if (toDeduct.length > 0) await deductInventory(toDeduct);
-    if (toRestore.length > 0) await restoreInventory(toRestore);
-  };
+  // restoreInventory used to sit here. Every restore now happens inside
+  // save_order_with_inventory, in the same transaction as the order write, so
+  // the client-side copy had no caller left. deductInventory above is KEPT
+  // because the order-create path still uses it.
 
   // ── Customer-specific product prices ───────────────────────────────────────
   // The last unit price saved for a customer becomes that customer's price for
@@ -357,40 +305,33 @@ export default function Orders() {
   const commitEditSave = async (updates, order, restoreStock = false) => {
     setSaving(true);
     try {
-      // prevItems is what stock was actually taken for; nextItems is what the
-      // order will hold after this save. A save that does not carry items at
-      // all leaves the set unchanged, so its delta is empty.
-      const prevItems = order.items || [];
-      const nextItems = updates.items || prevItems;
-      const wasFulfilled = !!order.inventory_deducted;
-      const willBeCancelled = updates.status === "בוטל";
-      const willBeFulfilled = !!updates.fulfilled;
-
-      if (willBeCancelled && wasFulfilled) {
-        if (restoreStock) {
-          // Give back exactly what was taken, not the edited quantities.
-          await restoreInventory(prevItems);
-          updates.inventory_deducted = false;
-        }
-      } else if (willBeFulfilled && !wasFulfilled) {
-        // Nothing was deducted yet, so the full NEW set is taken — the old
-        // snapshot would have deducted the pre-edit quantities.
-        await deductInventory(nextItems);
-        updates.inventory_deducted = true;
-      } else if (!willBeFulfilled && wasFulfilled && !willBeCancelled) {
-        await restoreInventory(prevItems);
-        updates.inventory_deducted = false;
-      } else if (willBeFulfilled && wasFulfilled) {
-        // Still supplied, items may have changed: apply only the difference.
-        await reconcileInventory(prevItems, nextItems);
-      }
-
-      const updated = await base44.entities.Order.update(order.id, updates);
+      // ONE atomic call replaces the previous sequence of client-side stock
+      // writes followed by a separate order update. Those were two independent
+      // transactions: a failure between them left stock deducted against an
+      // order that was never saved, and a JavaScript catch cannot undo a
+      // committed UPDATE. Here stock and order move together or not at all.
+      //
+      // The delta baseline is the order's STORED items, read inside that same
+      // transaction — the browser's snapshot is never trusted — and
+      // inventory_deducted is derived server-side, so it can no longer disagree
+      // with the stock that was actually moved.
+      const { data: updated, error } = await supabase.rpc("save_order_with_inventory", {
+        p_order_id: order.id,
+        p_updates: updates,
+        p_restore_stock: restoreStock,
+      });
+      if (error) throw error;
+      if (!updated) throw new Error("order_not_found");
 
       // Remember this customer's price for each product. Runs ONLY after the
       // order update above has succeeded, and never touches products.sell_price:
       // the catalogue price is unchanged, this is a separate per-customer record.
       await saveCustomerProductPrices(updated, order);
+
+      // The RPC may have moved stock. deductInventory/restoreInventory used to
+      // refresh this cache and no longer run on this path, so it is done here.
+      queryClient.removeQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
 
       sessionStorage.setItem("pendingOrderUpdate", JSON.stringify(updated));
       queryClient.setQueryData(["orders"], (old = []) => old.map(o => o.id === updated.id ? updated : o));
@@ -398,7 +339,8 @@ export default function Orders() {
       setRestoreStockDialog(null);
       toast.success("ההזמנה עודכנה בהצלחה");
     } catch (error) {
-      toast.error("שגיאה בעדכון ההזמנה");
+      console.error("save_order_with_inventory failed:", error);
+      toast.error(orderSaveErrorMessage(error));
     } finally {
       setSaving(false);
     }
