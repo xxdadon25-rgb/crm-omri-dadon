@@ -315,7 +315,7 @@ export default function QuotePDFPreview() {
             <div style={{ margin: "24px 32px", borderTop: "1px solid #ccc", paddingTop: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
                 {[
-                  "מפיק המסמך: מיני סטוק",
+                  `מפיק המסמך: ${biz.business_name || "העסק שלי"}`,
                   "שם המקבל",
                   "חתימה",
                   "תאריך",
@@ -330,7 +330,7 @@ export default function QuotePDFPreview() {
 
             {/* FOOTER */}
             <div style={{ borderTop: "1px solid #eee", padding: "8px 32px", textAlign: "center", fontSize: 11, color: "#999" }}>
-              מיני סטוק | טל: 053-7650570 | השזיף 5 נשר, ישראל | a.d.shivuk555@gmail.com
+              {biz.business_name || "העסק שלי"} | טל: 053-7650570 | השזיף 5 נשר, ישראל | a.d.shivuk555@gmail.com
             </div>
           </div>
 

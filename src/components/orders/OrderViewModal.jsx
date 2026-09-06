@@ -77,7 +77,11 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
     const intlPhone = cleaned.startsWith("0") ? "972" + cleaned.slice(1) : cleaned;
     const pdfUrl = `${window.location.origin}/order-pdf/${order.id}`;
     const total = (order.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
-    const msg = `שלום ${order.customer_name},\n\nהזמנה מספר #${order.order_number} ממיני סטוק\nסה"כ לתשלום: ${total}₪\n\nלצפייה בהזמנה: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
+    // The business name comes from settings, like every other customer-facing
+    // surface. It used to be a literal here, which is how a stale name survived
+    // in the one message customers actually read.
+    const businessName = businessSettings?.business_name || "העסק שלי";
+    const msg = `שלום ${order.customer_name},\n\nהזמנה מספר #${order.order_number} מ${businessName}\nסה"כ לתשלום: ${total}₪\n\nלצפייה בהזמנה: ${pdfUrl}\n\nלפרטים נוספים צרו קשר.`;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
