@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Download, Loader2 } from "lucide-react";
@@ -8,6 +8,11 @@ import domtoimage from "dom-to-image-more";
 
 const GOLD = "#F5C518";
 const GOLD_LIGHT = "#F5E9C4";
+
+// The sheet below is a fixed A4 page — width:210mm. A CSS millimetre is always
+// 96/25.4 px, so that is 793.7px on every device, which is the same page width
+// OrderPDFPreview scales (it states its own sheet as 794px).
+const DOC_WIDTH = 794;
 
 function fmt(n) {
   return (parseFloat(n) || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -40,6 +45,63 @@ export default function QuotePDFPreview() {
       }
     })();
   }, [quoteId]);
+
+  // ── Fit-to-width ──────────────────────────────────────────────────────────
+  // Copied from OrderPDFPreview, which is already correct on mobile. The
+  // document is NEVER reflowed: it keeps the desktop layout exactly — same
+  // sheet, same table, same columns, same proportions — and is scaled down as a
+  // single unit when the screen is narrower than the page, the way a PDF viewer
+  // does "fit page width". Smaller text is the accepted trade for identical
+  // proportions.
+  const frameRef = useRef(null); // the box the sheet must fit inside
+  const sheetRef = useRef(null); // the wrapper that carries the scale
+  const [fit, setFit] = useState({ scale: 1, height: null });
+
+  const measure = useCallback(() => {
+    const frame = frameRef.current;
+    const sheet = sheetRef.current;
+    if (!frame || !sheet) return;
+
+    const available = frame.clientWidth;
+    if (!available) return;
+
+    // Only ever shrink. A screen wide enough for the real page gets scale 1.
+    const scale = available < DOC_WIDTH ? available / DOC_WIDTH : 1;
+
+    // A transform does not change the layout box, so the frame would still
+    // reserve the sheet's full unscaled height and leave a long blank gap
+    // beneath it. offsetHeight is the pre-transform layout height, which is
+    // exactly what has to be multiplied.
+    const height = scale < 1 ? sheet.offsetHeight * scale : null;
+
+    setFit((prev) =>
+      prev.scale === scale && prev.height === height ? prev : { scale, height },
+    );
+  }, []);
+
+  // Declared above every early return so hook order can never change.
+  useEffect(() => {
+    if (!quote) return undefined;
+
+    measure();
+
+    // The sheet's height changes after the logo image loads and after fonts
+    // settle, and its width changes when the viewport does. ResizeObserver
+    // catches both without polling; the window events cover orientation
+    // changes on browsers that do not resize the element itself.
+    const observer = new ResizeObserver(measure);
+    if (frameRef.current) observer.observe(frameRef.current);
+    if (sheetRef.current) observer.observe(sheetRef.current);
+
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [quote, measure]);
 
   const handlePrint = () => window.print();
 
@@ -86,8 +148,45 @@ export default function QuotePDFPreview() {
         <span className="mr-auto text-sm text-muted-foreground">הצעת מחיר #{quote.quote_number}</span>
       </div>
 
-      {/* Document */}
+      {/* Document.
+          The action bar above is outside this frame and is never scaled — it
+          stays normal mobile UI size and fully usable. */}
       <div className="p-6 pb-16 print:p-0">
+        <div
+          ref={frameRef}
+          style={
+            // Set only while shrinking. At scale 1 this is undefined, so the
+            // element keeps exactly the styles it had before this change.
+            fit.scale < 1
+              ? {
+                  // The scaled sheet is exactly as wide as the frame, so both
+                  // its edges land on the frame's edges: nothing is clipped and
+                  // there is nothing to scroll sideways.
+                  overflow: "hidden",
+                  height: fit.height ?? undefined,
+                }
+              : undefined
+          }
+        >
+          {/* The scale lives on this wrapper, NOT on printRef below. dom-to-image
+              clones the node it is given together with its transform, so scaling
+              the captured node would shrink the downloaded PDF on a phone. The
+              wrapper keeps the download byte-identical to today. */}
+          <div
+            ref={sheetRef}
+            style={{
+              width: DOC_WIDTH,
+              margin: "0 auto",
+              // The document is RTL, so it is anchored to the top-RIGHT corner
+              // and shrinks toward it — the edge a Hebrew reader starts from.
+              // Because scale is exactly frameWidth / 794, the left edge lands
+              // precisely on the frame's left edge, so the page is fitted
+              // rather than merely aligned.
+              ...(fit.scale < 1
+                ? { transform: `scale(${fit.scale})`, transformOrigin: "top right" }
+                : null),
+            }}
+          >
         <div ref={printRef} style={{ width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "10mm", boxSizing: "border-box", background: "#fff", boxShadow: "0 2px 16px rgba(0,0,0,0.10)", borderRadius: 8, overflow: "hidden", border: "2px solid #000", display: "flex", flexDirection: "column" }}>
 
           {/* HEADER: RIGHT=business info, LEFT=logo */}
@@ -235,6 +334,8 @@ export default function QuotePDFPreview() {
             </div>
           </div>
 
+        </div>
+          </div>
         </div>
       </div>
 
