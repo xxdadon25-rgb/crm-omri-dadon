@@ -17,7 +17,7 @@ function persistDeletedIds() {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, Pencil, Trash2, Receipt, Store } from "lucide-react";
+import { Plus, Search, FileText, Pencil, Trash2, Store } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import EmptyState from "@/components/shared/EmptyState";
@@ -71,7 +71,6 @@ export default function Quotes() {
     },
     select: (data) => data.filter(q => !deletedQuoteIds.has(q.id)),
   });
-  const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
 
   const filtered = useMemo(() => {
@@ -140,46 +139,14 @@ export default function Quotes() {
     setDeleting(false);
   };
 
-  const handleConvertToInvoice = async (quote) => {
-    const bs = settings[0];
-    const counter = (bs?.invoice_counter || 1000) + 1;
-    
-    const invoiceData = {
-      invoice_number: counter,
-      quote_id: quote.id,
-      customer_id: quote.customer_id,
-      customer_name: quote.customer_name,
-      date: new Date().toISOString().split("T")[0],
-      items: quote.items,
-      subtotal: quote.subtotal,
-      vat_rate: quote.vat_rate,
-      vat_amount: quote.vat_amount,
-      total: quote.total,
-      notes: quote.notes,
-      payment_status: "ממתין לתשלום",
-    };
-
-    const newInvoice = await base44.entities.Invoice.create(invoiceData);
-    queryClient.setQueryData(["invoices"], (old = []) => [newInvoice, ...(old)]);
-
-    // NOTE: Do NOT deduct stock here. Stock is only managed via the Order
-    // workflow (processOrderInventory automation). Converting a quote directly
-    // to an invoice does NOT touch inventory — stock was either already
-    // deducted when the linked order was approved, or this is a direct-to-invoice
-    // scenario with no order, in which case the invoice is a billing document only.
-
-    // Update quote status
-    await base44.entities.Quote.update(quote.id, { status: "הומרה לחשבונית" });
-    queryClient.setQueryData(["quotes"], (old = []) => old.map(q => q.id === quote.id ? { ...q, status: "הומרה לחשבונית" } : q));
-
-    // Update counter
-    if (bs?.id) {
-      await base44.entities.BusinessSettings.update(bs.id, { invoice_counter: counter });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    }
-
-    toast.success(`חשבונית מספר ${counter} נוצרה בהצלחה`);
-  };
+  // A quote can no longer be turned into an invoice from this screen. The
+  // handler that did it, and the settings query it needed for invoice_counter,
+  // were removed with the button.
+  //
+  // The "הומרה לחשבונית" status itself is KEPT everywhere — quotes converted
+  // before this change still carry it and must keep rendering with their badge.
+  // Invoices are still created from orders and from monthly invoicing; only
+  // this direct quote-to-invoice shortcut is gone.
 
   // ── Heillo design tokens ──
   const ACCENT = "#F5885E";
@@ -311,7 +278,6 @@ export default function Quotes() {
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                           {[
                             { icon: Pencil, action: () => navigate(`/quotes/edit?id=${q.id}`), title: "עריכה" },
-                            ...( q.status !== "הומרה לחשבונית" ? [{ icon: Receipt, action: () => handleConvertToInvoice(q), title: "הפוך לחשבונית", accent: true }] : [] ),
                             { icon: Trash2, action: () => setDeleteId(q.id), title: "מחיקה", danger: true },
                           ].map(({ icon: Icon, action, title, danger, accent }) => (
                             <button
