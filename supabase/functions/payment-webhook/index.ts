@@ -122,8 +122,40 @@ Deno.serve(async (req: Request) => {
   };
 
   const finbotPaymentType = PAYMENT_TYPE_MAP[body.payment_method] ?? "11";
+
+  // A check receipt needs the drawing bank, branch, account and check number —
+  // the same four values Finbot's own UI demands when CHECK is selected.
+  // Sending only { type, sum, date } is why every check payment was recorded
+  // but never produced a receipt, while cash and bank transfer succeeded.
+  //
+  // The values stay STRINGS and are never parsed as numbers: a branch or
+  // account number can begin with a zero.
+  const isCheck = body.payment_method === "שיק";
+  const checkFields = isCheck
+    ? {
+        bankName: String(body.bank_name || "").trim(),
+        bankBranch: String(body.bank_branch || "").trim(),
+        bankAccount: String(body.bank_account || "").trim(),
+        checkNumber: String(body.check_number || "").trim(),
+      }
+    : null;
+
+  // Refused before the Finbot call rather than after: an incomplete check would
+  // be rejected by Finbot anyway, and failing here keeps the caller's error
+  // generic instead of echoing a provider message.
+  if (checkFields && Object.values(checkFields).some((v) => !v)) {
+    return json({ ok: false, error: "Missing check payment details" }, 400);
+  }
+
   payload.payments = [
-    { type: finbotPaymentType, sum: amount, date: formatDate(body.payment_date) }
+    {
+      type: finbotPaymentType,
+      sum: amount,
+      date: formatDate(body.payment_date),
+      // Merged for a check only, so the object sent for every other method is
+      // byte-identical to the one that works in production today.
+      ...(checkFields ?? {}),
+    },
   ];
 
   if (body.finbot_serial) {

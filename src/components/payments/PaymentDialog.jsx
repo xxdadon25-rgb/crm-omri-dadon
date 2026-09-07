@@ -20,6 +20,15 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  // Check details. Finbot rejects a receipt of payment type "3" without them,
+  // which is why every check payment saved but never produced a receipt.
+  //
+  // Held as STRINGS and never coerced: an Israeli branch or account number can
+  // begin with a zero, and Number()/parseInt would silently destroy it.
+  const [bankName, setBankName] = useState("");
+  const [bankBranch, setBankBranch] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [checkNumber, setCheckNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -31,7 +40,13 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
   useEffect(() => {
     if (open && remaining > 0) setAmount(String(remaining));
     if (open && invoice?.id) fetchAttachments();
-    if (!open) setAttachments([]);
+    if (!open) {
+      setAttachments([]);
+      setBankName("");
+      setBankBranch("");
+      setBankAccount("");
+      setCheckNumber("");
+    }
   }, [open, invoice?.id]);
 
   const fetchAttachments = async () => {
@@ -91,6 +106,23 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       return;
     }
 
+    // Trimmed once, then used for validation, the payment row and the receipt
+    // request, so all three always carry exactly the same values.
+    const isCheck = method === "שיק";
+    const checkDetails = {
+      bank_name: bankName.trim(),
+      bank_branch: bankBranch.trim(),
+      bank_account: bankAccount.trim(),
+      check_number: checkNumber.trim(),
+    };
+
+    // Checked BEFORE any write: an incomplete check would save the payment and
+    // then fail to produce a receipt, which is the exact split this fixes.
+    if (isCheck && Object.values(checkDetails).some(v => !v)) {
+      toast.error("יש למלא מספר בנק, סניף, חשבון ומספר צ'ק");
+      return;
+    }
+
     setSaving(true);
     try {
       const newPayment = await base44.entities.Payment.create({
@@ -104,6 +136,11 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
         reference: reference || null,
         notes: notes || null,
         status: "אושר",
+        // Kept with the payment as audit data. Null for every other method.
+        bank_name: isCheck ? checkDetails.bank_name : null,
+        bank_branch: isCheck ? checkDetails.bank_branch : null,
+        bank_account: isCheck ? checkDetails.bank_account : null,
+        check_number: isCheck ? checkDetails.check_number : null,
       });
 
       const newPaid = (invoice.paid_amount || 0) + numAmount;
@@ -130,6 +167,9 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             invoice_total: invoice.total || 0,
             new_paid_amount: newPaid,
             new_payment_status: newStatus,
+            // Spread only for a check, so the request body for every other
+            // payment method stays byte-identical to what works today.
+            ...(isCheck ? checkDetails : {}),
           },
         });
         if (receiptData?.ok && newPayment?.id) {
@@ -199,6 +239,33 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
               </SelectContent>
             </Select>
           </div>
+
+          {/* Check details — rendered ONLY for שיק. Every other payment method
+              sees exactly the fields it saw before.
+
+              type="text" with inputMode="numeric" is deliberate: it gives the
+              numeric keypad on a phone WITHOUT the value coercion a
+              type="number" input performs, so a leading zero survives. */}
+          {method === "שיק" && (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "מספר בנק", value: bankName, set: setBankName },
+                { label: "מספר סניף", value: bankBranch, set: setBankBranch },
+                { label: "מספר חשבון", value: bankAccount, set: setBankAccount },
+                { label: "מספר צ'ק", value: checkNumber, set: setCheckNumber },
+              ].map(({ label, value, set }) => (
+                <div key={label} className="space-y-1.5">
+                  <Label>{label}</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={value}
+                    onChange={(e) => set(e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>תאריך תשלום</Label>
