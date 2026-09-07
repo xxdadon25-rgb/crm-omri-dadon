@@ -203,12 +203,19 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify(payload),
     });
   } catch (err) {
+    console.error("[payment-webhook] Finbot request failed", {
+      message: (err as Error).message,
+    });
     return json({ ok: false, error: `Finbot request failed: ${(err as Error).message}` });
   }
 
   const rawText = await res.text();
 
   if (!res.ok) {
+    console.error("[payment-webhook] Finbot HTTP error", {
+      httpStatus: res.status,
+      response: rawText.slice(0, 1000),
+    });
     return json({ ok: false, error: `Finbot HTTP ${res.status}: ${rawText.slice(0, 500)}` });
   }
 
@@ -216,6 +223,10 @@ Deno.serve(async (req: Request) => {
   try {
     responseData = JSON.parse(rawText);
   } catch {
+    console.error("[payment-webhook] Finbot invalid JSON", {
+      httpStatus: res.status,
+      response: rawText.slice(0, 1000),
+    });
     return json({ ok: false, error: "Finbot returned invalid JSON" });
   }
 
@@ -224,6 +235,11 @@ Deno.serve(async (req: Request) => {
     const errArr = Array.isArray(responseData?.errors) ? responseData.errors : [];
     const firstErr = errArr.length ? String(errArr[0]) : undefined;
     const msg = responseData?.message || firstErr || `Finbot status ${status}`;
+    console.error("[payment-webhook] Finbot business error", {
+      status,
+      message: String(msg),
+      errors: errArr,
+    });
     return json({ ok: false, error: String(msg), status, finbotErrors: errArr });
   }
 
