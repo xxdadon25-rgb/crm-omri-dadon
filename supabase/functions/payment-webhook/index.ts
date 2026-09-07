@@ -128,23 +128,53 @@ Deno.serve(async (req: Request) => {
   // Sending only { type, sum, date } is why every check payment was recorded
   // but never produced a receipt, while cash and bank transfer succeeded.
   //
-  // The values stay STRINGS and are never parsed as numbers: a branch or
-  // account number can begin with a zero.
+  // Finbot's API documents all four as NUMBERS, and it rejects a document whose
+  // field type is wrong. Sending them as strings is why a check payment with
+  // complete, valid details still produced no receipt.
+  //
+  // The stored values stay TEXT in public.payments and the input stays a text
+  // field, so the operator's exact entry — leading zeros included — is
+  // preserved in our own record. Only the outbound payload is converted, where
+  // a JSON number cannot carry a leading zero by definition.
   const isCheck = body.payment_method === "שיק";
-  const checkFields = isCheck
-    ? {
-        bankName: String(body.bank_name || "").trim(),
-        bankBranch: String(body.bank_branch || "").trim(),
-        bankAccount: String(body.bank_account || "").trim(),
-        checkNumber: String(body.check_number || "").trim(),
-      }
-    : null;
 
-  // Refused before the Finbot call rather than after: an incomplete check would
-  // be rejected by Finbot anyway, and failing here keeps the caller's error
-  // generic instead of echoing a provider message.
-  if (checkFields && Object.values(checkFields).some((v) => !v)) {
-    return json({ ok: false, error: "Missing check payment details" }, 400);
+  // Digits only. This gate is what makes Number() safe: without it "" and "  "
+  // become 0, "1e5" becomes 100000, "12.5" stays fractional, and a non-numeric
+  // entry becomes NaN — which JSON.stringify serialises as null, so Finbot
+  // would receive an empty field and fail exactly as it does today.
+  // parseInt is deliberately NOT used: it would accept "12abc" as 12.
+  const toFinbotNumber = (raw: unknown): number | null => {
+    const s = String(raw ?? "").trim();
+    if (!/^\d+$/.test(s)) return null;
+    const n = Number(s);
+    return Number.isSafeInteger(n) ? n : null;
+  };
+
+  let checkFields: Record<string, number | string> | null = null;
+  if (isCheck) {
+    const bankName = toFinbotNumber(body.bank_name);
+    const bankBranch = toFinbotNumber(body.bank_branch);
+    const bankAccount = toFinbotNumber(body.bank_account);
+    const checkNumber = toFinbotNumber(body.check_number);
+
+    // Refused before the Finbot call rather than after, and with a generic
+    // message: a provider error is never echoed to the caller.
+    if (
+      bankName === null || bankBranch === null ||
+      bankAccount === null || checkNumber === null
+    ) {
+      return json({ ok: false, error: "Invalid check payment details" }, 400);
+    }
+
+    // checkNumber goes out as the trimmed STRING the operator entered, unlike
+    // the three bank fields. It is still validated as digits above, so the
+    // string is always numeric — only its wire type differs.
+    checkFields = {
+      bankName,
+      bankBranch,
+      bankAccount,
+      checkNumber: String(body.check_number ?? "").trim(),
+    };
   }
 
   payload.payments = [
