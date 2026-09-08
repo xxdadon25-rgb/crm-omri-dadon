@@ -402,6 +402,55 @@ function calcMoM(current, previous) {
 }
 
 // ─── KPI mini-card (inline, replaces StatCard for uniform Heillo styling) ─────
+// Read-only twin of the three guards in fetchProductsWithPending: same entries,
+// same rules, same order, but it WRITES NOTHING BACK — no setItem, no
+// removeItem, no _confirmCount increment. That is the point of the copy. The
+// shared helper expires a pending entry after two confirmations; a second
+// consumer advancing that counter would expire it after one, changing
+// behaviour for Inventory and Product Catalog.
+//
+// Malformed JSON is deliberately NOT caught, because the shared helper does not
+// catch it either — a corrupt entry must fail this query exactly as it fails
+// the full one.
+//
+// backendCaughtUp reads updated_date, which does not exist on public.products,
+// so it is undefined here exactly as it is in the full select('*') result.
+function applyPendingProductGuardsReadOnly(rows) {
+  let result = rows;
+
+  const rawDeleted = sessionStorage.getItem("pendingDeletedProducts");
+  if (rawDeleted) {
+    const deletedIds = new Set(JSON.parse(rawDeleted));
+    result = result.filter(p => !deletedIds.has(p.id));
+  }
+
+  const rawCreate = sessionStorage.getItem("pendingProducts");
+  if (rawCreate) {
+    const pending = JSON.parse(rawCreate).filter(p => (p._confirmCount || 0) < 2);
+    const backendIds = new Set(result.map(p => p.id));
+    const stillMissing = pending
+      .filter(p => !backendIds.has(p.id))
+      .map(({ _confirmCount, ...p }) => p);
+    result = [...stillMissing, ...result];
+  }
+
+  const rawUpdate = sessionStorage.getItem("pendingProductUpdates");
+  if (rawUpdate) {
+    const pendingUpdates = JSON.parse(rawUpdate);
+    result = result.map(p => {
+      const pending = pendingUpdates.find(u => u.id === p.id);
+      if (!pending) return p;
+      const backendCaughtUp = p.updated_date && pending._savedAt &&
+        new Date(p.updated_date).getTime() >= pending._savedAt;
+      if (backendCaughtUp) return p;
+      const { _confirmCount, _savedAt, ...cleanPending } = pending;
+      return cleanPending;
+    });
+  }
+
+  return result;
+}
+
 function KpiCard({ title, value, icon: Icon }) {
   return (
     <div style={CARD_STYLE}>
@@ -435,7 +484,41 @@ export default function Dashboard() {
   // ── Data fetching (unchanged) ──
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => fetchProductsWithPending(() => base44.entities.Product.list("-created_date")) });
   const pendingDeletedIds = (() => { try { return new Set(JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]")); } catch { return new Set(); } })();
-  const activeProductCount = products.filter(p => !pendingDeletedIds.has(p.id)).length;
+
+  // ── Stock counters + low-stock list ───────────────────────────────────────
+  // These three read four fields per product, but used to wait on the query
+  // above, which is select('*') over the whole catalogue — measured at 16.8 MB
+  // and 9.13 s in production. The cards showed 0 for that entire time, which is
+  // indistinguishable from a genuine zero.
+  //
+  // This query fetches only what they render. The full ["products"] query is
+  // untouched and still feeds getMonthlyProfit and everything else.
+  //
+  // The key is ["products", "counters"] on purpose: React Query invalidates by
+  // prefix, so every existing invalidate/remove/reset on ["products"] — the 18
+  // call sites across the app, plus the realtime products channel — refreshes
+  // this too, with no change to useRealtimeSync. No call site anywhere passes
+  // exact:true, so the prefix match always applies.
+  //
+  // updated_date is deliberately NOT selected: the column does not exist on
+  // public.products (verified directly in production), so select('*') yields
+  // undefined for it as well — the UPDATE guard below sees the same value
+  // either way.
+  const { data: counterProducts = [] } = useQuery({
+    queryKey: ["products", "counters"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, quantity, min_quantity")
+        .eq("user_id", user?.id)
+        .order("created_date", { ascending: false });
+      if (error) throw error;
+      return applyPendingProductGuardsReadOnly(data || []);
+    },
+  });
+
+  const activeProductCount = counterProducts.filter(p => !pendingDeletedIds.has(p.id)).length;
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
@@ -507,7 +590,7 @@ export default function Dashboard() {
 
   // ── Calculations (unchanged) ──
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
-  const lowStock = products.filter(p => !pendingDeletedIds.has(p.id) && p.quantity <= (p.min_quantity || 0));
+  const lowStock = counterProducts.filter(p => !pendingDeletedIds.has(p.id) && p.quantity <= (p.min_quantity || 0));
   const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
   const monthlyData = getMonthlyData(invoices);
   const topProducts = getTopProducts(invoices);
