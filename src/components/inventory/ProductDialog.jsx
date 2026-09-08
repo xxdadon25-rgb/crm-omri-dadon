@@ -8,8 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Image as ImageIcon, Search, X } from "lucide-react";
+import { toast } from "sonner";
 
 const UNITS = ["יחידה", "ק״ג", "ליטר", "מטר", "קרטון", "אריזה"];
+
+// Same bucket and extension mapping the other image paths already use
+// (ImageMatcher, ImageMigration), so every product image ends up in one place
+// with one naming convention.
+const IMAGE_BUCKET = "product-images";
+
+function extFromType(type) {
+  if (type.includes("png")) return "png";
+  if (type.includes("webp")) return "webp";
+  if (type.includes("gif")) return "gif";
+  return "jpg";
+}
 
 const emptyProduct = {
   name: "", sku: "", barcode: "", category: "", supplier: "",
@@ -26,6 +39,7 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
   const [galleryImages, setGalleryImages] = useState([]);
   const [gallerySearch, setGallerySearch] = useState("");
   const [galleryLoading, setGalleryLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -81,16 +95,58 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
     setGalleryLoading(false);
   };
 
+  // The picked file goes to Storage and image_url holds the resulting public
+  // URL — the same shape every other image path in the app produces.
+  //
+  // This used to be FileReader.readAsDataURL, which put the entire image inline
+  // in image_url as a data: URI. Twenty-two products were saved that way and
+  // accounted for ~21 MB of the products table, downloaded in full by every
+  // screen that reads the catalogue.
+  //
+  // The path carries a fresh uuid, so an upload can never overwrite an existing
+  // object: three products already have an unrelated image at products/<id>.png,
+  // and upsert:false plus a unique name makes clobbering impossible rather than
+  // merely unlikely. It also means a new product needs no id, so nothing has to
+  // be created before the image can be uploaded.
   const handleImage = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => handleChange("image_url", reader.result);
-    reader.readAsDataURL(file);
+
+    setUploadingImage(true);
+    try {
+      const ext = extFromType(file.type);
+      const path = `products/uploads/${product?.id ?? "new"}-${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from(IMAGE_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      // On failure the current image_url is deliberately left as it was, so a
+      // failed upload can never blank or corrupt an existing product image.
+      if (uploadErr) {
+        toast.error("העלאת התמונה נכשלה");
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      handleChange("image_url", publicUrl);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Defensive backstop. Nothing above can produce a data: URI any more, but a
+    // product row must never carry one again, so the save is refused outright
+    // rather than silently storing megabytes.
+    if (String(form.image_url || "").startsWith("data:")) {
+      toast.error("התמונה לא הועלתה כראוי. נסה להעלות אותה שוב.");
+      return;
+    }
+    if (uploadingImage) return;
+
     setSaving(true);
     try {
       const data = {
@@ -249,8 +305,8 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
               {form.image_url && <img src={form.image_url} alt="" className="w-16 h-16 rounded-lg object-cover" />}
               <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted transition-colors">
                 <Upload className="w-4 h-4" />
-                <span className="text-sm">העלאת תמונה</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
+                <span className="text-sm">{uploadingImage ? "מעלה..." : "העלאת תמונה"}</span>
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingImage} onChange={handleImage} />
               </label>
               <button type="button" onClick={openGallery} className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm">
                 <ImageIcon className="w-4 h-4" />
