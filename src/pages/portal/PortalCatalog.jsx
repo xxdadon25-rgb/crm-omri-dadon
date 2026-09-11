@@ -644,6 +644,33 @@ export default function PortalCatalog() {
       const { error: itemsErr } = await supabase.from("portal_order_items").insert(items);
       if (itemsErr) throw itemsErr;
 
+      // The order is saved at this point. The Telegram notification is a
+      // side-effect of that, never a condition of it, so it gets its own
+      // try/catch: reaching the outer handler below would flip an order that
+      // WAS saved into "אירעה שגיאה" on the customer's screen, which is worse
+      // than a missed notification.
+      //
+      // Only the order id is sent. The function reads the customer, the total
+      // and the item count back from the database itself.
+      //
+      // invoke() resolves rather than throws on a non-2xx reply, so the
+      // returned error is inspected too — otherwise a 403 or 502 from the
+      // function would pass unnoticed. Both channels only log.
+      try {
+        const { error: notifyError } = await supabase.functions.invoke(
+          "notify-portal-order",
+          {
+            body: { order_id: order.id },
+          }
+        );
+
+        if (notifyError) {
+          console.error("[portal] order notification failed", notifyError);
+        }
+      } catch (notifyErr) {
+        console.error("[portal] order notification failed", notifyErr);
+      }
+
       clearCart();
       setSubmitResult("success");
     } catch (err) {
