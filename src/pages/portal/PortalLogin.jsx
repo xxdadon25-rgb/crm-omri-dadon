@@ -42,8 +42,17 @@ export default function PortalLogin() {
     setLoading(true);
     try {
       if (tab === "signup") {
-        const { error: err } = await supabase.auth.signUp({ email, password });
+        const { data, error: err } = await supabase.auth.signUp({ email, password });
         if (err) { setError(translateError(err.message)); return; }
+
+        // Registering must never grant entry. Supabase returns an ACTIVE
+        // session from signUp whenever email confirmation is disabled, which
+        // would sign the customer straight in before staff have linked and
+        // approved them in the CRM. Clearing it makes the flow behave the same
+        // under either Auth setting, so turning confirmation off later changes
+        // nothing here.
+        if (data?.session) await supabase.auth.signOut();
+
         setSignupSuccess(true);
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -129,11 +138,13 @@ export default function PortalLogin() {
         </div>
 
         {signupSuccess ? (
+          // Approval by staff is what opens the portal, not a confirmation
+          // email, so the copy no longer tells the customer to check their
+          // inbox and the icon is a wait rather than a mailbox.
           <div style={{ textAlign: "center", padding: "12px 0" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
-            <p style={{ fontSize: 15, color: DARK, fontWeight: 600, margin: "0 0 8px" }}>ההרשמה הושלמה!</p>
-            <p style={{ fontSize: 14, color: MUTED, margin: 0, lineHeight: 1.6 }}>
-              נשלח אליך מייל אישור. יש לאשר את כתובת האימייל לפני ההתחברות.
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+            <p style={{ fontSize: 15, color: DARK, fontWeight: 600, margin: 0, lineHeight: 1.6 }}>
+              ההרשמה בוצעה בהצלחה וממתינה לאישור המערכת.
             </p>
           </div>
         ) : (
