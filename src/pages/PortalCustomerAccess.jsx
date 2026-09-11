@@ -13,6 +13,20 @@ const CARD = { background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px r
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// customers.id and customer_portal_access.customer_id are uuids. Anything that
+// is not one must never reach an update: a non-uuid serialises to null and
+// silently clears the link instead of setting it.
+const isUuid = (v) => typeof v === "string" && UUID_RE.test(v.trim());
+
+// auth.users.email is stored lowercased by Supabase, and the signup trigger
+// links a prepared access row with `phone_or_email = NEW.email`. A stored
+// address carrying any capital letter therefore never matches, the link never
+// happens, and the customer ends up split across two rows. Normalising on write
+// is what keeps that comparison able to succeed.
+const normalizeEmail = (v) => String(v ?? "").trim().toLowerCase();
+
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -89,7 +103,7 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
           .from("customer_portal_access")
           .insert({
             customer_id: customer.id,
-            phone_or_email: form.phone_or_email.trim(),
+            phone_or_email: normalizeEmail(form.phone_or_email),
             custom_discount_percent: Number(form.custom_discount_percent) || 0,
             min_order_amount: Number(form.min_order_amount) || 0,
             is_active: true,
@@ -103,7 +117,7 @@ function AccessModal({ customer, access, products, blockedProductIds, onClose, o
         const { error } = await supabase
           .from("customer_portal_access")
           .update({
-            phone_or_email: form.phone_or_email.trim(),
+            phone_or_email: normalizeEmail(form.phone_or_email),
             custom_discount_percent: Number(form.custom_discount_percent) || 0,
             min_order_amount: Number(form.min_order_amount) || 0,
           })
@@ -857,12 +871,28 @@ export default function PortalCustomerAccess() {
     setEditing(null);
   };
 
+  // customers.id is a uuid. This used to receive Number(sel.value), which is
+  // NaN for a uuid and serialises to JSON null — so the update wrote
+  // customer_id = NULL while setting is_active = true, and still reported
+  // success. The customer could then log in and fill a cart, but the portal
+  // had no customer to attach an order to and the send button did nothing.
+  //
+  // The id is now passed through as the string it is, checked before the write,
+  // and the write is read back so success is only reported when the row really
+  // carries a customer_id.
   const handleLinkToCustomer = async (accessRowId, customerId) => {
-    const { error } = await supabase
+    if (!isUuid(customerId)) { toast.error("יש לבחור לקוח"); return; }
+
+    const { data, error } = await supabase
       .from("customer_portal_access")
       .update({ customer_id: customerId, is_active: true })
-      .eq("id", accessRowId);
+      .eq("id", accessRowId)
+      .select("id, customer_id, is_active")
+      .maybeSingle();
+
     if (error) { toast.error("שגיאה בקישור הלקוח"); return; }
+    if (!data?.customer_id) { toast.error("הקישור לא הושלם. נסה שוב."); return; }
+
     qc.invalidateQueries({ queryKey: ["customer-portal-access-all"] });
     setLinkingRow(null);
     toast.success("הלקוח קושר בהצלחה וגישתו הופעלה");
@@ -991,7 +1021,7 @@ export default function PortalCustomerAccess() {
                       onClick={() => {
                         const sel = document.getElementById(`link-select-${row.id}`);
                         if (!sel?.value) { toast.error("יש לבחור לקוח"); return; }
-                        handleLinkToCustomer(row.id, Number(sel.value));
+                        handleLinkToCustomer(row.id, sel.value);
                       }}
                       style={{
                         height: 36, background: ACCENT, color: "#FFFFFF", border: "none",

@@ -96,7 +96,7 @@ function ProductCard({ product, discount, customerPrice, cartQty, onAdd }) {
 }
 
 // ─── Cart Panel (desktop always-visible / mobile modal inner content) ─────────
-function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitting, submitResult, onDismissSuccess, isModal }) {
+function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitting, submitResult, submitMessage, onDismissSuccess, isModal }) {
   const total = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
   const belowMin = minOrderAmount > 0 && total < minOrderAmount;
   const canSubmit = cart.length > 0 && !belowMin && !submitting;
@@ -185,7 +185,7 @@ function CartPanel({ cart, minOrderAmount, onUpdate, onRemove, onSubmit, submitt
             )}
 
             {submitResult === "error" && (
-              <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>אירעה שגיאה. נסה שוב.</p>
+              <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>{submitMessage || "אירעה שגיאה. נסה שוב."}</p>
             )}
 
             <button onClick={onSubmit} disabled={!canSubmit}
@@ -325,6 +325,7 @@ export default function PortalCatalog() {
   const sentinelRef = useRef(null);
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
   const [submitResult, setSubmitResult] = useState(null); // null | "success" | "error"
   const [isDemo, setIsDemo] = useState(false);
 
@@ -456,11 +457,30 @@ export default function PortalCatalog() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { if (!cancelled) navigate("/portal/login", { replace: true }); return; }
 
-      const { data: access } = await supabase
+      const { data: access, error: accessErr } = await supabase
         .from("customer_portal_access")
         .select("is_active, customer_id, custom_discount_percent, min_order_amount")
         .eq("auth_user_id", session.user.id)
         .maybeSingle();
+
+      // maybeSingle() returns an error, not a row, when more than one row
+      // carries this auth_user_id. Discarding it sent the customer back to the
+      // login screen with no reason given, in a loop.
+      if (accessErr) {
+        console.error("[portal] access lookup failed", accessErr);
+        if (!cancelled) setStatus("unlinked");
+        return;
+      }
+
+      // An access row can be active while customer_id is still NULL. Such a
+      // customer used to reach a fully working-looking catalogue and only
+      // discover at the very end that the send button did nothing, because an
+      // order has no customer to belong to. It is stopped here instead, with an
+      // explanation.
+      if (access && access.is_active && !access.customer_id) {
+        if (!cancelled) setStatus("unlinked");
+        return;
+      }
 
       if (!access || !access.is_active) {
         // Fallback: check if this is a staff member (demo mode)
@@ -596,9 +616,19 @@ export default function PortalCatalog() {
       return;
     }
 
-    if (!customerId) return;
+    // Was a bare `return`, so the button simply did nothing — no spinner, no
+    // message. The access gate above now prevents this state from being
+    // reachable at all, but if it ever is, the customer is told rather than
+    // left clicking a dead button.
+    if (!customerId) {
+      setSubmitMessage("החשבון שלך עדיין לא משויך ללקוח. אנא פנה אלינו.");
+      setSubmitResult("error");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitResult(null);
+    setSubmitMessage("");
     try {
       const total = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
 
@@ -616,7 +646,12 @@ export default function PortalCatalog() {
 
       clearCart();
       setSubmitResult("success");
-    } catch {
+    } catch (err) {
+      // The cause used to be discarded entirely, so an RLS rejection and a
+      // network drop looked identical and left nothing to diagnose. It is
+      // logged for us; the customer still sees only the generic Hebrew line.
+      console.error("[portal] order submit failed", err);
+      setSubmitMessage("");
       setSubmitResult("error");
     } finally {
       setSubmitting(false);
@@ -638,10 +673,28 @@ export default function PortalCatalog() {
     onSubmit: handleSubmit,
     submitting,
     submitResult,
+    submitMessage,
     onDismissSuccess: () => { setSubmitResult(null); setCartSheetOpen(false); },
   };
 
   if (status === "loading") return <Spinner />;
+
+  // Signed in, but the account is not usable for ordering yet: either it is not
+  // linked to a CRM customer, or its access rows are ambiguous. Shown instead
+  // of a catalogue whose send button could not work.
+  if (status === "unlinked") {
+    return (
+      <div style={{ ...PAGE_BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} dir="rtl">
+        <div style={{ background: "#FFFFFF", borderRadius: 22, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", padding: "32px 28px", maxWidth: 380, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+          <p style={{ fontSize: 16, fontWeight: 800, color: DARK, margin: "0 0 8px" }}>החשבון ממתין לאישור</p>
+          <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.6 }}>
+            החשבון שלך עדיין לא משויך ללקוח במערכת. לאחר האישור תוכל לבצע הזמנות.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" style={{ ...PAGE_BG, paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingRight: 16, paddingBottom: 48, paddingLeft: 16 }}>

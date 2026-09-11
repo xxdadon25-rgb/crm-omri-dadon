@@ -150,11 +150,16 @@ export default function PortalOrders() {
         return;
       }
 
-      const { data: access } = await supabase
+      // maybeSingle() yields an error rather than a row when more than one row
+      // carries this auth_user_id. Discarding it made an ambiguous account look
+      // exactly like a signed-out one and bounced the customer to login.
+      const { data: access, error: accessErr } = await supabase
         .from("customer_portal_access")
         .select("is_active, customer_id")
         .eq("auth_user_id", session.user.id)
         .maybeSingle();
+
+      if (accessErr) console.error("[portal] access lookup failed", accessErr);
 
       if (!access || !access.is_active) {
         // Fallback: check if this is a staff member (demo mode)
