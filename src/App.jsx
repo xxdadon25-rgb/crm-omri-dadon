@@ -36,6 +36,7 @@ const QuotePDFPreview = lazy(() => import("@/pages/QuotePDFPreview"));
 const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
 const PortalCatalog = lazy(() => import("@/pages/portal/PortalCatalog"));
 const PortalOrders = lazy(() => import("@/pages/portal/PortalOrders"));
+const PublicCatalog = lazy(() => import("@/pages/PublicCatalog"));
 const OrderPDFPreview = lazy(() => import("@/pages/OrderPDFPreview"));
 const InvoicePDFPreview = lazy(() => import("@/pages/InvoicePDFPreview"));
 
@@ -177,6 +178,10 @@ function App() {
             <Route path="/order-pdf/:orderId" element={<OrderPDFPreview />} />
             <Route path="/invoice-pdf/:invoiceId" element={<InvoicePDFPreview />} />
             <Route path="/credit-note-pdf/:creditNoteId" element={<CreditNotePDFPreview />} />
+            {/* Public digital catalogue. No session, no guard, no AppLayout —
+                it must resolve before the "*" fallback, which would otherwise
+                hand /catalog to the authenticated CRM tree. */}
+            <Route path="/catalog" element={<PublicCatalog />} />
             <Route path="*" element={<AuthenticatedApp />} />
           </Routes>
           </Suspense>
