@@ -210,6 +210,15 @@ export default function PublicCatalog() {
   const requestIdRef = useRef(0);
   const sentinelRef = useRef(null);
 
+  // The browser tab title, for this page only. The previous title is captured
+  // on mount and restored on unmount, so navigating from here into the CRM
+  // leaves its own title exactly as it was. The visible header is untouched.
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "קטלוג א.ד שיווק והפצה";
+    return () => { document.title = previousTitle; };
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
