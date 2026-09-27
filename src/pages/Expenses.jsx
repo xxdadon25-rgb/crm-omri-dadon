@@ -13,6 +13,16 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/lib/dateUtils";
 
+// Manual expense attachments live here. This is a PRIVATE bucket, so its objects
+// are never public — a short-lived signed URL is minted on demand for viewing.
+// Supplier-delivery expenses do NOT use this bucket: they resolve their document
+// through supplier_deliveries.file_url exactly as before.
+const ATTACHMENT_BUCKET = "expense-attachments";
+
+// How long a viewing link stays valid. Long enough to open and fetch the blob,
+// short enough that a leaked URL is useless minutes later.
+const SIGNED_URL_TTL_SECONDS = 300;
+
 // Extensions whose media type is unambiguous from the name alone. Anything not
 // listed here is opened as-is rather than guessed at — a wrong type would make
 // the browser render a file as garbage instead of downloading it honestly.
@@ -236,6 +246,22 @@ export default function Expenses() {
     }
   };
 
+  // A manual attachment lives in the PRIVATE expense-attachments bucket, so it
+  // has no public URL. Mint a short-lived signed URL on click and hand it to the
+  // same viewer used for delivery documents. Supplier-delivery documents never
+  // reach here — they keep their existing public file_url path untouched.
+  const openManualAttachment = async (filePath) => {
+    setViewer({ open: true, loading: true, url: null, type: null, error: "" });
+    const { data, error } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
+    if (error || !data?.signedUrl) {
+      setViewer({ open: true, loading: false, url: null, type: null, error: "לא ניתן לפתוח את המסמך" });
+      return;
+    }
+    openDocument(data.signedUrl);
+  };
+
   const closeViewer = () => {
     viewerReqRef.current++;
     releaseBlob();
@@ -245,10 +271,26 @@ export default function Expenses() {
   const handleDelete = async () => {
     const id = deleteId;
     setDeleteId(null);
+    const target = expenses.find(x => x.id === id);
     try {
-      // Removes the expense row only. The linked supplier delivery, its file,
-      // stock movements, price history and every invoice stay exactly as they
-      // are — nothing else references this row.
+      // A MANUAL attachment (an expense with its own file_path and NO delivery
+      // link) is removed from the private bucket FIRST, so a storage failure is
+      // visible and stops the delete rather than leaving a dangling row. A
+      // supplier-delivery expense has no file_path here, so this never runs for
+      // it and delivery-documents is never touched.
+      if (target && !target.supplier_delivery_id && target.file_path) {
+        const { error: rmErr } = await supabase.storage
+          .from(ATTACHMENT_BUCKET)
+          .remove([target.file_path]);
+        if (rmErr) {
+          toast.error("שגיאה במחיקת המסמך המצורף. ההוצאה לא נמחקה.");
+          return;
+        }
+      }
+
+      // Removes the expense row. The linked supplier delivery, its file, stock
+      // movements, price history and every invoice stay exactly as they are —
+      // nothing else references this row.
       await base44.entities.Expense.delete(id);
       queryClient.setQueryData(["expenses"], (old = []) => old.filter(e => e.id !== id));
       toast.success("ההוצאה נמחקה");
@@ -347,7 +389,14 @@ export default function Expenses() {
               </thead>
               <tbody>
                 {filtered.map((e, i) => {
-                  const fileUrl = e.supplier_delivery_id ? deliveryFiles[e.supplier_delivery_id] : null;
+                  // Supplier-delivery expenses read the document through the
+                  // delivery's existing public URL (unchanged). A manually
+                  // uploaded expense has no delivery link and carries its own
+                  // file_path in the PRIVATE expense-attachments bucket, which is
+                  // opened via an on-click signed URL rather than a public one.
+                  const deliveryUrl = e.supplier_delivery_id ? deliveryFiles[e.supplier_delivery_id] : null;
+                  const hasManualFile = !e.supplier_delivery_id && !!e.file_path;
+                  const canView = !!deliveryUrl || hasManualFile;
                   return (
                     <tr key={e.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
                       <td style={{ ...td, whiteSpace: "nowrap" }}>{formatDate(e.date)}</td>
@@ -362,8 +411,8 @@ export default function Expenses() {
                       <td style={td}>{e.amount_gross == null ? "—" : formatCurrency(e.amount_gross)}</td>
                       <td style={{ ...td, fontSize: 12, color: MUTED }}>{e.document_number || "—"}</td>
                       <td style={td}>
-                        {fileUrl ? (
-                          <button onClick={() => openDocument(fileUrl)}
+                        {canView ? (
+                          <button onClick={() => (deliveryUrl ? openDocument(deliveryUrl) : openManualAttachment(e.file_path))}
                             style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2563eb", background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: "'Heebo', sans-serif", whiteSpace: "nowrap" }}>
                             <ExternalLink style={{ width: 13, height: 13 }} /> צפה במסמך
                           </button>
