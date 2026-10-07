@@ -333,6 +333,7 @@ export default function QuoteEditor() {
             customerType={form.customer_type}
             vatRate={vatRate}
             categories={categories}
+            showPurchasePrice
           />
           <div className="mt-4">
             <DocumentTotals

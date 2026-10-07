@@ -15,7 +15,7 @@ import ProductCatalogModal from "@/components/products/ProductCatalogModal";
  * For private customers: show only gross total in DocumentTotals.
  * The line items themselves are always net — the distinction is only in the summary.
  */
-export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0 }) {
+export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const addProductsFromCatalog = (selectedItems) => {
@@ -60,8 +60,9 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
                   <th className="text-right px-3 py-2 font-medium">מוצר</th>
+                  {showPurchasePrice && <th className="text-right px-3 py-2 font-medium w-32">מחיר קנייה לפני מע״מ</th>}
                   <th className="text-right px-3 py-2 font-medium w-20">כמות</th>
-                  <th className="text-right px-3 py-2 font-medium w-32">מחיר לפני מע״מ</th>
+                  <th className="text-right px-3 py-2 font-medium w-32">{showPurchasePrice ? "מחיר מכירה לפני מע״מ" : "מחיר לפני מע״מ"}</th>
                   <th className="text-right px-3 py-2 font-medium w-20">הנחה %</th>
                   <th className="text-right px-3 py-2 font-medium w-28">סה״כ לפני מע״מ</th>
                   <th className="w-10"></th>
@@ -71,6 +72,11 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                 {items.map((item, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
                     <td className="px-3 py-2 font-medium">{item.name}</td>
+                    {showPurchasePrice && (
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {item.buy_price === 0 || item.buy_price ? formatCurrency(item.buy_price) : "—"}
+                      </td>
+                    )}
                     <td className="px-3 py-2">
                       <Input type="number" min="1" value={item.quantity}
                         onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)}
@@ -110,13 +116,21 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                   </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
+                  {showPurchasePrice && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">מחיר קנייה לפני מע״מ</label>
+                      <div className="h-10 flex items-center px-3 bg-muted/30 rounded-md text-sm text-muted-foreground">
+                        {item.buy_price === 0 || item.buy_price ? formatCurrency(item.buy_price) : "—"}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">כמות</label>
                     <Input type="number" inputMode="numeric" min="1" value={item.quantity}
                       onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} className="h-10" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">מחיר לפני מע״מ</label>
+                    <label className="text-xs text-muted-foreground block mb-1">{showPurchasePrice ? "מחיר מכירה לפני מע״מ" : "מחיר לפני מע״מ"}</label>
                     <Input type="number" inputMode="decimal" step="0.01" value={item.unit_price}
                       onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)} className="h-10" />
                   </div>
