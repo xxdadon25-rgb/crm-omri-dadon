@@ -380,6 +380,35 @@ export default function Orders() {
     }
   };
 
+  // Informational "last price this customer paid for this product", derived from
+  // the already-cached orders list (no extra query, no N+1). Returns a map
+  // product_id -> most-recent unit_price. Approved rules: exclude בוטל/טיוטה,
+  // match by product_id only, most-recent by date DESC then created_date DESC,
+  // and (on edit) exclude the order being edited so it can't be its own history.
+  const getLastCustomerPrices = useMemo(() => {
+    const EXCLUDED = new Set(["בוטל", "טיוטה"]);
+    return (customerId, excludeOrderId = null) => {
+      if (!customerId) return {};
+      const relevant = orders
+        .filter((o) => o.customer_id === customerId && o.id !== excludeOrderId && !EXCLUDED.has(o.status))
+        .sort((a, b) => {
+          const d = (b.date || "").localeCompare(a.date || "");
+          if (d !== 0) return d;
+          return (b.created_date || "").localeCompare(a.created_date || "");
+        });
+      const map = {};
+      for (const o of relevant) {
+        for (const it of o.items || []) {
+          const pid = it?.product_id;
+          if (!pid || pid in map) continue;
+          const price = Number(it?.unit_price);
+          if (Number.isFinite(price)) map[pid] = price;
+        }
+      }
+      return map;
+    };
+  }, [orders]);
+
   const handleEditSave = async (updates) => {
     const order = editOrder;
     const willBeCancelled = updates.status === "בוטל";
@@ -780,6 +809,7 @@ export default function Orders() {
         <OrderCreateModal
           open={createOpen}
           onOpenChange={setCreateOpen}
+          getLastCustomerPrices={getLastCustomerPrices}
           onCreated={async (created) => {
             if (created.fulfilled && !created.inventory_deducted) {
               await deductInventory(created.items || []);
@@ -800,6 +830,7 @@ export default function Orders() {
          products={products}
          categories={categories}
          invoices={invoices}
+         getLastCustomerPrices={getLastCustomerPrices}
         />
 
         {/* Restore stock dialog — shown when cancelling a fulfilled order */}

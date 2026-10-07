@@ -15,7 +15,7 @@ import ProductCatalogModal from "@/components/products/ProductCatalogModal";
  * For private customers: show only gross total in DocumentTotals.
  * The line items themselves are always net — the distinction is only in the summary.
  */
-export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false }) {
+export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false, lastPriceByProduct = null }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const addProductsFromCatalog = (selectedItems) => {
@@ -62,6 +62,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                   <th className="text-right px-3 py-2 font-medium">מוצר</th>
                   {showPurchasePrice && <th className="text-right px-3 py-2 font-medium w-32">מחיר קנייה לפני מע״מ</th>}
                   <th className="text-right px-3 py-2 font-medium w-20">כמות</th>
+                  {lastPriceByProduct && <th className="text-right px-3 py-2 font-medium w-32">מחיר אחרון ללקוח</th>}
                   <th className="text-right px-3 py-2 font-medium w-32">{showPurchasePrice ? "מחיר מכירה לפני מע״מ" : "מחיר לפני מע״מ"}</th>
                   <th className="text-right px-3 py-2 font-medium w-20">הנחה %</th>
                   <th className="text-right px-3 py-2 font-medium w-28">סה״כ לפני מע״מ</th>
@@ -82,6 +83,11 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                         onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)}
                         className="h-8 w-20" />
                     </td>
+                    {lastPriceByProduct && (
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {(() => { const lp = lastPriceByProduct[item.product_id]; return lp === 0 || lp ? formatCurrency(lp) : "—"; })()}
+                      </td>
+                    )}
                     <td className="px-3 py-2">
                       <Input type="number" step="0.01" value={item.unit_price}
                         onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
@@ -129,6 +135,14 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                     <Input type="number" inputMode="numeric" min="1" value={item.quantity}
                       onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} className="h-10" />
                   </div>
+                  {lastPriceByProduct && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">מחיר אחרון ללקוח</label>
+                      <div className="h-10 flex items-center px-3 bg-muted/30 rounded-md text-sm text-muted-foreground">
+                        {(() => { const lp = lastPriceByProduct[item.product_id]; return lp === 0 || lp ? formatCurrency(lp) : "—"; })()}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">{showPurchasePrice ? "מחיר מכירה לפני מע״מ" : "מחיר לפני מע״מ"}</label>
                     <Input type="number" inputMode="decimal" step="0.01" value={item.unit_price}

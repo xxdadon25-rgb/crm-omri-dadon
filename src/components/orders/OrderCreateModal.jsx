@@ -11,7 +11,7 @@ import ItemsEditor from "@/components/documents/ItemsEditor";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 import { toast } from "sonner";
 
-export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
+export default function OrderCreateModal({ open, onOpenChange, onCreated, getLastCustomerPrices }) {
   const queryClient = useQueryClient();
 
   const { data: customers = [] } = useQuery({
@@ -67,6 +67,11 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
   }, [open, businessSettings?.vat_rate]);
 
   const vatRate = form.vat_rate || 17;
+  // Informational last-price map for the selected customer (new order → no self to exclude).
+  const lastPriceByProduct = useMemo(
+    () => (getLastCustomerPrices ? getLastCustomerPrices(form.customer_id, null) : {}),
+    [getLastCustomerPrices, form.customer_id],
+  );
   const subtotal = useMemo(() => form.items.reduce((s, i) => s + (i.total || 0), 0), [form.items]);
   const grossTotal = useMemo(() => form.items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0), [form.items]);
   const discountTotal = grossTotal - subtotal;
@@ -219,6 +224,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated }) {
               products={products}
               categories={categories}
               vatRate={vatRate}
+              lastPriceByProduct={lastPriceByProduct}
             />
             <div className="mt-4">
               <DocumentTotals

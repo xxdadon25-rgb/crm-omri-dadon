@@ -14,7 +14,7 @@ import DocumentTotals from "@/components/documents/DocumentTotals";
 const STATUSES = ["טיוטה", "ממתין לאישור", "אושר", "בהכנה", "הושלם", "בוטל"];
 const EDITABLE_STATUSES = ["טיוטה", "ממתין לאישור", "בהכנה"];
 
-export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [] }) {
+export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [], getLastCustomerPrices }) {
   const [form, setForm] = useState({ status: "", notes: "", items: [], fulfilled: false });
   // True once a unit price was edited in the read-only items table. Totals are
   // only rewritten from the items when this is set (or when the items are fully
@@ -40,6 +40,13 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
   );
 
   const canEditItems = EDITABLE_STATUSES.includes(form.status) && !hasInvoice;
+
+  // Informational last-price map for THIS order's customer, excluding this order
+  // itself so it can never be its own "previous" purchase.
+  const lastPriceByProduct = useMemo(
+    () => (getLastCustomerPrices && order ? getLastCustomerPrices(order.customer_id, order.id) : {}),
+    [getLastCustomerPrices, order],
+  );
 
   const netSubtotal = useMemo(
     () => form.items.reduce((sum, item) => sum + (item.total || 0), 0),
@@ -168,6 +175,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                 products={products}
                 categories={categories}
                 vatRate={vatRate}
+                lastPriceByProduct={lastPriceByProduct}
               />
               <DocumentTotals
                 grossTotal={grossTotal}
@@ -188,6 +196,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                       <TableRow className="bg-muted/50">
                         <TableHead className="text-right">שם מוצר</TableHead>
                         <TableHead className="text-center w-20">כמות</TableHead>
+                        <TableHead className="text-center w-28">מחיר אחרון ללקוח</TableHead>
                         <TableHead className="text-center w-28">מחיר</TableHead>
                         <TableHead className="text-center w-28">סה״כ</TableHead>
                       </TableRow>
@@ -197,6 +206,9 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                         <TableRow key={idx}>
                           <TableCell className="text-right text-sm">{item.name}</TableCell>
                           <TableCell className="text-center text-sm">{item.quantity}</TableCell>
+                          <TableCell className="text-center text-sm text-muted-foreground">
+                            {(() => { const lp = lastPriceByProduct[item.product_id]; return lp === 0 || lp ? formatCurrency(lp) : "—"; })()}
+                          </TableCell>
                           {/* <TableCell className="text-center text-sm">₪{(item.unit_price || 0).toFixed(2)}</TableCell> */}
                           {/* Price is the one editable field here — an invoiced
                               order keeps the plain text it has always shown. */}
