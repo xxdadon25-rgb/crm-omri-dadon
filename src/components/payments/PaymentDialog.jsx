@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,10 @@ const BUCKET = "payment-attachments";
 const METHODS = ["מזומן", "כרטיס אשראי", "העברה בנקאית", "שיק", "ביט", "פייבוקס", "אחר"];
 
 export default function PaymentDialog({ open, onOpenChange, invoice, customer, onSaved }) {
+  // Needed so a completed order shows its new status immediately. The dialog's
+  // onSaved callback refreshes payments and invoices but not orders, and the
+  // ledger reads order status straight from that cache.
+  const queryClient = useQueryClient();
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("העברה בנקאית");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -151,6 +156,101 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
         payment_status: newStatus,
       });
 
+      // Carried out of the block so the warning is shown AFTER the payment's own
+      // success message. The payment really did succeed; the order is a separate
+      // fact and must never change that verdict.
+      let orderWarning = null;
+
+      // ---- the orders this invoice covers, once it is fully paid ----------
+      //
+      // Runs ONLY after the invoice update above has succeeded, and only when
+      // this payment settled the invoice. A partial payment leaves every order
+      // status exactly as it was, which is why there is no else branch.
+      //
+      // An invoice names its orders in one of two ways and never both: a
+      // per-order invoice carries order_id, a monthly invoice carries
+      // included_order_ids. No order outside those can be reached from here.
+      //
+      // The update is scoped by BOTH the ids and the current status, so the
+      // condition is decided by the database inside one statement rather than
+      // by a read here followed by a write. That is what keeps an order someone
+      // deliberately moved to אושר, בהכנה, נשלח or בוטל untouched, and it makes
+      // a repeat harmless: an order already הושלם matches nothing.
+      if (newStatus === "שולם") {
+        const orderIds = [
+          ...new Set(
+            (invoice.order_id
+              ? [invoice.order_id]
+              : Array.isArray(invoice.included_order_ids)
+                ? invoice.included_order_ids
+                : []
+            ).filter(Boolean)
+          ),
+        ];
+
+        if (orderIds.length > 0) {
+          // Isolated on purpose. The payment and the invoice are already
+          // committed, so a failure here must never be reported as a failed
+          // payment. The worst outcome is a warning and an order left at the
+          // status it had, which a manual change can still complete.
+          try {
+            // WHICH ORDERS WERE ELIGIBLE, read before the write.
+            //
+            // This read does NOT decide the update — the update carries its own
+            // status predicate and stays atomic. It exists only to tell the two
+            // outcomes apart afterwards: an order that was never eligible
+            // because someone had already moved it on, versus one that was
+            // eligible and still did not change. Without it, "no rows matched"
+            // and "the write was refused" are the same silence.
+            const { data: eligibleRows, error: eligibleErr } = await supabase
+              .from("orders")
+              .select("id")
+              .in("id", orderIds)
+              .eq("status", "ממתין לאישור");
+            if (eligibleErr) throw eligibleErr;
+
+            const eligibleIds = (eligibleRows ?? []).map(r => r.id);
+
+            if (eligibleIds.length > 0) {
+              // .select("id") makes the response name the rows it actually
+              // changed. The absence of an error only means the statement ran;
+              // this is what proves it did something.
+              const { data: updatedRows, error: orderErr } = await supabase
+                .from("orders")
+                .update({ status: "הושלם" })
+                .in("id", eligibleIds)
+                .eq("status", "ממתין לאישור")
+                .select("id");
+              if (orderErr) throw orderErr;
+
+              const updatedIds = new Set((updatedRows ?? []).map(r => r.id));
+              const missed = eligibleIds.filter(id => !updatedIds.has(id));
+
+              if (updatedIds.size > 0) {
+                queryClient.invalidateQueries({ queryKey: ["orders"] });
+              }
+
+              // Eligible a moment ago and still unchanged. Either a row-level
+              // security policy refused the write, or someone else moved the
+              // order in between. Both leave the user looking at an order that
+              // does not reflect a paid invoice, so both are worth saying out
+              // loud rather than leaving in the console.
+              if (missed.length > 0) {
+                console.warn("order completion incomplete:", missed);
+                orderWarning =
+                  missed.length === 1
+                    ? "התשלום נרשם, אך לא הצלחנו לעדכן את סטטוס ההזמנה ל\"הושלם\". יש לעדכן אותה ידנית."
+                    : `התשלום נרשם, אך לא הצלחנו לעדכן את הסטטוס של ${missed.length} הזמנות ל"הושלם". יש לעדכן אותן ידנית.`;
+              }
+            }
+          } catch (e) {
+            console.warn("order completion failed:", e?.message);
+            orderWarning =
+              "התשלום נרשם, אך עדכון סטטוס ההזמנה נכשל. יש לבדוק את ההזמנה ולעדכן אותה ידנית.";
+          }
+        }
+      }
+
       try {
         const { data: receiptData } = await supabase.functions.invoke("payment-webhook-", {
           body: {
@@ -183,6 +283,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
       } catch (e) { /* receipt creation failed silently */ }
 
       toast.success("התשלום נרשם בהצלחה");
+      if (orderWarning) toast.warning(orderWarning);
       onOpenChange(false);
       if (onSaved) onSaved();
     } catch (err) {
