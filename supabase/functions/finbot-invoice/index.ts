@@ -76,7 +76,7 @@ function buildItems(invoiceItems: any[]): Array<{ name: string; amount: number; 
 //   subtotal + adjustment + vat_amount = total, so the gap looks like a usable
 //   signal, but a MONTHLY invoice rounds those three fields independently and a
 //   quarter of ordinary ones carry a one-agora gap. Inference would have added
-//   a spurious "הנחה נוספת ₪0.01" line to them. A flag cannot be fooled that way.
+//   a spurious "התאמת סכום ₪0.01" line to them. A flag cannot be fooled that way.
 //
 //   Absent or false means no line, so every invoice without a manual total
 //   produces the payload it produces today, defects and all. That is the whole
@@ -120,7 +120,7 @@ function buildAdjustmentItem(
   if (Math.abs(price) < 0.005) return null;
 
   return {
-    name: price < 0 ? "הנחה נוספת" : "תוספת",
+    name: "התאמת סכום",
     amount: 1,
     price,
   };

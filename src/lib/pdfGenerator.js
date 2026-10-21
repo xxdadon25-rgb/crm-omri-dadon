@@ -369,7 +369,7 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
           </tr>` : ""}
           ${Math.abs(adjustment) > 0.005 ? `
           <tr style="height:18px;line-height:18px">
-            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">${adjustment < 0 ? 'הנחה נוספת:' : 'תוספת:'}</td>
+            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">התאמת סכום:</td>
             <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${adjustment < 0 ? '-' : '+'}${fmt(Math.abs(adjustment))}</td>
           </tr>` : ""}
           <tr style="height:18px;line-height:18px">

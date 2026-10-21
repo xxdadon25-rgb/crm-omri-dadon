@@ -97,7 +97,7 @@ export default function DocumentTotals({ grossTotal, netSubtotal, discountTotal 
             <span className="font-medium">{formatCurrency(computedTotal)}</span>
           </div>
           <div className={`flex justify-between ${adjustment < 0 ? "text-red-600" : "text-amber-700"}`}>
-            <span>{adjustment < 0 ? "הנחה נוספת" : "תוספת"}</span>
+            <span>התאמת סכום</span>
             <span className="font-medium">
               {adjustment < 0 ? "-" : "+"}{formatCurrency(Math.abs(adjustment))}
             </span>

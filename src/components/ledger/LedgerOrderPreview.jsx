@@ -111,7 +111,7 @@ export default function LedgerOrderPreview({ order, onClose, invoices, businessS
               if (Math.abs(adj) < 0.005) return null;
               return (
                 <div className={`flex justify-between ${adj < 0 ? "text-red-600" : "text-amber-700"}`}>
-                  <span>{adj < 0 ? "הנחה נוספת" : "תוספת"}</span>
+                  <span>התאמת סכום</span>
                   <span>{adj < 0 ? "-" : "+"}₪{Math.abs(adj).toLocaleString()}</span>
                 </div>
               );
