@@ -55,6 +55,8 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
 
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  // The final amount the user typed, or null for "use the calculated one".
+  const [totalOverride, setTotalOverride] = useState(null);
 
   // Reset form each time the modal opens
   useEffect(() => {
@@ -63,6 +65,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
         ...emptyForm(),
         vat_rate: businessSettings?.vat_rate || 17,
       });
+      setTotalOverride(null);
     }
   }, [open, businessSettings?.vat_rate]);
 
@@ -76,7 +79,44 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
   const grossTotal = useMemo(() => form.items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0), [form.items]);
   const discountTotal = grossTotal - subtotal;
   const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+  const computedTotal = subtotal + vatAmount;
+  // What the order is actually for. The lines, their quantities, their prices
+  // and the VAT are untouched by a manual total — only this figure changes.
+  const total = totalOverride != null ? totalOverride : computedTotal;
+
+  // ---- what actually gets STORED when a manual total is in force ----------
+  //
+  // The adjustment is treated as a TAXABLE amount, because that is the only
+  // reading that both reconciles and survives the accounting export: the export
+  // sends net lines and lets the provider add VAT, so there is no way to express
+  // a VAT-exempt correction through it.
+  //
+  // So the goods are untouched, the adjustment is carried NET, and the VAT is
+  // the REMAINDER rather than a product of the subtotal:
+  //
+  //     subtotal + adjustment_net + vat_amount = total,  exactly
+  //
+  // Computing VAT as the remainder rather than as net x rate is what makes that
+  // identity hold to the agora instead of to within a rounding error. The
+  // adjustment itself is never stored on the order: it is recoverable at any
+  // time as total - subtotal - vat_amount.
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const overrideActive = totalOverride != null;
+  const storedSubtotal = overrideActive ? r2(subtotal) : subtotal;
+  const adjustmentNet = overrideActive
+    ? r2(totalOverride / (1 + vatRate / 100) - storedSubtotal)
+    : 0;
+  const storedVatAmount = overrideActive
+    ? r2(totalOverride - storedSubtotal - adjustmentNet)
+    : vatAmount;
+
+  // Any change to the goods discards the manual total: it was chosen against a
+  // figure that no longer exists, and silently keeping it would quietly change
+  // the size of the adjustment. The user can type a new one straight away.
+  const setItemsAndClearOverride = (items) => {
+    setForm(prev => ({ ...prev, items }));
+    setTotalOverride(null);
+  };
 
   const handleCustomerChange = (id) => {
     const c = customers.find(x => x.id === id);
@@ -114,12 +154,13 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
         delivery_date: form.delivery_date || null,
         delivery_address: form.delivery_address || "",
         items: form.items,
-        subtotal,
+        subtotal: storedSubtotal,
         gross_total: grossTotal,
         discount_amount: discountTotal,
         vat_rate: vatRate,
-        vat_amount: vatAmount,
+        vat_amount: storedVatAmount,
         total,
+        total_override: totalOverride,
         notes: form.notes || "",
         status: form.status,
         fulfilled: !!form.fulfilled,
@@ -219,7 +260,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
           <div className="border border-border rounded-lg p-4">
             <ItemsEditor
               items={form.items}
-              setItems={(items) => setForm({ ...form, items })}
+              setItems={setItemsAndClearOverride}
               defaultDiscount={customers.find(c => c.id === form.customer_id)?.discount_percent || 0}
               products={products}
               categories={categories}
@@ -233,7 +274,10 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
                 discountTotal={discountTotal}
                 effectiveDiscountPercent={grossTotal > 0 ? (discountTotal / grossTotal) * 100 : 0}
                 vatRate={vatRate}
-                total={total}
+                total={computedTotal}
+                totalOverride={totalOverride}
+                editableTotal
+                onTotalChange={setTotalOverride}
               />
             </div>
           </div>

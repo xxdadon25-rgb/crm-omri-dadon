@@ -469,6 +469,11 @@ export default function Orders() {
         vat_rate: order.vat_rate || 17,
         vat_amount: order.vat_amount || 0,
         total: order.total || 0,
+        // No adjustment field is copied. With VAT stored as the remainder, the
+        // net adjustment IS total - subtotal - vat_amount, so every consumer —
+        // the PDF, the accounting export — can recover it from the three
+        // figures the invoice already carries. An order with no manual total
+        // yields zero there, so nothing about those invoices changes.
         paid_amount: 0,
         payment_status: "ממתין לתשלום",
         notes: order.notes || "",
@@ -499,7 +504,10 @@ export default function Orders() {
       try {
         const customers = await base44.entities.Customer.filter({ id: order.customer_id });
         const customer = customers[0] || {};
-        const finbot = await invokeFinbot(newInvoice, customer);
+        // The order is in hand here, so the flag is read straight from it.
+        const finbot = await invokeFinbot(newInvoice, customer, {
+          hasManualTotal: order.total_override != null,
+        });
         if (finbot.ok) {
           const patch = {};
           if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;

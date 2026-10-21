@@ -223,6 +223,19 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
                 <span>₪{(invoice.subtotal || 0).toLocaleString()}</span>
               </div>
             )}
+            {/* Same reconciliation row as on the order. On a MONTHLY invoice this
+                is the aggregate of every included order's adjustment, which is
+                why it is labelled by sign rather than per order. */}
+            {(() => {
+              const adj = Math.round(((invoice.total || 0) - (invoice.subtotal || 0) - (invoice.vat_amount || 0)) * 100) / 100;
+              if (Math.abs(adj) < 0.005) return null;
+              return (
+                <div className={`flex justify-between ${adj < 0 ? "text-red-600" : "text-amber-700"}`}>
+                  <span>{adj < 0 ? "הנחה נוספת" : "תוספת"}</span>
+                  <span>{adj < 0 ? "-" : "+"}₪{Math.abs(adj).toLocaleString()}</span>
+                </div>
+              );
+            })()}
             {invoice.vat_amount != null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">מע״מ ({invoice.vat_rate || 17}%)</span>

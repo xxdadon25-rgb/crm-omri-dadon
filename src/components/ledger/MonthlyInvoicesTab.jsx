@@ -115,6 +115,12 @@ export default function MonthlyInvoicesTab({
       const vatRate = businessSettings?.vat_rate || 17;
       const vatAmount = parseFloat(eligible.reduce((s, o) => s + (o.vat_amount || 0), 0).toFixed(2));
       const total = parseFloat(eligible.reduce((s, o) => s + (o.total || 0), 0).toFixed(2));
+      // subtotal and vatAmount above are sums of the orders' OWN stored
+      // figures, and each of those already reconciles against its order's
+      // total. Summing three reconciling triples gives a reconciling triple,
+      // so the monthly invoice satisfies subtotal + adjustment + VAT = total
+      // with no special handling and no extra field: its net adjustment is
+      // total - subtotal - vat_amount, exactly as on an individual invoice.
 
       const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || selectedMonth;
 
@@ -155,7 +161,11 @@ export default function MonthlyInvoicesTab({
       // Finbot issuance — non-blocking on failure. On success, patch external
       // fields onto the invoice row before we refetch.
       try {
-        const finbot = await invokeFinbot(invoice, selectedCustomer);
+        // One adjusted order in the month is enough: the document total already
+        // includes it, so the payload needs its adjustment line.
+        const finbot = await invokeFinbot(invoice, selectedCustomer, {
+          hasManualTotal: eligible.some(o => o.total_override != null),
+        });
         if (finbot.ok) {
           const patch = {};
           if (finbot.invoiceNumber) patch.external_invoice_number = finbot.invoiceNumber;

@@ -163,7 +163,12 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
                 discountTotal={discountTotal}
                 effectiveDiscountPercent={effectivePct}
                 vatRate={order.vat_rate || 17}
-                total={order.total}
+                /* With a manual total, `total` must be the DERIVED figure so the
+                   component can show the gap against it; the chosen amount comes
+                   in separately. Without one, the stored total is passed exactly
+                   as before, so an unadjusted order renders identically. */
+                total={order.total_override != null ? subtotal + (order.vat_amount || 0) : order.total}
+                totalOverride={order.total_override ?? null}
               />
             );
           })()}

@@ -21,6 +21,12 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
   // editable), so editing just the status or the notes still leaves the stored
   // totals exactly as they are.
   const [pricesTouched, setPricesTouched] = useState(false);
+  // The final amount the user typed, or null for "use the calculated one".
+  // overrideTouched is tracked separately because editing ONLY the total
+  // changes no item and no price, so neither of the flags above would fire and
+  // the save would send nothing about totals at all.
+  const [totalOverride, setTotalOverride] = useState(null);
+  const [overrideTouched, setOverrideTouched] = useState(false);
 
   useEffect(() => {
     if (order) {
@@ -31,11 +37,22 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
         fulfilled: !!order.fulfilled,
       });
       setPricesTouched(false);
+      // Requirement 9: an order reopens showing the manual total it was saved
+      // with. null on every order that never had one.
+      setTotalOverride(order.total_override ?? null);
+      setOverrideTouched(false);
     }
   }, [order]);
 
+  // An invoice exists in any of THREE shapes, and the previous test caught only
+  // the first. handleCreateInvoice in Orders.jsx has always checked all three;
+  // this now matches it, which is what makes requirement 10 hold for an order
+  // that was swept into a monthly invoice rather than invoiced on its own.
   const hasInvoice = useMemo(
-    () => invoices.some(inv => inv.order_id === order?.id),
+    () => !!order?.invoiced_at || invoices.some(inv =>
+      inv.order_id === order?.id ||
+      (Array.isArray(inv.included_order_ids) && inv.included_order_ids.includes(order?.id))
+    ),
     [invoices, order]
   );
 
@@ -61,7 +78,55 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
 
   const vatRate = order?.vat_rate || 17;
   const vatAmount = netSubtotal * (vatRate / 100);
-  const grandTotal = netSubtotal + vatAmount;
+  const computedTotal = netSubtotal + vatAmount;
+  // What the order is actually for. A manual total replaces this one figure and
+  // nothing else: the lines, the quantities, the prices and the VAT stand.
+  const grandTotal = totalOverride != null ? totalOverride : computedTotal;
+
+  // ---- what actually gets STORED when a manual total is in force ----------
+  //
+  // The adjustment is treated as a TAXABLE amount, because that is the only
+  // reading that both reconciles and survives the accounting export: the export
+  // sends net lines and lets the provider add VAT, so there is no way to express
+  // a VAT-exempt correction through it.
+  //
+  // So the goods are untouched, the adjustment is carried NET, and the VAT is
+  // the REMAINDER rather than a product of the subtotal:
+  //
+  //     subtotal + adjustment_net + vat_amount = total,  exactly
+  //
+  // Computing VAT as the remainder rather than as net x rate is what makes that
+  // identity hold to the agora instead of to within a rounding error. The
+  // adjustment itself is never stored on the order: it is recoverable at any
+  // time as total - subtotal - vat_amount.
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const overrideActive = totalOverride != null;
+  const storedSubtotal = overrideActive ? r2(netSubtotal) : netSubtotal;
+  const adjustmentNet = overrideActive
+    ? r2(totalOverride / (1 + vatRate / 100) - storedSubtotal)
+    : 0;
+  const storedVatAmount = overrideActive
+    ? r2(totalOverride - storedSubtotal - adjustmentNet)
+    : vatAmount;
+
+  // An invoiced order's total is frozen. Everything else about this modal is
+  // unchanged for it.
+  const canEditTotal = !hasInvoice;
+
+  const changeTotalOverride = (value) => {
+    setTotalOverride(value);
+    setOverrideTouched(true);
+  };
+
+  // Any change to the goods discards the manual total: it was chosen against a
+  // figure that no longer exists. The user can type a new one straight away.
+  const setItemsAndClearOverride = (items) => {
+    setForm(prev => ({ ...prev, items }));
+    if (totalOverride != null) {
+      setTotalOverride(null);
+      setOverrideTouched(true);
+    }
+  };
 
   // Price-only edit for the read-only items table. Name and quantity stay as
   // they are; the line total is recalculated with the same formula ItemsEditor
@@ -77,18 +142,40 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
       return { ...prev, items };
     });
     setPricesTouched(true);
+    // Same rule as an item change: a new price invalidates the figure the
+    // manual total was chosen against.
+    if (totalOverride != null) {
+      setTotalOverride(null);
+      setOverrideTouched(true);
+    }
   };
 
   const handleSave = async () => {
     const updates = { status: form.status, notes: form.notes, items: form.items, fulfilled: form.fulfilled };
     if (canEditItems || pricesTouched) {
-      updates.subtotal = netSubtotal;
+      updates.subtotal = storedSubtotal;
       updates.gross_total = grossTotal;
       updates.discount_amount = discountTotal;
-      updates.vat_amount = vatAmount;
+      updates.vat_amount = storedVatAmount;
       updates.total = grandTotal;
       updates.vat_rate = vatRate;
+      updates.total_override = totalOverride;
+    } else if (overrideTouched) {
+      // Only the final amount changed. The derived figures are still correct
+      // because no item and no price moved, so just the two that did change are
+      // sent. An explicit null is what CLEARS a previous override — the RPC
+      // distinguishes an absent key from a null one, so this works.
+      updates.total = grandTotal;
+      updates.total_override = totalOverride;
+      // The subtotal is unchanged — no item moved — but the VAT is not: it is
+      // the remainder against the new total. Clearing an override puts the
+      // derived figure back, which is what keeps the identity holding in both
+      // directions.
+      updates.subtotal = storedSubtotal;
+      updates.vat_amount = storedVatAmount;
     }
+    // Requirement 8: a status-only or notes-only save sends neither key, and the
+    // RPC leaves an absent key alone, so the stored manual total survives.
     await onSave(updates);
   };
 
@@ -171,7 +258,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
             <div className="space-y-4">
               <ItemsEditor
                 items={form.items}
-                setItems={(items) => setForm({ ...form, items })}
+                setItems={setItemsAndClearOverride}
                 products={products}
                 categories={categories}
                 vatRate={vatRate}
@@ -183,7 +270,10 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                 discountTotal={discountTotal}
                 effectiveDiscountPercent={effectiveDiscountPercent}
                 vatRate={vatRate}
-                total={grandTotal}
+                total={computedTotal}
+                totalOverride={totalOverride}
+                editableTotal={canEditTotal}
+                onTotalChange={canEditTotal ? changeTotalOverride : undefined}
               />
             </div>
           ) : (
@@ -226,6 +316,27 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Totals for the read-only items branch. Shown only while the
+                    order has no invoice, which is the same condition under
+                    which the price column above is already editable — without
+                    it the user could change a price, or the final amount, and
+                    never see what it added up to. */}
+                {canEditTotal && (
+                  <div className="mt-4">
+                    <DocumentTotals
+                      grossTotal={grossTotal}
+                      netSubtotal={netSubtotal}
+                      discountTotal={discountTotal}
+                      effectiveDiscountPercent={effectiveDiscountPercent}
+                      vatRate={vatRate}
+                      total={computedTotal}
+                      totalOverride={totalOverride}
+                      editableTotal
+                      onTotalChange={changeTotalOverride}
+                    />
+                  </div>
+                )}
               </div>
             )
           )}

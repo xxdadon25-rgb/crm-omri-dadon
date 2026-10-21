@@ -101,6 +101,21 @@ export default function LedgerOrderPreview({ order, onClose, invoices, businessS
                 <span>₪{(order.subtotal || 0).toLocaleString()}</span>
               </div>
             )}
+            {/* A manually entered final total leaves a NET gap between the goods
+                and the VAT. Nothing stores it: VAT is kept as the remainder, so
+                the gap IS the amount. Without this row the three figures below
+                would not add up to the total printed under them. Zero on every
+                order with no manual total, so those render as before. */}
+            {(() => {
+              const adj = Math.round(((order.total || 0) - (order.subtotal || 0) - (order.vat_amount || 0)) * 100) / 100;
+              if (Math.abs(adj) < 0.005) return null;
+              return (
+                <div className={`flex justify-between ${adj < 0 ? "text-red-600" : "text-amber-700"}`}>
+                  <span>{adj < 0 ? "הנחה נוספת" : "תוספת"}</span>
+                  <span>{adj < 0 ? "-" : "+"}₪{Math.abs(adj).toLocaleString()}</span>
+                </div>
+              );
+            })()}
             {order.vat_amount != null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">מע״מ ({order.vat_rate || 17}%)</span>

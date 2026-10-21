@@ -58,6 +58,74 @@ function buildItems(invoiceItems: any[]): Array<{ name: string; amount: number; 
     }));
 }
 
+// ONE extra line that makes the issued document total match the saved order
+// total, for orders carrying a manual total and only those.
+//
+// WHY A LINE AND NOT A FIELD
+//   The payload carries net prices and `vatType: true`, so the provider computes
+//   the document total itself from the lines. There is no "adjust the total"
+//   field among the ones this integration is known to work with, and no way to
+//   mark an amount VAT-exempt. A line is the only lever, which is also why the
+//   adjustment is treated as taxable everywhere else in this feature.
+//
+// THE GATE — an explicit flag, never an inference
+//   `has_manual_total` is set by the caller, which is the only party that can
+//   see orders.total_override; this function only ever receives the invoice.
+//
+//   It is NOT inferred from the figures. An adjusted order satisfies
+//   subtotal + adjustment + vat_amount = total, so the gap looks like a usable
+//   signal, but a MONTHLY invoice rounds those three fields independently and a
+//   quarter of ordinary ones carry a one-agora gap. Inference would have added
+//   a spurious "הנחה נוספת ₪0.01" line to them. A flag cannot be fooled that way.
+//
+//   Absent or false means no line, so every invoice without a manual total
+//   produces the payload it produces today, defects and all. That is the whole
+//   of the requirement to leave the general discount handling alone.
+//
+// THE AMOUNT — measured against what is REALLY going out
+//   `lineNet` is the sum of the lines buildItems actually produced, not the
+//   invoice's subtotal. Those differ whenever a line carries a discount,
+//   because buildItems sends the list price. Working from `lineNet` is what
+//   makes the document total land on the saved total EVEN THEN, which is
+//   requirement 5.
+//
+//   The consequence, accepted deliberately: on a discounted order this one line
+//   carries the agreed discount and the manual adjustment together. That is not
+//   a distortion of the document — it shows list prices and a single total
+//   discount, which is an ordinary way to present an invoice — but it does mean
+//   the figure is not purely the manual adjustment.
+//
+//   `bestNet` is the closest two-decimal net to the saved total, which is the
+//   best any payload can reach while the provider adds VAT to net lines: the
+//   achievable totals step by 0.01 x (1 + rate), leaving at most half of that.
+function buildAdjustmentItem(
+  invoice: any,
+  items: Array<{ amount: number; price: number }>,
+): { name: string; amount: number; price: number } | null {
+  // The gate. No manual total, no line, nothing changed.
+  if (invoice?.has_manual_total !== true) return null;
+
+  const total = Number(invoice?.total);
+  const vatRate = Number(invoice?.vat_rate);
+  if (!Number.isFinite(total) || !Number.isFinite(vatRate)) return null;
+  if (vatRate <= -100) return null;
+
+  const lineNet = items.reduce((sum, i) => sum + i.amount * i.price, 0);
+  const bestNet = Math.round((total / (1 + vatRate / 100)) * 100) / 100;
+  const price = Math.round((bestNet - lineNet) * 100) / 100;
+
+  // Nothing left to correct once the outgoing lines are accounted for. Also the
+  // guard that keeps a rounding artefact from becoming a zero-value line on a
+  // tax document.
+  if (Math.abs(price) < 0.005) return null;
+
+  return {
+    name: price < 0 ? "הנחה נוספת" : "תוספת",
+    amount: 1,
+    price,
+  };
+}
+
 // The Finbot spec says `data` is the "PDF link". Allow both shapes: a bare
 // string, or an object where the link is under one of several field names.
 function extractFinbotSerial(pdfUrl: string | undefined): string | undefined {
@@ -131,6 +199,10 @@ Deno.serve(async (req: Request) => {
   if (address) finbotCustomer.address = address;
   if (tax) finbotCustomer.tax = tax;
 
+  const baseItems = buildItems(invoice.items);
+  const adjustmentItem = buildAdjustmentItem(invoice, baseItems);
+  const finbotItems = adjustmentItem ? [...baseItems, adjustmentItem] : baseItems;
+
   const payload: Record<string, unknown> = {
     type: "0",
     date: formatDate(invoice.date),
@@ -139,7 +211,7 @@ Deno.serve(async (req: Request) => {
     vatType: true,
     rounding: false,
     customer: finbotCustomer,
-    items: buildItems(invoice.items),
+    items: finbotItems,
   };
   if (customerEmail) {
     payload.email = { to: customerEmail };

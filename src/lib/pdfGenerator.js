@@ -224,6 +224,12 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
   const vatAmount   = parseFloat(doc.vat_amount)  || subtotal * (vatRate / 100);
   const total       = parseFloat(doc.total)       || subtotal + vatAmount;
   const discountPct = grossTotal > 0 && discountAmt > 0.001 ? (discountAmt / grossTotal) * 100 : 0;
+  // A manual final total leaves a NET adjustment between the goods and the VAT.
+  // It is not stored anywhere: VAT is kept as the remainder, so the gap IS the
+  // adjustment. Without this row the printed figures would not add up to the
+  // printed total. Zero on every document that has no manual total, so those
+  // print exactly as they always have.
+  const adjustment  = subtotal === 0 && vatAmount === 0 ? 0 : total - subtotal - vatAmount;
 
   const agentName    = doc.agent    || "";
   const paymentTerms = doc.payment_terms || businessSettings?.payment_terms || "";
@@ -360,6 +366,11 @@ export function buildDocumentHTML({ type, doc, businessSettings }) {
           <tr style="height:18px;line-height:18px">
             <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">סה"כ לאחר הנחה:</td>
             <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${fmt(subtotal)}</td>
+          </tr>` : ""}
+          ${Math.abs(adjustment) > 0.005 ? `
+          <tr style="height:18px;line-height:18px">
+            <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">${adjustment < 0 ? 'הנחה נוספת:' : 'תוספת:'}</td>
+            <td style="padding:2px 8px;text-align:left;direction:ltr;border-bottom:1px solid #ddd;font-weight:700;vertical-align:middle;height:18px">${adjustment < 0 ? '-' : '+'}${fmt(Math.abs(adjustment))}</td>
           </tr>` : ""}
           <tr style="height:18px;line-height:18px">
             <td style="padding:2px 8px;text-align:right;color:#333;border-bottom:1px solid #ddd;vertical-align:middle;height:18px">מע"מ ${vatRate}%:</td>

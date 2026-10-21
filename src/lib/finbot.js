@@ -32,10 +32,54 @@ export function finbotPdfFileUrl(externalPdfUrl) {
  * single { ok, invoiceNumber, pdfUrl, error } shape so callers don't have
  * to branch on which layer failed.
  */
-export async function invokeFinbot(invoice, customer) {
+/**
+ * Does this invoice cover an order whose final total was typed by hand?
+ *
+ * Asked of orders.total_override rather than inferred from the invoice's own
+ * figures. Inference looked tempting — an adjusted order satisfies
+ * subtotal + adjustment + vat_amount = total, so the gap is the adjustment —
+ * but a MONTHLY invoice rounds those three fields independently, so a quarter
+ * of ordinary monthly invoices carry a one-agora gap and would be mistaken for
+ * adjusted ones. A flag read from the column cannot be fooled that way.
+ *
+ * Returns false on any error or when no order is linked, so the adjustment line
+ * is omitted rather than guessed at.
+ */
+export async function resolveHasManualTotal(invoice) {
+  const ids = invoice?.order_id
+    ? [invoice.order_id]
+    : Array.isArray(invoice?.included_order_ids)
+      ? invoice.included_order_ids.filter(Boolean)
+      : [];
+  if (ids.length === 0) return false;
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id")
+      .in("id", ids)
+      .not("total_override", "is", null)
+      .limit(1);
+    if (error) return false;
+    return (data?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `options.hasManualTotal` tells the Edge Function whether this document needs
+ * an adjustment line. It travels on the invoice object in the request body and
+ * is never stored: the Edge Function only ever receives the invoice, never the
+ * order, so the caller — which does know — has to say so. Omitted means false,
+ * which is why every existing caller keeps its current behaviour.
+ */
+export async function invokeFinbot(invoice, customer, options = {}) {
   try {
     const { data, error } = await supabase.functions.invoke("finbot-invoice", {
-      body: { invoice, customer },
+      body: {
+        invoice: { ...invoice, has_manual_total: options.hasManualTotal === true },
+        customer,
+      },
     });
     if (error) {
       return { ok: false, error: error.message || "Finbot invoke failed" };

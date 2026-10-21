@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { invokeFinbot } from "@/lib/finbot";
+import { invokeFinbot, resolveHasManualTotal } from "@/lib/finbot";
 
 // Manual retry for Finbot issuance. The automatic path lives in
 // Orders.handleCreateInvoice and MonthlyInvoicesTab.handleGenerate; this
@@ -32,7 +32,12 @@ export default function ExternalInvoiceButton({ invoice, customer }) {
     };
 
     try {
-      const result = await invokeFinbot(invoice, customer || {});
+      // This is the re-issue path and it holds only the invoice, so the flag
+      // comes from the linked order rather than from the figures. A legacy
+      // monthly invoice has no adjusted order behind it and therefore gets no
+      // adjustment line, which is the false positive this closes.
+      const hasManualTotal = await resolveHasManualTotal(invoice);
+      const result = await invokeFinbot(invoice, customer || {}, { hasManualTotal });
 
       if (!result.ok) {
         logEntry = {
