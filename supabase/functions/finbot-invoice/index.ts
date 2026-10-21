@@ -82,22 +82,42 @@ function buildItems(invoiceItems: any[]): Array<{ name: string; amount: number; 
 //   produces the payload it produces today, defects and all. That is the whole
 //   of the requirement to leave the general discount handling alone.
 //
-// THE AMOUNT — measured against what is REALLY going out
+// THE AMOUNT — FIVE decimals, and that is the whole point
 //   `lineNet` is the sum of the lines buildItems actually produced, not the
 //   invoice's subtotal. Those differ whenever a line carries a discount,
 //   because buildItems sends the list price. Working from `lineNet` is what
-//   makes the document total land on the saved total EVEN THEN, which is
-//   requirement 5.
+//   makes the document total land on the saved total even then.
 //
-//   The consequence, accepted deliberately: on a discounted order this one line
-//   carries the agreed discount and the manual adjustment together. That is not
-//   a distortion of the document — it shows list prices and a single total
-//   discount, which is an ordinary way to present an invoice — but it does mean
-//   the figure is not purely the manual adjustment.
+//   WHY TWO DECIMALS COULD NOT WORK
+//     The provider computes VAT on the net SUM and rounds it to the agora, so
+//     the document total is `net + round(net x rate)`. With a two-decimal net
+//     that total SKIPS values: at 18% it steps 1.98, 1.99, 2.01, because the
+//     rounded VAT jumps. 15.3% of two-decimal targets — including 2.00, 10.00
+//     and 100.00 — are simply unreachable. Invoice 10071 issued at 1.99 for a
+//     2.00 order for exactly this reason; it was not a calculation error.
 //
-//   `bestNet` is the closest two-decimal net to the saved total, which is the
-//   best any payload can reach while the provider adds VAT to net lines: the
-//   achievable totals step by 0.01 x (1 + rate), leaving at most half of that.
+//   WHY FIVE DECIMALS DO
+//     items.price is documented as accepting decimals. Carrying the adjustment
+//     at five places lets the net sum be `total / (1 + rate)` to a precision
+//     the rounding cannot disturb, and the total then lands on the target for
+//     EVERY two-decimal target. It holds under both rounding models the real
+//     invoices leave open — `net + round(net x rate)` and `round(net x (1+rate))`
+//     — so it does not depend on knowing which one the provider uses.
+//
+//     FIVE rather than four: at 18% four decimals are enough, but at 17% — the
+//     rate several code paths still default to — 1710 targets in every 200000
+//     land an agora out under the first model, because rounding the net to four
+//     places pushes the VAT across a boundary. Five decimals is exact at both
+//     rates across the whole range; four is not.
+//
+//     Only this one line carries the extra precision. Product prices,
+//     quantities and discounts are passed through untouched.
+//
+//   ARITHMETIC IN INTEGERS
+//     Agorot and hundred-thousandths, not shekels. `total / 1.18` in floating
+//     point produces values like 1.6949152542372882, and the error has nowhere
+//     to go but the invoice. Scaling to integers first means one division of
+//     exact integers and one rounding, with no accumulation.
 function buildAdjustmentItem(
   invoice: any,
   items: Array<{ amount: number; price: number }>,
@@ -110,19 +130,42 @@ function buildAdjustmentItem(
   if (!Number.isFinite(total) || !Number.isFinite(vatRate)) return null;
   if (vatRate <= -100) return null;
 
-  const lineNet = items.reduce((sum, i) => sum + i.amount * i.price, 0);
-  const bestNet = Math.round((total / (1 + vatRate / 100)) * 100) / 100;
-  const price = Math.round((bestNet - lineNet) * 100) / 100;
+  // Hundred-thousandths of a shekel: five decimal places, as integers.
+  const SCALE = 100000;
 
-  // Nothing left to correct once the outgoing lines are accounted for. Also the
-  // guard that keeps a rounding artefact from becoming a zero-value line on a
-  // tax document.
-  if (Math.abs(price) < 0.005) return null;
+  // The target gross, in agorot.
+  const totalAgorot = Math.round(total * 100);
+  // The net it implies, in hundred-thousandths:
+  //   net = total / (1 + rate/100) = totalAgorot / (100 + rate)   [shekels]
+  // scaled by SCALE, this is one integer division and one rounding.
+  const targetNetScaled = Math.round((totalAgorot * SCALE) / (100 + vatRate));
+  // What the product lines already contribute, in the same unit.
+  const lineNetScaled = items.reduce(
+    (sum, i) => sum + i.amount * Math.round(i.price * SCALE),
+    0,
+  );
+
+  const priceScaled = targetNetScaled - lineNetScaled;
+
+  // Dropped ONLY when there is exactly nothing to correct.
+  //
+  // This test used to be `< 500`, half an agora at this scale, on the reasoning
+  // that a smaller adjustment could not matter. It can. 500 hundred-thousandths
+  // of NET is up to 0.0059 of GROSS, which is enough to straddle an agora
+  // boundary: a 165.17 order on lines totalling 139.97 net needs +0.00458, and
+  // discarding it issued the document at 165.16. The threshold was expressed in
+  // the wrong currency — net — while the thing it protected was the gross.
+  //
+  // At exactly zero the product lines already sum to the target net, so the
+  // document lands on the target with no line at all. Any other value is sent,
+  // however small, because the only figure small enough to be safely discarded
+  // is none.
+  if (priceScaled === 0) return null;
 
   return {
     name: "התאמת סכום",
     amount: 1,
-    price,
+    price: priceScaled / SCALE,
   };
 }
 
