@@ -26,13 +26,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, CheckCircle2, Image as ImageIcon, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Image as ImageIcon, X, ImageOff, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   priceBeforeVat, parsePackaging, comparablePrice, reviewFlags,
   canAutoApplyMatch, documentCompleteness, round2, toNumber,
 } from "@/lib/quoteMath";
-import { createScannedQuote, saveReviewedItems, approveMatch, listMatchesForSupplier, listProductsForMatching } from "@/api/supplierQuotes";
+import { createScannedQuote, saveReviewedItems, approveMatch, listMatchesForSupplier, getProductsByIds } from "@/api/supplierQuotes";
+import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -54,23 +55,48 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const [vatBasis, setVatBasis] = useState(draft.document.vat_basis);
   const [vatRate, setVatRate] = useState(draft.document.vat_rate ?? 18);
   const [items, setItems] = useState(draft.items);
-  const [products, setProducts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showPages, setShowPages] = useState(false);
+  // Which line's picker is open, and the chosen products we know about —
+  // id -> { name, sku, unit, image_url } — so the table can show a name and a
+  // thumbnail without holding the whole catalogue in memory.
+  const [pickerIdx, setPickerIdx] = useState(null);
+  const [productById, setProductById] = useState({});
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [p, m] = await Promise.all([listProductsForMatching(), listMatchesForSupplier(supplierId)]);
+        const m = await listMatchesForSupplier(supplierId);
         if (cancelled) return;
-        setProducts(p);
         setMatches(m);
       } catch { /* matching is still possible by hand */ }
     })();
     return () => { cancelled = true; };
   }, [supplierId]);
+
+  // Resolve the products referenced by auto-applied matches, so an
+  // automatically matched line shows its name and image like a hand-picked one.
+  useEffect(() => {
+    const missing = items
+      .map(i => i.product_id)
+      .filter(id => id && !productById[id]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getProductsByIds(missing);
+        if (cancelled || rows.length === 0) return;
+        setProductById(prev => {
+          const next = { ...prev };
+          for (const r of rows) next[r.id] = r;
+          return next;
+        });
+      } catch { /* the id is still stored; only the label is missing */ }
+    })();
+    return () => { cancelled = true; };
+  }, [items, productById]);
 
   // Auto-apply remembered mappings — only where the SKU AND the packaging both
   // agree, via canAutoApplyMatch. A name match is never enough.
@@ -301,14 +327,51 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                       : `${line.comparable_price.toFixed(2)} / ${line.base_unit}`}
                   </td>
                   <td style={{ padding: "6px 8px" }}>
-                    <select value={line.product_id ?? ""} className="heillo-input"
-                      style={{ height: 30, minWidth: 170 }}
-                      onChange={(e) => updateLine(idx, { product_id: e.target.value || null })}>
-                      <option value="">— לא שויך —</option>
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{p.sku ? ` (${p.sku})` : ""}</option>
-                      ))}
-                    </select>
+                    {/* The visual picker replaces a plain dropdown: a supplier
+                        line is matched by recognising the product, which a name
+                        in a <select> does not support. Opening it changes
+                        nothing — only choosing a card does. */}
+                    {(() => {
+                      const chosen = line.product_id ? productById[line.product_id] : null;
+                      const img = chosen ? primaryImageUrl(chosen) : null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setPickerIdx(idx)}
+                          title={line.product_id ? "שינוי שיוך" : "שיוך מוצר"}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, minWidth: 180, maxWidth: 230,
+                            padding: "4px 8px", cursor: "pointer", textAlign: "right",
+                            border: `1px solid ${line.product_id ? "rgba(4,120,87,0.35)" : "rgba(0,0,0,0.12)"}`,
+                            borderRadius: 10, background: "#FFFFFF", fontFamily: "'Heebo', sans-serif",
+                          }}
+                        >
+                          {line.product_id ? (
+                            <>
+                              {img ? (
+                                <img src={img} alt="" loading="lazy"
+                                  style={{ width: 26, height: 26, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                              ) : (
+                                <span style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                                  background: "rgba(0,0,0,0.05)", display: "inline-flex",
+                                  alignItems: "center", justifyContent: "center" }}>
+                                  <ImageOff style={{ width: 12, height: 12, color: MUTED }} />
+                                </span>
+                              )}
+                              <span style={{ fontSize: 11, color: DARK, overflow: "hidden",
+                                textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {chosen?.name || "מוצר משויך"}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Link2 style={{ width: 14, height: 14, color: MUTED, flexShrink: 0 }} />
+                              <span style={{ fontSize: 11, color: MUTED }}>שיוך מוצר</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                     {line.auto_matched && (
                       <div style={{ fontSize: 10, color: "#047857" }}>שויך אוטומטית לפי מק"ט ואריזה</div>
                     )}
@@ -348,6 +411,25 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
           </Button>
         </div>
       </div>
+
+      {/* One picker instance, pointed at whichever line is being matched.
+          `onSelect(null)` is the explicit "unmatch", which returns the line to
+          pending — the same transition the dropdown's empty option made. */}
+      <QuoteProductPicker
+        open={pickerIdx !== null}
+        line={pickerIdx !== null ? items[pickerIdx] : null}
+        selectedId={pickerIdx !== null ? items[pickerIdx]?.product_id ?? null : null}
+        onClose={() => setPickerIdx(null)}
+        onSelect={(product) => {
+          if (pickerIdx === null) return;
+          if (product) {
+            // Remembered for the label and thumbnail; the line itself only
+            // ever stores the id.
+            setProductById(prev => ({ ...prev, [product.id]: product }));
+          }
+          updateLine(pickerIdx, { product_id: product?.id ?? null });
+        }}
+      />
     </div>
   );
 }
