@@ -29,6 +29,7 @@ import {
 import QuoteScanPanel from "@/components/suppliers/quotes/QuoteScanPanel";
 import QuoteExtractionReview from "@/components/suppliers/quotes/QuoteExtractionReview";
 import QuoteSavedItemsEditor from "@/components/suppliers/quotes/QuoteSavedItemsEditor";
+import SupplierPriceComparison from "@/components/suppliers/quotes/SupplierPriceComparison";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -199,6 +200,10 @@ export default function SupplierQuotesModal({ open, onClose }) {
                 <ScanLine style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> סריקת מסמך
               </Button>
             </div>
+
+            <SupplierPriceComparison suppliers={suppliers} onEditQuote={id => {
+              setEditQuoteId(id); setMode("edit");
+            }} />
 
             {/* ── Upload ─────────────────────────────────────────────── */}
             <div className="heillo-card" style={{ padding: 16, marginTop: 10 }}>
