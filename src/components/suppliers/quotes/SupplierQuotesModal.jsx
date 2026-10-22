@@ -28,6 +28,7 @@ import {
 } from "@/api/supplierQuotes";
 import QuoteScanPanel from "@/components/suppliers/quotes/QuoteScanPanel";
 import QuoteExtractionReview from "@/components/suppliers/quotes/QuoteExtractionReview";
+import QuoteSavedItemsEditor from "@/components/suppliers/quotes/QuoteSavedItemsEditor";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -57,6 +58,7 @@ export default function SupplierQuotesModal({ open, onClose }) {
   // two: it is never persisted until the review screen is approved.
   const [mode, setMode] = useState("list");
   const [scan, setScan] = useState(null);
+  const [editQuoteId, setEditQuoteId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [quotes, setQuotes] = useState([]);
   const [counts, setCounts] = useState({});
@@ -138,9 +140,10 @@ export default function SupplierQuotesModal({ open, onClose }) {
   };
 
   const handleDelete = async (q) => {
+    if (!window.confirm("למחוק את החשבונית וכל העמודים שלה ממערכת ההשוואה? פעולה זו אינה הפיכה.")) return;
     setDeletingId(q.id);
     try {
-      await deleteQuote({ id: q.id, filePath: q.file_path });
+      await deleteQuote({ id: q.id });
       toast.success("הצעת המחיר נמחקה");
       await load();
     } catch (err) {
@@ -176,6 +179,10 @@ export default function SupplierQuotesModal({ open, onClose }) {
               onOpenExisting={() => { setMode("list"); load(); }}
             />
           </>
+        ) : mode === "edit" && editQuoteId ? (
+          <QuoteSavedItemsEditor quoteId={editQuoteId}
+            onClose={() => { setEditQuoteId(null); setMode("list"); load(); }}
+            onSaved={() => { setEditQuoteId(null); setMode("list"); load(); }} />
         ) : mode === "review" && scan ? (
           <QuoteExtractionReview
             scan={scan}
@@ -277,6 +284,11 @@ export default function SupplierQuotesModal({ open, onClose }) {
                         )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {c.total > 0 && (
+                          <Button variant="outline" size="sm" onClick={() => { setEditQuoteId(q.id); setMode("edit"); }}>
+                            תיקון שורות ואריזות
+                          </Button>
+                        )}
                         {q.file_path && (
                           <Button variant="outline" size="sm" onClick={() => handleOpenFile(q)}>
                             <ExternalLink style={{ width: 14, height: 14, marginInlineEnd: 4 }} /> מסמך
