@@ -94,11 +94,37 @@ export async function countItemsByQuote(quoteIds) {
 export async function listQuoteItems(quoteId) {
   const { data, error } = await supabase
     .from("supplier_quote_items")
-    .select("id, product_id, supplier_sku, supplier_name_raw, unit_price, unit, pack_size, currency, match_status, created_at")
+    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, currency, match_status, created_at")
     .eq("supplier_quote_id", quoteId)
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
+}
+
+/** Read-only detail for editing one previously reviewed document. */
+export async function getQuoteForEditing(id) {
+  const { data, error } = await supabase.from("supplier_quotes")
+    .select("id, supplier_id, document_number, vat_basis, vat_rate, status, quote_date")
+    .eq("id", id).single();
+  if (error) throw error;
+  return data;
+}
+
+/** Persist ONLY quotation fields. Do not touch CRM products or stock. */
+export async function updateReviewedItem(id, patch) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) throw new Error("not signed in");
+  const safe = {};
+  for (const field of ["product_id", "match_status", "supplier_sku", "supplier_name_raw",
+    "unit", "pack_size", "base_unit", "base_qty_per_pack", "unit_price", "price_before_vat"]) {
+    if (Object.prototype.hasOwnProperty.call(patch, field)) safe[field] = patch[field];
+  }
+  if (safe.match_status === "approved" && (!safe.product_id || !safe.base_unit ||
+      !(Number(safe.base_qty_per_pack) > 0) || !(Number(safe.price_before_vat) >= 0))) {
+    throw new Error("חסרים מוצר, אריזה או מחיר תקין לפני אישור");
+  }
+  const { error } = await supabase.from("supplier_quote_items").update(safe).eq("id", id);
+  if (error) throw error;
 }
 
 /**
@@ -176,9 +202,19 @@ export async function quoteFileUrl(filePath) {
  * The items go with the row via ON DELETE CASCADE. The object is removed FIRST,
  * because a deleted row leaves no record of the path to clean up later.
  */
-export async function deleteQuote({ id, filePath }) {
-  if (filePath) {
-    await supabase.storage.from(BUCKET).remove([filePath]).catch(() => {});
+export async function deleteQuote({ id }) {
+  // Collect ALL scanned pages, not only the headline file. If storage cleanup
+  // fails, abort deletion so there is always a reference to the original.
+  const { data: quote, error: qe } = await supabase.from("supplier_quotes")
+    .select("file_path").eq("id", id).single();
+  if (qe) throw qe;
+  const { data: pages, error: pe } = await supabase.from("supplier_quote_pages")
+    .select("file_path").eq("supplier_quote_id", id);
+  if (pe) throw pe;
+  const paths = [...new Set([quote?.file_path, ...(pages || []).map(p => p.file_path)].filter(Boolean))];
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove(paths);
+    if (storageError) throw storageError;
   }
   const { error } = await supabase.from("supplier_quotes").delete().eq("id", id);
   if (error) throw error;
