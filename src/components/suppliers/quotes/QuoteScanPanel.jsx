@@ -11,10 +11,10 @@
  * It writes NOTHING. Extraction produces a draft which the review screen owns;
  * the document and its lines are only stored once a human has looked at them.
  */
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Upload, Camera, X, ArrowUp, ArrowDown, ScanLine, FileText } from "lucide-react";
+import { Upload, Camera, X, ArrowUp, ArrowDown, ScanLine, FileText, FilePlus2 } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_PAGES, EXTRACTION_ERRORS } from "@/lib/quoteDocumentImage";
 import { preparePages, extractQuotePages, buildDraftFromExtraction, documentContentHash } from "@/lib/quoteExtraction";
@@ -22,63 +22,165 @@ import { findExistingQuote } from "@/api/supplierQuotes";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
+const ACCENT = "#0891b2";
+
+/** The types the file input already advertises via `accept`. A drop bypasses
+ *  `accept` entirely, so the same set has to be enforced in code. */
+const ACCEPTED_TYPES = "image/*,application/pdf";
+
+function isSupported(file) {
+  const type = file?.type || "";
+  if (type.startsWith("image/") || type === "application/pdf") return true;
+  // Some browsers report an empty type for an unusual extension; fall back to
+  // the name so a legitimate .jpg is not rejected on a technicality.
+  return /\.(jpe?g|png|webp|gif|heic|heif|pdf)$/i.test(file?.name || "");
+}
+
+/**
+ * Merge newly chosen files into the existing page list.
+ *
+ * ONE implementation, used by the file input, the camera input AND the drop
+ * zone, so "the drop does exactly what picking does" is structural rather than
+ * two copies of the rules that drift apart. The rules are the goods-receiving
+ * scanner's, carried over unchanged:
+ *   * at most MAX_PAGES pages
+ *   * a PDF is a whole document: it can neither join existing pages nor be
+ *     joined by them
+ * Both stop the batch where the original stops it, rather than silently
+ * accepting part of a selection and reporting the rest.
+ *
+ * Unsupported files are SKIPPED rather than aborting the batch, because a drop
+ * can easily include a stray file the user did not mean to send and losing the
+ * good pages with it would be worse. There is no existing behaviour to preserve
+ * here: the picker relied on `accept` and never validated types in code.
+ *
+ * Pure, and exported for tests: the errors are returned, not toasted, so the
+ * caller raises each one exactly once. Toasting inside a state updater — as the
+ * original does — can fire twice, because React may call an updater twice.
+ */
+export function mergeFiles(existing, incoming) {
+  const next = [...existing];
+  const errors = [];
+  const added = [];
+
+  for (const f of incoming) {
+    if (!isSupported(f)) {
+      errors.push(`הקובץ "${f?.name || "ללא שם"}" אינו נתמך — ניתן לצרף תמונה (JPG, PNG, WEBP) או PDF`);
+      continue;
+    }
+    if (next.length >= MAX_PAGES) {
+      errors.push(EXTRACTION_ERRORS.too_many_pages);
+      break;
+    }
+    const isPdf = f.type === "application/pdf";
+    if ((isPdf && next.length > 0) || next.some(pg => pg.file.type === "application/pdf")) {
+      errors.push("לא ניתן לשלב קובץ PDF עם עמודים נוספים");
+      break;
+    }
+    const page = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file: f,
+      previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+    };
+    next.push(page);
+    added.push(page);
+  }
+
+  return { next, errors, added };
+}
 
 export default function QuoteScanPanel({ suppliers = [], onDraft, onOpenExisting }) {
   const [supplierId, setSupplierId] = useState("");
   const [pages, setPages] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState("");
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  // Mirrors `pages` so the drag handlers can read the current list without
+  // being re-created on every change.
+  const pagesRef = useRef([]);
 
-  // ── File pick — copied from DeliveryModal.handleFilePick ─────────────────
-  const handleFilePick = (e) => {
-    const selected = Array.from(e.target.files ?? []);
+  // ── Adding files — ONE path for picking, photographing and dropping ─────
+  const addFiles = useCallback((incoming) => {
+    const selected = Array.from(incoming ?? []);
     if (selected.length === 0) return;
 
-    setPages(prev => {
-      const next = [...prev];
-      for (const f of selected) {
-        if (next.length >= MAX_PAGES) {
-          toast.error(EXTRACTION_ERRORS.too_many_pages);
-          break;
-        }
-        // A PDF is a whole document: it cannot be mixed with loose pages, and
-        // only one may be attached.
-        const isPdf = f.type === "application/pdf";
-        if ((isPdf && next.length > 0) || next.some(pg => pg.file.type === "application/pdf")) {
-          toast.error("לא ניתן לשלב קובץ PDF עם עמודים נוספים");
-          break;
-        }
-        next.push({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          file: f,
-          previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
-        });
-      }
-      return next;
-    });
+    // The merge is computed OUTSIDE the state updater so each error is shown
+    // once; `pagesRef` holds the current list without making this callback
+    // depend on it, which keeps the drop handlers stable.
+    const { next, errors } = mergeFiles(pagesRef.current, selected);
+    // Dedupe: a run of identical "too many pages" errors is one message.
+    for (const msg of [...new Set(errors)]) toast.error(msg);
+    if (next.length !== pagesRef.current.length) {
+      pagesRef.current = next;
+      setPages(next);
+    }
+  }, []);
 
+  const handleFilePick = (e) => {
+    addFiles(e.target.files);
+    // Cleared so picking the same file twice in a row still fires onChange.
     e.target.value = "";
   };
 
+  // ── Drag & drop ───────────────────────────────────────────────────────────
+  // A COUNTER, not a boolean. dragenter/dragleave fire for every child element
+  // the pointer crosses, so a boolean toggles off the moment the cursor moves
+  // from the zone onto the text inside it and the highlight flickers. Counting
+  // enters minus leaves is zero only when the pointer has genuinely left.
+  const dragDepth = useRef(0);
+
+  const onDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current += 1;
+    setDragActive(true);
+  };
+
+  const onDragOver = (e) => {
+    // Required: without preventDefault on dragover the drop event never fires
+    // and the browser navigates to the file instead.
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  };
+
+  const onDrop = (e) => {
+    // Stops the browser opening the dropped file in this tab.
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = 0;
+    setDragActive(false);
+    if (scanning) return;
+    // `files` preserves the order the user selected them in, which is the page
+    // order the document is read in.
+    addFiles(e.dataTransfer?.files);
+  };
+
   const removePage = (id) => {
-    setPages(prev => {
-      const target = prev.find(pg => pg.id === id);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter(pg => pg.id !== id);
-    });
+    const target = pagesRef.current.find(pg => pg.id === id);
+    if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+    const next = pagesRef.current.filter(pg => pg.id !== id);
+    pagesRef.current = next;
+    setPages(next);
   };
 
   // Order matters: the document is read front to back.
   const movePage = (index, direction) => {
-    setPages(prev => {
-      const target = index + direction;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    const target = index + direction;
+    if (target < 0 || target >= pagesRef.current.length) return;
+    const next = [...pagesRef.current];
+    [next[index], next[target]] = [next[target], next[index]];
+    pagesRef.current = next;
+    setPages(next);
   };
 
   const handleScan = async () => {
@@ -148,14 +250,56 @@ export default function QuoteScanPanel({ suppliers = [], onDraft, onOpenExisting
         </select>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
-          <Upload style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> צירוף קבצים
-        </Button>
-        <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={scanning}>
-          <Camera style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> צילום עמוד
-        </Button>
-        <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf"
+      {/* ── Drop zone ──────────────────────────────────────────────────────
+          The handlers sit on the zone itself and stopPropagation, so a drag
+          over the buttons inside it is still the zone's drag. It is also
+          clickable, which is what makes it useful on a phone where there is no
+          dragging: tapping it opens the same file picker. */}
+      <div
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={() => { if (!scanning) fileInputRef.current?.click(); }}
+        role="button"
+        tabIndex={0}
+        aria-label="גרור לכאן קבצים או לחץ לבחירה"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); }
+        }}
+        style={{
+          marginTop: 14,
+          border: `2px dashed ${dragActive ? ACCENT : "rgba(0,0,0,0.14)"}`,
+          background: dragActive ? "rgba(8,145,178,0.07)" : "rgba(0,0,0,0.015)",
+          borderRadius: 14,
+          padding: "20px 16px",
+          textAlign: "center",
+          cursor: scanning ? "default" : "pointer",
+          transition: "border-color 0.15s ease, background 0.15s ease",
+        }}
+      >
+        <FilePlus2 style={{ width: 26, height: 26, color: dragActive ? ACCENT : MUTED, marginBottom: 6 }} />
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: dragActive ? ACCENT : DARK }}>
+          {dragActive ? "שחרר כאן את הקבצים" : "גרור לכאן את עמודי החשבונית"}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 11, color: MUTED }}>
+          או לחץ לבחירת קבצים מהמחשב
+        </p>
+
+        {/* The original two options, kept exactly as they were. The clicks are
+            stopped so they do not also trigger the zone's own click. */}
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <Button type="button" variant="outline" disabled={scanning}
+            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+            <Upload style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> צירוף קבצים
+          </Button>
+          <Button type="button" variant="outline" disabled={scanning}
+            onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}>
+            <Camera style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> צילום עמוד
+          </Button>
+        </div>
+
+        <input ref={fileInputRef} type="file" multiple accept={ACCEPTED_TYPES}
           style={{ display: "none" }} onChange={handleFilePick} />
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
           style={{ display: "none" }} onChange={handleFilePick} />
