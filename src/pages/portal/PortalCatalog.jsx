@@ -665,10 +665,55 @@ export default function PortalCatalog() {
         );
 
         if (notifyError) {
-          console.error("[portal] order notification failed", notifyError);
+          // WHY THIS IS NOT JUST console.error(notifyError)
+          //   A non-2xx reply becomes a FunctionsHttpError whose `message` is
+          //   the generic "Edge Function returned a non-2xx status code". The
+          //   function's OWN answer — e.g. { ok: false, error: "invalid_order_id" }
+          //   — is the unread body of the Response hanging off `context`, so
+          //   logging the error alone threw away the only field that says WHY.
+          //
+          //   The id is logged beside it, with its JavaScript type, because the
+          //   function rejects anything that is not a canonical uuid STRING: a
+          //   number or a short string is the difference between "the contract
+          //   is wrong" and "the platform refused the request".
+          //
+          //   Diagnosis only. Nothing here changes the order, the cart, the
+          //   customer's screen or whether a notification is retried — it is
+          //   not. Every read is guarded, because `context` is only a Response
+          //   for an HTTP error (a network failure carries something else), its
+          //   body may already be consumed, and a failed log must never become
+          //   the thing that breaks a saved order.
+          const ctx = notifyError.context;
+          let status;
+          let responseBody;
+          try {
+            status = ctx?.status;
+            if (typeof ctx?.clone === "function") {
+              // clone() so this read cannot disturb anything else holding the
+              // body, and text() rather than json() so a non-JSON error page
+              // is still captured instead of throwing.
+              responseBody = await ctx.clone().text();
+            }
+          } catch (readErr) {
+            responseBody = `<unreadable: ${readErr?.message || readErr}>`;
+          }
+
+          console.error("[portal] order notification failed", {
+            name: notifyError.name,
+            message: notifyError.message,
+            status,
+            responseBody,
+            order_id: order.id,
+            order_id_type: typeof order.id,
+            order_id_length: typeof order.id === "string" ? order.id.length : undefined,
+            error: notifyError,
+          });
         }
       } catch (notifyErr) {
-        console.error("[portal] order notification failed", notifyErr);
+        console.error("[portal] order notification failed", notifyErr, {
+          order_id: order.id,
+          order_id_type: typeof order.id,
+        });
       }
 
       clearCart();
