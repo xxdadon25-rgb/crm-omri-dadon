@@ -476,7 +476,7 @@ export async function listMatchesForSupplier(supplierId) {
 export async function listProductsForMatching({ search = "", limit = 30, offset = 0 } = {}) {
   let q = supabase
     .from("products")
-    .select("id, name, sku, barcode, unit, image_url, category")
+    .select("id, name, sku, barcode, unit, description, image_url, category")
     .eq("is_active", true)
     .order("name", { ascending: true })
     .order("id", { ascending: true })      // stable tiebreak, so pages cannot repeat a row
@@ -499,7 +499,7 @@ export async function getProductsByIds(ids) {
   if (unique.length === 0) return [];
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, sku, unit, image_url")
+    .select("id, name, sku, unit, description, image_url")
     .in("id", unique);
   if (error) throw error;
   return data || [];
