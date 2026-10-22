@@ -106,11 +106,22 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       if (line.product_id) return line;
       const candidate = matches.find(m =>
         (m.supplier_sku ?? "").trim() && (m.supplier_sku ?? "").trim() === (line.supplier_sku ?? "").trim());
-      const verdict = canAutoApplyMatch({ line, match: candidate });
+      // If the document omitted the pack, reuse the exact SKU's previously
+      // confirmed pack. Never use the PURCHASE quantity as pack size.
+      const withPack = candidate && candidate.status === "approved" &&
+        candidate.base_unit && Number(candidate.base_qty_per_pack) > 0 &&
+        (!line.base_unit || !(Number(line.base_qty_per_pack) > 0))
+          ? { ...line, base_unit: candidate.base_unit, base_qty_per_pack: candidate.base_qty_per_pack }
+          : line;
+      const verdict = canAutoApplyMatch({ line: withPack, match: candidate });
       if (!verdict.apply) return line;
-      return { ...line, product_id: candidate.product_id, match_status: "approved", auto_matched: true };
+      const next = { ...withPack, product_id: candidate.product_id,
+        auto_matched: true, match_status: "approved" };
+      next.comparable_price = comparablePrice(next);
+      next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
+      return next;
     }));
-  }, [matches]);
+  }, [matches, vatBasis]);
 
   // Recompute every derived figure whenever the VAT answer changes. The stored
   // unit price is untouched: only the DERIVED pre-VAT price moves.
