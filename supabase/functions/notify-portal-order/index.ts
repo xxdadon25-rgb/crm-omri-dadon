@@ -32,9 +32,10 @@
  *   -> name it exactly: notify-portal-order
  *   -> Verify JWT: ON (the caller is an authenticated portal customer)
  *
- * Secrets used, both already present in this project:
+ * Secrets used, the first two already present in this project:
  *   TELEGRAM_BOT_TOKEN
  *   TELEGRAM_CHAT_ID
+ *   TELEGRAM_CHAT_ID_2   (OPTIONAL — a second recipient, same bot, same message)
  * SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.
  */
 
@@ -61,6 +62,52 @@ function formatAmount(value: unknown): string {
   return Number.isFinite(n)
     ? n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "0.00";
+}
+
+// ONE recipient, ONE request.
+//
+// Returns whether the message was delivered and NEVER throws. That is the
+// whole point: a rejected promise from one recipient would propagate and the
+// other recipient's outcome would be lost with it. Reporting failure as a
+// value keeps the recipients genuinely independent.
+//
+// `label` identifies the recipient in the logs without naming the chat id,
+// which, like the bot token and Telegram's own response body, stays
+// server-side and is never echoed to the caller.
+async function sendTelegram(
+  botToken: string,
+  chatId: string,
+  text: string,
+  orderId: string,
+  label: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+
+    if (!res.ok) {
+      // Logged for us; the body may name the bot or the chat, so it is never
+      // echoed to the caller.
+      console.error("[notify-portal-order] telegram rejected", {
+        recipient: label,
+        httpStatus: res.status,
+        response: (await res.text()).slice(0, 500),
+        orderId,
+      });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[notify-portal-order] telegram request failed", {
+      recipient: label,
+      message: (err as Error).message,
+      orderId,
+    });
+    return false;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -165,29 +212,42 @@ Deno.serve(async (req: Request) => {
     `פריטים: ${itemCount ?? 0}`;
 
   // ---- 6. Send -----------------------------------------------------------
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
-    });
+  // The second recipient is OPTIONAL and read here rather than alongside the
+  // other secrets at the top, because its absence must NOT be a configuration
+  // error: with the secret unset this function issues one request and behaves
+  // exactly as it did before, which is what makes it safe to deploy before the
+  // second chat id is configured.
+  //
+  // A new secret rather than a list inside TELEGRAM_CHAT_ID: Telegram's
+  // sendMessage takes `chat_id` as a single id, so "111,222" is not a valid
+  // chat and would have broken delivery to the EXISTING recipient too.
+  const secondChatId = Deno.env.get("TELEGRAM_CHAT_ID_2")?.trim();
 
-    if (!res.ok) {
-      // Logged for us; the body may name the bot or the chat, so it is never
-      // echoed to the caller.
-      console.error("[notify-portal-order] telegram rejected", {
-        httpStatus: res.status,
-        response: (await res.text()).slice(0, 500),
-        orderId: order.id,
-      });
-      return json({ ok: false, error: "notify_failed" }, 502);
-    }
-  } catch (err) {
-    console.error("[notify-portal-order] telegram request failed", {
-      message: (err as Error).message,
+  // One `text`, built once above, sent to both — the notifications are
+  // identical by construction and cannot drift apart.
+  //
+  // Both requests are in flight before either resolves, and neither can
+  // cancel, abort or mask the other. Promise.all is safe here ONLY because
+  // sendTelegram reports failure as `false` instead of rejecting; with a
+  // throwing helper this would have to be allSettled.
+  const [primaryOk, secondaryOk] = await Promise.all([
+    sendTelegram(botToken, chatId, text, order.id, "primary"),
+    secondChatId
+      ? sendTelegram(botToken, secondChatId, text, order.id, "secondary")
+      : Promise.resolve(true),
+  ]);
+
+  // The PRIMARY recipient alone decides the response, exactly as before this
+  // change. A secondary-only failure is logged and nothing more: a
+  // notification that WAS delivered must not be reported to the caller as a
+  // failure, and the portal's own handler only logs either way.
+  if (!primaryOk) {
+    return json({ ok: false, error: "notify_failed" }, 502);
+  }
+  if (secondChatId && !secondaryOk) {
+    console.error("[notify-portal-order] secondary recipient not notified", {
       orderId: order.id,
     });
-    return json({ ok: false, error: "notify_failed" }, 502);
   }
 
   return json({ ok: true });
