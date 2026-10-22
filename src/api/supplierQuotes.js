@@ -192,6 +192,275 @@ export async function updateQuoteStatus({ id, status }) {
   if (error) throw error;
 }
 
+// ── Scanning: pages, extracted lines and approval ──────────────────────────
+
+/**
+ * Is this document already imported?
+ *
+ * Two independent signals, both checked BEFORE anything is uploaded so a
+ * duplicate costs nothing:
+ *   * the content hash — the same bytes from the same supplier
+ *   * the document reference — a re-photographed copy whose bytes differ but
+ *     whose number and date do not
+ *
+ * The database enforces both with unique indexes; this is the friendly check
+ * that lets the UI offer "open the existing import" instead of surfacing a
+ * constraint violation.
+ */
+export async function findExistingQuote({ supplierId, contentHash, documentNumber, quoteDate }) {
+  if (contentHash) {
+    const { data, error } = await supabase
+      .from("supplier_quotes")
+      .select("id, quote_date, document_number, status")
+      .eq("supplier_id", supplierId)
+      .eq("content_hash", contentHash)
+      .maybeSingle();
+    if (!error && data) return { ...data, matched_on: "content_hash" };
+  }
+  if (documentNumber && quoteDate) {
+    const { data, error } = await supabase
+      .from("supplier_quotes")
+      .select("id, quote_date, document_number, status")
+      .eq("supplier_id", supplierId)
+      .eq("document_number", documentNumber)
+      .eq("quote_date", quoteDate)
+      .maybeSingle();
+    if (!error && data) return { ...data, matched_on: "document_reference" };
+  }
+  return null;
+}
+
+/**
+ * Store the scanned pages and create the quotation row.
+ *
+ * ORDER: pages are uploaded first, the row second, the page records third.
+ * A row pointing at files that were never stored is worse than an orphaned
+ * file, and an orphaned file is cleaned up below.
+ *
+ * Partial failure is handled rather than hoped away: if the row insert fails,
+ * every uploaded object is removed again, so a failed scan leaves nothing
+ * behind. If a PAGE record fails after the row was written, the row is deleted
+ * too — a quotation whose pages are only half recorded cannot be verified
+ * later, which defeats the point of keeping the document.
+ */
+export async function createScannedQuote({ supplierId, files, pages, contentHash, document }) {
+  if (!supplierId) throw new Error("supplierId is required");
+  if (!files?.length) throw new Error("no_pages");
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("not signed in");
+
+  const uploaded = [];
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const safeName = String(f.name || `page-${i + 1}`)
+        .replace(/[^\w.\-֐-׿]+/g, "_")
+        .slice(-80);
+      const path = `${supplierId}/${Date.now()}_${i + 1}_${safeName}`;
+      const { error } = await supabase.storage.from(BUCKET).upload(path, f, { upsert: false });
+      if (error) throw error;
+      uploaded.push({ page_no: i + 1, file_path: path, byte_size: f.size ?? null });
+    }
+  } catch (err) {
+    await cleanupObjects(uploaded.map(u => u.file_path));
+    throw err;
+  }
+
+  const { data: quote, error: quoteErr } = await supabase
+    .from("supplier_quotes")
+    .insert({
+      user_id: userId,
+      supplier_id: supplierId,
+      quote_date: document?.quote_date || null,
+      valid_until: document?.valid_until || null,
+      document_type: document?.document_type || null,
+      document_number: document?.document_number || null,
+      amount_net: document?.amount_net ?? null,
+      vat_amount: document?.vat_amount ?? null,
+      amount_gross: document?.amount_gross ?? null,
+      vat_rate: document?.vat_rate ?? null,
+      vat_basis: document?.vat_basis || "unknown",
+      content_hash: contentHash || null,
+      page_count: files.length,
+      // The lines exist but nobody has approved them yet.
+      extraction_status: "done",
+      extracted_at: new Date().toISOString(),
+      // The first page doubles as the document's headline file, so the phase-1
+      // list view keeps working unchanged.
+      file_path: uploaded[0]?.file_path ?? null,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (quoteErr) {
+    await cleanupObjects(uploaded.map(u => u.file_path));
+    throw quoteErr;
+  }
+
+  const { error: pagesErr } = await supabase
+    .from("supplier_quote_pages")
+    .insert(uploaded.map(u => ({ ...u, user_id: userId, supplier_quote_id: quote.id })));
+
+  if (pagesErr) {
+    await supabase.from("supplier_quotes").delete().eq("id", quote.id).catch(() => {});
+    await cleanupObjects(uploaded.map(u => u.file_path));
+    throw pagesErr;
+  }
+
+  return { id: quote.id, pages: uploaded };
+}
+
+/** Best effort: a cleanup failure must not replace the original error with a
+ *  less useful one. */
+async function cleanupObjects(paths) {
+  if (!paths?.length) return;
+  try { await supabase.storage.from(BUCKET).remove(paths); } catch { /* ignore */ }
+}
+
+/**
+ * Write the reviewed lines.
+ *
+ * Called ONCE, after a human has looked at every line. Rows arrive already
+ * corrected and matched by the review screen; this function only persists
+ * them, so there is no place for it to quietly decide anything.
+ *
+ * `comparable_price` is NOT written: it is a GENERATED column, computed by the
+ * database from price_before_vat and base_qty_per_pack. Sending it would be
+ * rejected, which is exactly the protection we want.
+ */
+export async function saveReviewedItems({ quoteId, items }) {
+  if (!quoteId) throw new Error("quoteId is required");
+  if (!items?.length) throw new Error("no_items");
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("not signed in");
+  const now = new Date().toISOString();
+
+  const rows = items.map((i, idx) => ({
+    user_id: userId,
+    supplier_quote_id: quoteId,
+    line_no: i.line_no ?? idx + 1,
+    page_no: i.page_no ?? null,
+    product_id: i.match_status === "approved" ? i.product_id ?? null : null,
+    supplier_sku: i.supplier_sku ?? null,
+    supplier_name_raw: i.supplier_name_raw || "—",
+    quantity: i.quantity ?? null,
+    unit: i.unit ?? null,
+    pack_size: i.pack_size ?? null,
+    list_price: i.list_price ?? null,
+    discount_percent: i.discount_percent ?? null,
+    discount_amount: i.discount_amount ?? null,
+    unit_price: i.unit_price ?? null,
+    price_before_vat: i.price_before_vat ?? null,
+    base_unit: i.base_unit ?? null,
+    base_qty_per_pack: i.base_qty_per_pack ?? null,
+    line_total: i.line_total ?? null,
+    confidence: i.confidence ?? null,
+    match_status: i.match_status ?? "pending",
+    extracted_raw: i.extracted_raw ?? null,
+    reviewed_by: userId,
+    reviewed_at: now,
+  }));
+
+  const { error } = await supabase.from("supplier_quote_items").insert(rows);
+  if (error) throw error;
+
+  // The document is 'reviewed' once every line has been accepted or rejected.
+  const stillPending = rows.some(r => r.match_status === "pending");
+  await supabase
+    .from("supplier_quotes")
+    .update({ status: stillPending ? "draft" : "reviewed", updated_at: now })
+    .eq("id", quoteId);
+
+  return { inserted: rows.length };
+}
+
+/**
+ * Remember an approved SKU -> product mapping, so the same supplier line is
+ * never reviewed twice.
+ *
+ * The packaging is stored WITH the mapping, because that is what makes
+ * auto-applying it safe later: canAutoApplyMatch() requires the SKU, the base
+ * unit and the pack size all to agree before it reuses a decision.
+ */
+export async function approveMatch({ supplierId, item, productId }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("not signed in");
+
+  const key = supplierMatchKey(item);
+  const { error } = await supabase
+    .from("supplier_product_matches")
+    .upsert({
+      user_id: userId,
+      supplier_id: supplierId,
+      supplier_key: key,
+      product_id: productId,
+      status: "approved",
+      supplier_sku: item.supplier_sku ?? null,
+      supplier_description: item.supplier_name_raw ?? null,
+      base_unit: item.base_unit ?? null,
+      base_qty_per_pack: item.base_qty_per_pack ?? null,
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id,supplier_id,supplier_key" });
+  if (error) throw error;
+}
+
+/** Remembered mappings for one supplier, for auto-applying to new lines. */
+export async function listMatchesForSupplier(supplierId) {
+  const { data, error } = await supabase
+    .from("supplier_product_matches")
+    .select("supplier_key, supplier_sku, product_id, status, base_unit, base_qty_per_pack, supplier_description")
+    .eq("supplier_id", supplierId);
+  if (error) throw error;
+  return data || [];
+}
+
+/** Products, for the matching picker. Read-only: this feature never writes to
+ *  products, and never reads or writes buy_price. */
+export async function listProductsForMatching() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, sku, unit")
+    .eq("is_active", true)
+    .order("name");
+  if (error) throw error;
+  return data || [];
+}
+
+/** The stored page images of one document, for inspecting it while reviewing.
+ *  Signed on demand, because the bucket is private. */
+export async function listQuotePages(quoteId) {
+  const { data, error } = await supabase
+    .from("supplier_quote_pages")
+    .select("page_no, file_path")
+    .eq("supplier_quote_id", quoteId)
+    .order("page_no");
+  if (error) throw error;
+  const pages = [];
+  for (const p of data || []) {
+    pages.push({ ...p, url: await quoteFileUrl(p.file_path).catch(() => null) });
+  }
+  return pages;
+}
+
+/** The selected price per supplier+product — the phase-2 view, read as-is.
+ *  The lowest approved historical price unless a manual override is active. */
+export async function listSelectedPrices({ supplierId = null, productId = null } = {}) {
+  let q = supabase.from("supplier_product_selected_price_v").select("*");
+  if (supplierId) q = q.eq("supplier_id", supplierId);
+  if (productId) q = q.eq("product_id", productId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
 /** Suppliers, for the upload form's picker. Read-only — this feature never
  *  creates or edits a supplier. */
 export async function listSuppliersForPicker() {

@@ -1,10 +1,14 @@
 /**
  * "השוואת הצעות מחיר" — the new Suppliers window.
  *
- * PHASE 1 is deliberately small: list the quotations that exist, and upload a
- * new one. There is NO extraction and NO price update here. A quotation is
- * stored as a document plus its metadata, and nothing it contains reaches
- * products, inventory or supplier_price_history.
+ * The window hosts three views, chosen by `mode`:
+ *   list   — the quotations already imported, plus the manual upload
+ *   scan   — capture pages and read them
+ *   review — correct the extracted lines and approve them
+ *
+ * Nothing it contains reaches products.buy_price, inventory,
+ * supplier_price_history, supplier_deliveries or supplier_orders. A quotation
+ * is an OFFER; those tables record what was received and paid.
  *
  * It is self-contained: Suppliers.jsx only opens and closes it. Every query
  * lives in @/api/supplierQuotes, so the existing supplier windows share no
@@ -16,12 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Upload, Trash2, ExternalLink, Scale } from "lucide-react";
+import { FileText, Upload, Trash2, ExternalLink, Scale, ScanLine, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import {
   listQuotes, countItemsByQuote, createQuote, deleteQuote,
   quoteFileUrl, listSuppliersForPicker, isStaffUser,
 } from "@/api/supplierQuotes";
+import QuoteScanPanel from "@/components/suppliers/quotes/QuoteScanPanel";
+import QuoteExtractionReview from "@/components/suppliers/quotes/QuoteExtractionReview";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -47,6 +53,10 @@ function fmtDate(v) {
 
 export default function SupplierQuotesModal({ open, onClose }) {
   const [staff, setStaff] = useState(null);     // null = not yet known
+  // list | scan | review. `scan` holds the in-memory draft between the last
+  // two: it is never persisted until the review screen is approved.
+  const [mode, setMode] = useState("list");
+  const [scan, setScan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [quotes, setQuotes] = useState([]);
   const [counts, setCounts] = useState({});
@@ -154,10 +164,37 @@ export default function SupplierQuotesModal({ open, onClose }) {
           <p style={{ fontSize: 14, color: MUTED, padding: "32px 0", textAlign: "center" }}>
             אין לך הרשאה לצפות בהצעות מחיר מספקים.
           </p>
+        ) : mode === "scan" ? (
+          <>
+            <Button variant="ghost" size="sm" style={{ alignSelf: "flex-start" }}
+              onClick={() => setMode("list")}>
+              <ArrowRight style={{ width: 14, height: 14, marginInlineEnd: 4 }} /> חזרה לרשימה
+            </Button>
+            <QuoteScanPanel
+              suppliers={suppliers}
+              onDraft={(result) => { setScan(result); setMode("review"); }}
+              onOpenExisting={() => { setMode("list"); load(); }}
+            />
+          </>
+        ) : mode === "review" && scan ? (
+          <QuoteExtractionReview
+            scan={scan}
+            suppliers={suppliers}
+            onCancel={() => { setScan(null); setMode("scan"); }}
+            onSaved={() => { setScan(null); setMode("list"); load(); }}
+          />
         ) : (
           <>
+            {/* Scanning is the primary path; the manual form below stays for a
+                quotation that arrives as a figure rather than a document. */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+              <Button onClick={() => setMode("scan")}>
+                <ScanLine style={{ width: 15, height: 15, marginInlineEnd: 6 }} /> סריקת מסמך
+              </Button>
+            </div>
+
             {/* ── Upload ─────────────────────────────────────────────── */}
-            <div className="heillo-card" style={{ padding: 16, marginTop: 4 }}>
+            <div className="heillo-card" style={{ padding: 16, marginTop: 10 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: DARK, margin: "0 0 12px" }}>
                 העלאת הצעת מחיר
               </h3>
