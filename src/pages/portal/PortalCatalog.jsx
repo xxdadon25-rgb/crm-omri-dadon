@@ -8,6 +8,12 @@ const PAGE_SIZE = 30;
 // Rows read from the server per round trip. Larger than PAGE_SIZE so that
 // removing blocked products does not produce a short page.
 const SOURCE_CHUNK = 60;
+// Previously-ordered product ids requested per round trip, as an `id=in.(…)`
+// filter. PostgREST puts that list in the QUERY STRING, and a uuid costs ~38
+// bytes there, so the whole purchased list must never go into one URL: 30 ids
+// is ~1.1KB, which no proxy will object to. It also matches PAGE_SIZE, so a
+// page overshoots by at most one chunk.
+const PURCHASED_ID_CHUNK = 30;
 
 const ACCENT = "#F5885E";
 const DARK = "#120F1C";
@@ -323,6 +329,20 @@ export default function PortalCatalog() {
   const requestIdRef = useRef(0);
   const loadingRef = useRef(false);
   const sentinelRef = useRef(null);
+
+  // ── Personalised ordering ────────────────────────────────────────────────
+  // Product ids this customer has ordered before, MOST-ORDERED FIRST, exactly
+  // as portal_my_purchased_products returned them. The Set is the same ids and
+  // exists only so the second phase can skip them in O(1).
+  //
+  // A ref rather than state: the loader reads it, and re-rendering on it would
+  // restart paging. It is written once, before the first page is requested.
+  const purchasedRef = useRef({ ids: [], set: new Set() });
+  // How far into `purchased.ids` the loader has read, and which phase it is in:
+  // "purchased" drains the ids above, then "rest" is the existing catalogue
+  // query. Both reset together.
+  const purchasedCursorRef = useRef(0);
+  const phaseRef = useRef("rest");
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -381,6 +401,28 @@ export default function PortalCatalog() {
   // the loop keeps reading source rows until PAGE_SIZE allowed products are
   // collected or the server runs out — a page is never short just because
   // blocked items were filtered out.
+  //
+  // TWO PHASES, ONE STREAM
+  //   Phase "purchased" walks purchasedRef.current.ids — the customer's own
+  //   history, most-ordered first — and phase "rest" is the catalogue query
+  //   this function has always run, which now SKIPS those ids.
+  //
+  //   WHY THE SKIP IS CLIENT-SIDE
+  //     The obvious way to exclude them is `.not("id", "in", "(…)")`, but that
+  //     puts the ENTIRE purchased list in the query string of EVERY page
+  //     request: 200 uuids is ~7.6KB of URL, repeated on every scroll. Blocked
+  //     products are already filtered client-side from a Set for exactly this
+  //     reason, so purchased ids are filtered the same way. The URL stops
+  //     growing with a customer's history, and the two filters read alike.
+  //
+  //   WHY NOT SORT THE LOADED ARRAY INSTEAD
+  //     Because only 30 products are in memory at a time. Sorting what is
+  //     loaded would put "my products" first within each page rather than
+  //     first in the catalogue, and the order would change as pages arrive.
+  //
+  //   A customer with no history has an empty ids array and an empty Set, so
+  //   the phase starts at "rest" and nothing below does anything differently
+  //   from before. That covers staff demo mode too, which never calls the RPC.
   const loadBatch = useCallback(async (reset) => {
     if (loadingRef.current) return;
 
@@ -389,6 +431,10 @@ export default function PortalCatalog() {
       requestIdRef.current += 1;
       sourceOffsetRef.current = 0;
       seenIdsRef.current = new Set();
+      // Both phase cursors reset together with the offset. Resetting one and
+      // not the other is what would duplicate or skip rows after a search.
+      purchasedCursorRef.current = 0;
+      phaseRef.current = purchasedRef.current.ids.length > 0 ? "purchased" : "rest";
     }
     const runId = requestIdRef.current;
 
@@ -399,7 +445,63 @@ export default function PortalCatalog() {
     let exhausted = false;
 
     try {
-      while (collected.length < PAGE_SIZE && !exhausted) {
+      // ---- Phase 1: the customer's own products, most-ordered first --------
+      // Whole chunks are consumed: the cursor advances past a chunk only once
+      // every id in it has been considered, so a page that fills mid-chunk
+      // overshoots PAGE_SIZE slightly rather than dropping the remainder.
+      while (collected.length < PAGE_SIZE && phaseRef.current === "purchased") {
+        const ids = purchasedRef.current.ids.slice(
+          purchasedCursorRef.current,
+          purchasedCursorRef.current + PURCHASED_ID_CHUNK,
+        );
+        if (ids.length === 0) { phaseRef.current = "rest"; break; }
+
+        let pq = supabase
+          .from("products")
+          .select("id, name, sell_price, quantity, unit, image_url, category, description")
+          .eq("is_active", true)
+          .in("id", ids);
+
+        // The SAME filters as phase 2. A purchased product that does not match
+        // the current search or category must stay hidden, exactly like any
+        // other product — being previously ordered promotes a product, it does
+        // not exempt it from the filters.
+        if (activeCategory !== "הכל") {
+          const raws = categoryValuesRef.current.get(activeCategory) || [activeCategory];
+          pq = pq.in("category", raws);
+        }
+        if (debouncedSearch) pq = pq.ilike("name", `%${debouncedSearch}%`);
+
+        const { data, error } = await pq;
+
+        if (requestIdRef.current !== runId) return;
+        // A failure here must not cost the customer the catalogue: fall through
+        // to the normal listing, where these products appear in name order.
+        if (error) { phaseRef.current = "rest"; break; }
+
+        purchasedCursorRef.current += ids.length;
+
+        // Re-imposed order: `in` returns rows in whatever order the server
+        // chooses, while `ids` carries the frequency ranking. Walking `ids` and
+        // looking each row up is what makes most-ordered actually come first.
+        const byId = new Map((data || []).map(r => [r.id, r]));
+        for (const id of ids) {
+          const row = byId.get(id);
+          // Absent means filtered out by search/category, or no longer active.
+          if (!row) continue;
+          if (blockedIdsRef.current.has(row.id)) continue;
+          if (seenIdsRef.current.has(row.id)) continue;
+          seenIdsRef.current.add(row.id);
+          collected.push(row);
+        }
+
+        if (purchasedCursorRef.current >= purchasedRef.current.ids.length) {
+          phaseRef.current = "rest";
+        }
+      }
+
+      // ---- Phase 2: the rest of the catalogue, unchanged -------------------
+      while (collected.length < PAGE_SIZE && phaseRef.current === "rest" && !exhausted) {
         const from = sourceOffsetRef.current;
 
         let q = supabase
@@ -429,6 +531,10 @@ export default function PortalCatalog() {
         for (const row of rows) {
           consumed++;
           if (blockedIdsRef.current.has(row.id)) continue;
+          // Already shown — or still to be shown — by phase 1. Skipping it here
+          // is what keeps a purchased product from appearing twice, and it is
+          // why no id list has to travel in the URL.
+          if (purchasedRef.current.set.has(row.id)) continue;
           if (seenIdsRef.current.has(row.id)) continue;
           seenIdsRef.current.add(row.id);
           collected.push(row);
@@ -496,6 +602,11 @@ export default function PortalCatalog() {
         // loaded by the paging effect below, exactly like the customer path.
         if (!cancelled) {
           blockedIdsRef.current = new Set();
+          // Demo mode has no customer, so no purchase history: the RPC is never
+          // called and the catalogue keeps its existing order.
+          purchasedRef.current = { ids: [], set: new Set() };
+          purchasedCursorRef.current = 0;
+          phaseRef.current = "rest";
           await loadCategories();
           setIsDemo(true);
           setDiscount(0);
@@ -530,8 +641,39 @@ export default function PortalCatalog() {
         .select("product_id, unit_price")
         .eq("customer_id", access.customer_id);
 
+      // Products this customer has ordered before, most-ordered first.
+      //
+      // The RPC takes NO customer id: it resolves one from auth.uid() through
+      // customer_portal_access itself, so this browser cannot ask about anybody
+      // else's history, and `access.customer_id` is deliberately not passed.
+      //
+      // Entirely optional data. Any failure — missing function, permission,
+      // network — leaves the list empty, and an empty list means the catalogue
+      // renders in exactly the order it does today. It is read here, before
+      // status becomes "ready", because the paging effect fires on that and
+      // must see the final list on its very first page.
+      let purchasedIds = [];
+      const { data: purchased, error: purchasedErr } = await supabase
+        .rpc("portal_my_purchased_products", { p_limit: 200 });
+      if (purchasedErr) {
+        console.warn("[portal] purchase history unavailable", purchasedErr.message);
+      } else {
+        purchasedIds = (purchased || [])
+          .map(r => r?.product_id)
+          .filter(id => typeof id === "string" && id.length > 0);
+      }
+
       if (!cancelled) {
-        blockedIdsRef.current = new Set((blocked || []).map(b => b.product_id));
+        // Blocked products are removed from the prioritised list too. They are
+        // filtered again during loading; dropping them here as well keeps them
+        // out of the `id=in.(…)` filters entirely.
+        const blockedSet = new Set((blocked || []).map(b => b.product_id));
+        const prioritised = purchasedIds.filter(id => !blockedSet.has(id));
+        purchasedRef.current = { ids: prioritised, set: new Set(prioritised) };
+        purchasedCursorRef.current = 0;
+        phaseRef.current = prioritised.length > 0 ? "purchased" : "rest";
+
+        blockedIdsRef.current = blockedSet;
         const priceMap = {};
         for (const row of savedPrices || []) {
           const price = Number(row.unit_price);
