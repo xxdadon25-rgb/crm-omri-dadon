@@ -422,14 +422,49 @@ export async function listMatchesForSupplier(supplierId) {
   return data || [];
 }
 
-/** Products, for the matching picker. Read-only: this feature never writes to
- *  products, and never reads or writes buy_price. */
-export async function listProductsForMatching() {
+/**
+ * Products, for the matching picker. READ-ONLY: this feature never writes to
+ * products, never touches product images, and never reads or writes buy_price.
+ *
+ * Searching and paging run in the DATABASE, so a catalogue of any size costs
+ * one page per scroll rather than a full download on open. `image_url` is the
+ * product's existing field — no new image storage, and the comma-separated
+ * convention the rest of the CRM uses is honoured by the picker.
+ *
+ * THE SEARCH TERM IS SANITISED, and not for show: PostgREST's `or` filter is
+ * parsed as a comma-separated list of conditions wrapped in parentheses, so a
+ * term containing `,` `(` `)` or `*` would break out of the pattern and either
+ * error or match something unintended. Stripping those characters keeps the
+ * filter a filter.
+ */
+export async function listProductsForMatching({ search = "", limit = 30, offset = 0 } = {}) {
+  let q = supabase
+    .from("products")
+    .select("id, name, sku, barcode, unit, image_url, category")
+    .eq("is_active", true)
+    .order("name", { ascending: true })
+    .order("id", { ascending: true })      // stable tiebreak, so pages cannot repeat a row
+    .range(offset, offset + limit - 1);
+
+  const term = String(search || "").replace(/[,()*%\\]/g, " ").trim();
+  if (term) {
+    q = q.or(`name.ilike.%${term}%,sku.ilike.%${term}%,barcode.ilike.%${term}%`);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+/** One product by id, so the review screen can show the chosen product's name
+ *  and image without holding the whole catalogue in memory. */
+export async function getProductsByIds(ids) {
+  const unique = [...new Set((ids || []).filter(Boolean))];
+  if (unique.length === 0) return [];
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, sku, unit")
-    .eq("is_active", true)
-    .order("name");
+    .select("id, name, sku, unit, image_url")
+    .in("id", unique);
   if (error) throw error;
   return data || [];
 }
