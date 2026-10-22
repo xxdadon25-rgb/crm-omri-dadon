@@ -208,7 +208,6 @@ Deno.serve(async (req: Request) => {
     "🛒 הזמנה חדשה מהפורטל\n" +
     `לקוח: ${customer?.name || "לא ידוע"}\n` +
     `סכום: ${formatAmount(order.total_amount)} ₪\n` +
-    `מספר הזמנה: ${order.id}\n` +
     `פריטים: ${itemCount ?? 0}`;
 
   // ---- 6. Send -----------------------------------------------------------
