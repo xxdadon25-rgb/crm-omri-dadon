@@ -79,7 +79,10 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
         <div key={item.id} className="heillo-card" style={{ padding: 12, display: "grid", gap: 8 }}>
           <strong>{idx + 1}. {item.supplier_name_raw}</strong>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 12 }}>מק״ט ספק: {item.supplier_sku || "לא צוין"}</span>
+            <label style={{ fontSize: 12 }}>מק״ט ספק (כפי שמופיע במסמך)
+              <Input value={item.supplier_sku ?? ""} style={{ width: 160 }}
+                onChange={e => change(idx, { supplier_sku: e.target.value })} />
+            </label>
             <span style={{ fontSize: 12 }}>כמות שנרכשה: {item.quantity ?? "—"}</span>
             <Button variant="outline" size="sm" onClick={() => setPicker(idx)}>
               {item.product_id ? "שינוי מוצר משויך" : "שיוך מוצר מהקטלוג"}
