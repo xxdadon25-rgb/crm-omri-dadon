@@ -141,9 +141,11 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       }
       next.price_before_vat = priceBeforeVat({ unit_price: next.unit_price, vat_basis: vatBasis, vat_rate: vatRate });
       next.comparable_price = comparablePrice(next);
-      // A hand-matched line is approved; clearing the product returns it to
-      // pending. The database enforces the same invariant.
-      if ("product_id" in patch) next.match_status = patch.product_id ? "approved" : "pending";
+      // A match alone is NOT enough to compare a price. Require known package
+      // units too; purchased quantity is never used as pack size.
+      next.match_status = next.product_id && next.base_unit &&
+        Number(next.base_qty_per_pack) > 0 && next.price_before_vat !== null
+          ? "approved" : "pending";
       next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
       return next;
     }));
@@ -272,7 +274,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Heebo', sans-serif" }}>
           <thead className="heillo-table-header">
             <tr>
-              {["#", "מק\"ט", "תיאור", "כמות", "יחידה", "באריזה", "מחיר", "לפני מע\"מ", "להשוואה", "מוצר", ""]
+              {["#", "מק\"ט", "תיאור", "כמות", "יחידה", "באריזה", "יחידת השוואה", "כמות באריזה להשוואה", "מחיר", "לפני מע\"מ", "להשוואה", "מוצר", ""]
                 .map((c, i) => <th key={i} style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{c}</th>)}
             </tr>
           </thead>
@@ -305,6 +307,21 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                   <td style={{ padding: "6px 8px" }}>
                     <Input type="number" step="0.001" value={line.pack_size ?? ""} style={{ width: 80, height: 30 }}
                       onChange={(e) => updateLine(idx, { pack_size: toNumber(e.target.value) })} />
+                  </td>
+                  <td style={{ padding: "6px 8px" }}>
+                    <select className="heillo-input" style={{ minWidth: 100 }} value={line.base_unit || ""}
+                      onChange={e => updateLine(idx, { base_unit: e.target.value || null })}>
+                      <option value="">— בחר —</option>
+                      <option value="unit">יחידה</option>
+                      <option value="kg">ק״ג</option>
+                      <option value="liter">ליטר</option>
+                      <option value="meter">מטר</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: "6px 8px" }}>
+                    <Input type="number" min="0.001" step="any" style={{ width: 100 }}
+                      value={line.base_qty_per_pack ?? ""}
+                      onChange={e => updateLine(idx, { base_qty_per_pack: e.target.value || null })} />
                   </td>
                   <td style={{ padding: "6px 8px" }}>
                     <Input type="number" step="0.01" value={line.unit_price ?? ""} style={{ width: 90, height: 30 }}
@@ -423,11 +440,28 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         onSelect={(product) => {
           if (pickerIdx === null) return;
           if (product) {
-            // Remembered for the label and thumbnail; the line itself only
-            // ever stores the id.
             setProductById(prev => ({ ...prev, [product.id]: product }));
+            const current = items[pickerIdx];
+            // The invoice wins when its packaging is explicit. Otherwise try
+            // the exact approved supplier SKU, then the CRM product's own text.
+            const cached = matches.find(m =>
+              m.product_id === product.id && m.status === "approved" &&
+              !!current.supplier_sku && m.supplier_sku === current.supplier_sku &&
+              m.base_unit && Number(m.base_qty_per_pack) > 0);
+            const catalogPack = parsePackaging({ text: [product.unit, product.description].filter(Boolean).join(" ") });
+            const inferred = cached
+              ? { base_unit: cached.base_unit, base_qty_per_pack: cached.base_qty_per_pack }
+              : catalogPack.confident ? catalogPack : null;
+            const missingPack = !current.base_unit || !(Number(current.base_qty_per_pack) > 0);
+            updateLine(pickerIdx, {
+              product_id: product.id,
+              ...(missingPack && inferred ? {
+                base_unit: inferred.base_unit, base_qty_per_pack: inferred.base_qty_per_pack,
+              } : {}),
+            });
+          } else {
+            updateLine(pickerIdx, { product_id: null });
           }
-          updateLine(pickerIdx, { product_id: product?.id ?? null });
         }}
       />
     </div>
