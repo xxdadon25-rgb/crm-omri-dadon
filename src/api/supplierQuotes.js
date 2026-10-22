@@ -532,6 +532,40 @@ export async function listSelectedPrices({ supplierId = null, productId = null }
   return data || [];
 }
 
+/** Rows excluded from comparison remain visible; there must be no silent loss. */
+export async function listQuoteItemsNeedingReview() {
+  const { data, error } = await supabase.from("supplier_quote_items_needing_review_v")
+    .select("supplier_id, supplier_quote_id, supplier_quote_item_id, supplier_name_raw, line_no, review_reasons")
+    .limit(500);
+  if (error) throw error;
+  return data || [];
+}
+
+/** Add a manual price without overwriting any historical invoice. */
+export async function setSelectedPriceOverride({ supplierId, productId, baseUnit, price, note }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("not signed in");
+  const n = Number(price);
+  if (!Number.isFinite(n) || n < 0 || !baseUnit) throw new Error("מחיר או יחידה אינם תקינים");
+  const { error } = await supabase.from("supplier_product_price_overrides").insert({
+    user_id: userId, supplier_id: supplierId, product_id: productId,
+    base_unit: baseUnit, price_before_vat: n, note: note || null, created_by: userId,
+  });
+  if (error) throw error;
+}
+
+/** Removing an override stamps its audit trail. The historical low then wins. */
+export async function removeSelectedPriceOverride(id) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("not signed in");
+  const { error } = await supabase.from("supplier_product_price_overrides")
+    .update({ removed_by: userId, removed_at: new Date().toISOString() })
+    .eq("id", id).is("removed_at", null);
+  if (error) throw error;
+}
+
 /** Suppliers, for the upload form's picker. Read-only — this feature never
  *  creates or edits a supplier. */
 export async function listSuppliersForPicker() {
