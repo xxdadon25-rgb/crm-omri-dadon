@@ -290,10 +290,10 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
 
       {/* ── Lines ───────────────────────────────────────────────────────── */}
       <div className="heillo-card" style={{ padding: 0, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Heebo', sans-serif" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, fontFamily: "'Heebo', sans-serif" }}>
           <thead className="heillo-table-header">
             <tr>
-              {["#", "מק\"ט", "תיאור", "כמות", "יחידה", "באריזה", "יחידת השוואה", "כמות באריזה להשוואה", "מחיר", "לפני מע\"מ", "להשוואה", "מוצר", ""]
+              {["#", "מק\"ט ספק", "תיאור בחשבונית", "כמות בחשבונית", "מחיר לפי החשבונית", "שיוך מוצר והגדרת אריזה", "מצב"]
                 .map((c, i) => <th key={i} style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{c}</th>)}
             </tr>
           </thead>
@@ -324,29 +324,6 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                       onChange={(e) => updateLine(idx, { quantity: toNumber(e.target.value) })} />
                   </td>
                   <td style={{ padding: "6px 8px" }}>
-                    <Input value={line.unit ?? ""} style={{ width: 80, height: 30 }}
-                      onChange={(e) => updateLine(idx, { unit: e.target.value })} />
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <Input type="number" step="0.001" value={line.pack_size ?? ""} style={{ width: 80, height: 30 }}
-                      onChange={(e) => updateLine(idx, { pack_size: toNumber(e.target.value) })} />
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <select className="heillo-input" style={{ minWidth: 100 }} value={line.base_unit || ""}
-                      onChange={e => updateLine(idx, { base_unit: e.target.value || null })}>
-                      <option value="">— בחר —</option>
-                      <option value="unit">יחידה</option>
-                      <option value="kg">ק״ג</option>
-                      <option value="liter">ליטר</option>
-                      <option value="meter">מטר</option>
-                    </select>
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <Input type="number" min="0.001" step="any" style={{ width: 100 }}
-                      value={line.base_qty_per_pack ?? ""}
-                      onChange={e => updateLine(idx, { base_qty_per_pack: e.target.value || null })} />
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
                     <Input type="number" step="0.01" value={line.unit_price ?? ""} style={{ width: 90, height: 30 }}
                       onChange={(e) => updateLine(idx, { unit_price: toNumber(e.target.value) })} />
                     {line.price_adjusted && (
@@ -357,14 +334,6 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                         הנחה לא מסתדרת (צפוי {line.discount_expected})
                       </div>
                     )}
-                  </td>
-                  <td style={{ padding: "6px 8px", color: DARK }}>
-                    {line.price_before_vat == null ? "—" : line.price_before_vat.toFixed(2)}
-                  </td>
-                  <td style={{ padding: "6px 8px", fontWeight: 600, color: DARK }}>
-                    {line.comparable_price == null
-                      ? "—"
-                      : `${line.comparable_price.toFixed(2)} / ${line.base_unit}`}
                   </td>
                   <td style={{ padding: "6px 8px" }}>
                     {/* The visual picker replaces a plain dropdown: a supplier
@@ -414,13 +383,14 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                     })()}
                     <Button variant="outline" size="sm" style={{ marginTop: 5 }}
                       onClick={() => setPackEditorIdx(packEditorIdx === idx ? null : idx)}>
-                      {packEditorIdx === idx ? "סגור הגדרת אריזה" : "יחידות בחבילה / חבילות בקרטון"}
+                      {packEditorIdx === idx ? "סגור" : "כמה בחבילה ובקרטון? ומה מחיר הספק?"}
                     </Button>
                     {packEditorIdx === idx && (
-                      <div style={{ minWidth: 320, marginTop: 7 }}>
+                      <div style={{ minWidth: 280, marginTop: 7 }}>
                         <QuotePackagingEditor
                           productId={line.product_id}
                           saleLevel={line.sale_level}
+                          invoicedPrice={line.price_before_vat}
                           disabled={saving}
                           onApply={patch => updateLine(idx, patch)}
                           onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })}
@@ -435,7 +405,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                     {blocked ? (
                       <span style={{ fontSize: 10, color: "#b45309", display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <AlertTriangle style={{ width: 12, height: 12 }} />
-                        {line.review_reasons.map(r => REASON_LABEL[r] || r).join(" · ")}
+                        {line.review_reasons.filter(r => r !== "sku_missing" || !line.sku_unavailable).map(r => REASON_LABEL[r] || r).join(" · ")}
                       </span>
                     ) : (
                       <span style={{ fontSize: 10, color: "#047857", display: "inline-flex", alignItems: "center", gap: 4 }}>
