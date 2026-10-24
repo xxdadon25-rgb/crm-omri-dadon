@@ -425,6 +425,8 @@ export async function saveReviewedItems({ quoteId, items }) {
  * unit and the pack size all to agree before it reuses a decision.
  */
 export async function approveMatch({ supplierId, item, productId }) {
+  // A placeholder SKU such as 0 cannot uniquely identify supplier goods.
+  if (!item?.supplier_sku || !String(item.supplier_sku).trim() || String(item.supplier_sku).trim() === "0") return;
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) throw new Error("not signed in");
