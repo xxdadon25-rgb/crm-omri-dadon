@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getQuoteForEditing, listQuoteItems, updateReviewedItem, approveMatch } from "@/api/supplierQuotes";
+import { getQuoteForEditing, listQuoteItems, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
 import QuoteProductPicker from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
@@ -16,7 +16,6 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   const [items, setItems] = useState([]);
   const [picker, setPicker] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [packageDirty, setPackageDirty] = useState({});
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
@@ -36,7 +35,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
-  const hasUnappliedPackage = Object.entries(packageDirty).some(([idx, dirty]) => dirty && (!focusItemId || items[Number(idx)]?.id === focusItemId));
+  const hasUnappliedPackage = false;
   const save = async () => {
     if (hasUnappliedPackage) { toast.error("יש להחיל את הגדרות האריזה לפני שמירת החשבונית"); return; }
     setBusy(true);
@@ -60,6 +59,13 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
           price_before_vat: price,
           match_status: eligible ? "approved" : "pending",
         });
+        if (eligible && item.pack_profile) {
+          await saveProductPackage({
+            productId: item.product_id,
+            unitsPerPack: item.pack_profile.units_per_pack,
+            packsPerCarton: item.pack_profile.packs_per_carton,
+          });
+        }
         if (eligible && (item.sku_unavailable || (item.supplier_sku && item.supplier_sku !== "0"))) {
           await approveMatch({ supplierId: quote.supplier_id,
             item: { ...item, supplier_sku: item.sku_unavailable ? null : item.supplier_sku, base_qty_per_pack: Number(item.base_qty_per_pack) },
@@ -113,15 +119,14 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
             invoicedPrice={Number(item.price_before_vat ?? item.unit_price)}
             disabled={busy}
             onApply={patch => change(idx, patch)}
-            onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })} />
+            />
           <small style={{ color: valid(item) ? "#047857" : "#a16207" }}>
             {valid(item) ? "מוכן להשוואת מחירים" : "לא ייכנס להשוואה עד שיושלמו שיוך, אריזה ומחיר"}
           </small>
         </div>
       ))}
-      {hasUnappliedPackage && <p role="alert" style={{ fontSize: 12, color: "#b45309", fontWeight: 600 }}>יש שינויי אריזה שעדיין לא הוחלו. לחץ קודם ״אישור פרטי אריזה״.</p>}
       <div style={{ display: "flex", gap: 8 }}>
-        <Button onClick={save} disabled={busy || hasUnappliedPackage}>{busy ? "שומר..." : "שמור תיקונים"}</Button>
+        <Button onClick={save} disabled={busy}>{busy ? "שומר..." : "שמור תיקונים"}</Button>
         <Button variant="outline" onClick={onClose} disabled={busy}>חזרה</Button>
       </div>
       <QuoteProductPicker open={picker !== null}
