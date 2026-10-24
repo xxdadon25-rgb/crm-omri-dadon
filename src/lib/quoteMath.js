@@ -336,7 +336,7 @@ export function reviewFlags({ item = {}, quote = {} } = {}) {
   const flags = [];
   if (item.match_status !== "approved") flags.push("match_not_approved");
   if (!item.product_id) flags.push("no_canonical_product");
-  if (!item.supplier_sku || !String(item.supplier_sku).trim()) flags.push("sku_missing");
+  if (!item.sku_unavailable && (!item.supplier_sku || !String(item.supplier_sku).trim() || String(item.supplier_sku).trim() === "0")) flags.push("sku_missing");
   if (!item.base_unit || toNumber(item.base_qty_per_pack) === null) flags.push("packaging_unknown");
   if (quote.vat_basis !== "excluded" && quote.vat_basis !== "included") flags.push("vat_basis_unknown");
   if (item.confidence === "low") flags.push("low_confidence");
@@ -367,7 +367,8 @@ export function isSelectable({ item = {}, quote = {} } = {}) {
  */
 export function purchaseListSku({ selected = {}, approvedMatch = null } = {}) {
   const sku = selected.supplier_sku == null ? "" : String(selected.supplier_sku).trim();
-  if (!sku) return { sku: null, status: "needs_verification", reason: "sku_missing" };
+  if (selected.sku_unavailable === true) return { sku: null, status: "not_applicable", reason: "supplier_has_no_sku" };
+  if (!sku || sku === "0") return { sku: null, status: "needs_verification", reason: "sku_missing" };
 
   if (!approvedMatch) return { sku, status: "needs_verification", reason: "no_approved_mapping" };
 
@@ -405,8 +406,17 @@ export function canAutoApplyMatch({ line = {}, match = null } = {}) {
   }
   const lineSku = line.supplier_sku == null ? "" : String(line.supplier_sku).trim();
   const matchSku = match.supplier_sku == null ? "" : String(match.supplier_sku).trim();
-  if (!lineSku || !matchSku) return { apply: false, reason: "sku_missing" };
-  if (lineSku !== matchSku) return { apply: false, reason: "sku_mismatch" };
+  if (match.sku_unavailable === true && line.sku_unavailable === true) {
+    // No SKU: only reuse a human-approved link for this exact supplier
+    // description and identical packaging. Never approximate by similar names.
+    const norm = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+    if (!norm(line.supplier_name_raw) || norm(line.supplier_name_raw) !== norm(match.supplier_description)) {
+      return { apply: false, reason: "supplier_description_mismatch" };
+    }
+  } else {
+    if (!lineSku || !matchSku || lineSku === "0" || matchSku === "0") return { apply: false, reason: "sku_missing" };
+    if (lineSku !== matchSku) return { apply: false, reason: "sku_mismatch" };
+  }
 
   if (!line.base_unit || !match.base_unit || line.base_unit !== match.base_unit) {
     return { apply: false, reason: "unit_mismatch" };
