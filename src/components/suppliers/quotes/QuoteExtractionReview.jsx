@@ -40,7 +40,7 @@ const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
 
 const REASON_LABEL = {
-  match_not_approved: "לא שויך למוצר",
+  match_not_approved: "טרם הושלמו פרטי המחיר והאריזה",
   no_canonical_product: "לא שויך למוצר",
   sku_missing: "חסר מק\"ט",
   packaging_unknown: "אריזה לא זוהתה",
@@ -315,7 +315,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
           </thead>
           <tbody>
             {items.map((line, idx) => {
-              const blocked = line.review_reasons?.length > 0;
+              const visibleReasons = (line.review_reasons || []).filter(reason =>
+                !(line.product_id && (reason === "match_not_approved" || reason === "no_canonical_product")));
+              const blocked = visibleReasons.length > 0 || line.match_status !== "approved";
               return (
                 <tr key={idx} style={{ borderTop: "1px solid rgba(0,0,0,0.05)",
                   background: line.confidence === "low" ? "rgba(245,158,11,0.06)" : undefined }}>
@@ -411,7 +413,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                     {blocked ? (
                       <span style={{ fontSize: 10, color: "#b45309", display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <AlertTriangle style={{ width: 12, height: 12 }} />
-                        {line.review_reasons.filter(r => r !== "sku_missing" || !line.sku_unavailable).map(r => REASON_LABEL[r] || r).join(" · ")}
+                        {(visibleReasons.length
+                          ? visibleReasons
+                          : ["match_not_approved"]).map(r => REASON_LABEL[r] || r).join(" · ")}
                       </span>
                     ) : (
                       <span style={{ fontSize: 10, color: "#047857", display: "inline-flex", alignItems: "center", gap: 4 }}>
