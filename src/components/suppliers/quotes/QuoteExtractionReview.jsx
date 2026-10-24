@@ -151,8 +151,11 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         next.packaging_confident = pack.confident;
       }
       if ("base_unit" in patch || "base_qty_per_pack" in patch) {
-        next.base_unit = patch.base_unit ?? next.base_unit;
-        next.base_qty_per_pack = toNumber(patch.base_qty_per_pack) ?? next.base_qty_per_pack;
+        if ("base_unit" in patch) next.base_unit = patch.base_unit || null;
+        if ("base_qty_per_pack" in patch) {
+          next.base_qty_per_pack = patch.base_qty_per_pack == null || patch.base_qty_per_pack === ""
+            ? null : toNumber(patch.base_qty_per_pack);
+        }
       }
       next.price_before_vat = priceBeforeVat({ unit_price: next.unit_price, vat_basis: vatBasis, vat_rate: vatRate });
       next.comparable_price = comparablePrice(next);
