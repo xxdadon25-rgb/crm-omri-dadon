@@ -33,7 +33,8 @@ const SIGNED_URL_TTL_SECONDS = 60 * 10;
  * key space in two.
  */
 export function supplierMatchKey({ supplier_sku, supplier_name_raw }) {
-  const raw = (supplier_sku ?? "").trim() || (supplier_name_raw ?? "");
+  const sku = String(supplier_sku ?? "").trim();
+  const raw = sku && sku !== "0" ? sku : (supplier_name_raw ?? "");
   return String(raw).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
@@ -94,7 +95,7 @@ export async function countItemsByQuote(quoteIds) {
 export async function listQuoteItems(quoteId) {
   const { data, error } = await supabase
     .from("supplier_quote_items")
-    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, sale_level, currency, match_status, created_at")
+    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, sale_level, sku_unavailable, currency, match_status, created_at")
     .eq("supplier_quote_id", quoteId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -116,7 +117,7 @@ export async function updateReviewedItem(id, patch) {
   if (!session?.user?.id) throw new Error("not signed in");
   const safe = {};
   for (const field of ["product_id", "match_status", "supplier_sku", "supplier_name_raw",
-    "unit", "pack_size", "base_unit", "base_qty_per_pack", "sale_level", "unit_price", "price_before_vat"]) {
+    "unit", "pack_size", "base_unit", "base_qty_per_pack", "sale_level", "sku_unavailable", "unit_price", "price_before_vat"]) {
     if (Object.prototype.hasOwnProperty.call(patch, field)) safe[field] = patch[field];
   }
   if (safe.match_status === "approved" && (!safe.product_id || !safe.base_unit || !["unit","pack","carton"].includes(safe.sale_level) ||
@@ -395,6 +396,7 @@ export async function saveReviewedItems({ quoteId, items }) {
     base_unit: i.base_unit ?? null,
     base_qty_per_pack: i.base_qty_per_pack ?? null,
     sale_level: i.sale_level ?? null,
+    sku_unavailable: i.sku_unavailable === true,
     line_total: i.line_total ?? null,
     confidence: i.confidence ?? null,
     match_status: i.match_status ?? "pending",
@@ -426,7 +428,8 @@ export async function saveReviewedItems({ quoteId, items }) {
  */
 export async function approveMatch({ supplierId, item, productId }) {
   // A placeholder SKU such as 0 cannot uniquely identify supplier goods.
-  if (!item?.supplier_sku || !String(item.supplier_sku).trim() || String(item.supplier_sku).trim() === "0") return;
+  if (item?.sku_unavailable !== true && (!item?.supplier_sku || !String(item.supplier_sku).trim() || String(item.supplier_sku).trim() === "0")) return;
+  if (item?.sku_unavailable === true && !String(item.supplier_name_raw || "").trim()) return;
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) throw new Error("not signed in");
@@ -440,7 +443,8 @@ export async function approveMatch({ supplierId, item, productId }) {
       supplier_key: key,
       product_id: productId,
       status: "approved",
-      supplier_sku: item.supplier_sku ?? null,
+      supplier_sku: item.sku_unavailable ? null : (item.supplier_sku ?? null),
+      sku_unavailable: item.sku_unavailable === true,
       supplier_description: item.supplier_name_raw ?? null,
       base_unit: item.base_unit ?? null,
       base_qty_per_pack: item.base_qty_per_pack ?? null,
@@ -456,7 +460,7 @@ export async function approveMatch({ supplierId, item, productId }) {
 export async function listMatchesForSupplier(supplierId) {
   const { data, error } = await supabase
     .from("supplier_product_matches")
-    .select("supplier_key, supplier_sku, product_id, status, base_unit, base_qty_per_pack, sale_level, supplier_description")
+    .select("supplier_key, supplier_sku, product_id, status, base_unit, base_qty_per_pack, sale_level, sku_unavailable, supplier_description")
     .eq("supplier_id", supplierId);
   if (error) throw error;
   return data || [];
