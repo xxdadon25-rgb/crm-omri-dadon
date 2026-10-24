@@ -14,8 +14,7 @@
  * lives in @/api/supplierQuotes, so the existing supplier windows share no
  * state and no code path with this one and cannot be affected by it.
  */
-import { useCallback, useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +52,9 @@ function fmtDate(v) {
     : d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export default function SupplierQuotesModal({ open, onClose }) {
+export default function SupplierQuotesModal() {
+  const sectionRef = useRef(null);
+  const [editItemId, setEditItemId] = useState(null);
   const [staff, setStaff] = useState(null);     // null = not yet known
   // list | scan | review. `scan` holds the in-memory draft between the last
   // two: it is never persisted until the review screen is approved.
@@ -92,7 +93,6 @@ export default function SupplierQuotesModal({ open, onClose }) {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
     (async () => {
       const ok = await isStaffUser();
@@ -105,7 +105,17 @@ export default function SupplierQuotesModal({ open, onClose }) {
       await load();
     })();
     return () => { cancelled = true; };
-  }, [open, load]);
+  }, [load]);
+
+  const editQuote = (quoteId, itemId = null) => {
+    setEditQuoteId(quoteId);
+    setEditItemId(itemId);
+    setMode("edit");
+  };
+
+  useEffect(() => {
+    if (mode !== "list") sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [mode]);
 
   const resetForm = () => {
     setSupplierId(""); setQuoteDate(""); setValidUntil(""); setNotes(""); setFile(null);
@@ -155,13 +165,17 @@ export default function SupplierQuotesModal({ open, onClose }) {
   };
 
   return (
-    <Dialog open={!!open} onOpenChange={(o) => { if (!o) onClose?.(); }}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Scale style={{ width: 18, height: 18 }} /> השוואת הצעות מחיר
-          </DialogTitle>
-        </DialogHeader>
+    <section ref={sectionRef} id="supplier-price-comparison"
+      className="heillo-card" dir="rtl"
+      style={{ marginTop: 32, padding: "24px clamp(14px, 3vw, 32px)", scrollMarginTop: 105, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 9, color: DARK, fontWeight: 700, fontSize: 23 }}>
+          <Scale size={23} /> השוואת מחירי ספקים
+        </h2>
+        {mode !== "list" && <Button variant="outline" onClick={() => { setMode("list"); setEditItemId(null); load(); }}>
+          <ArrowRight size={16} style={{ marginInlineEnd: 6 }} /> חזרה למחירים
+        </Button>}
+      </div>
 
         {staff === false ? (
           // Belt and braces: RLS already returns nothing to a non-staff caller.
@@ -181,7 +195,7 @@ export default function SupplierQuotesModal({ open, onClose }) {
             />
           </>
         ) : mode === "edit" && editQuoteId ? (
-          <QuoteSavedItemsEditor quoteId={editQuoteId}
+          <QuoteSavedItemsEditor key={editQuoteId + (editItemId || "")} quoteId={editQuoteId} focusItemId={editItemId}
             onClose={() => { setEditQuoteId(null); setMode("list"); load(); }}
             onSaved={() => { setEditQuoteId(null); setMode("list"); load(); }} />
         ) : mode === "review" && scan ? (
@@ -201,13 +215,13 @@ export default function SupplierQuotesModal({ open, onClose }) {
               </Button>
             </div>
 
-            <SupplierPriceComparison suppliers={suppliers} onEditQuote={id => {
-              setEditQuoteId(id); setMode("edit");
-            }} />
+            <SupplierPriceComparison suppliers={suppliers} onEditQuote={editQuote} />
 
             {/* ── Upload ─────────────────────────────────────────────── */}
-            <div className="heillo-card" style={{ padding: 16, marginTop: 10 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: DARK, margin: "0 0 12px" }}>
+            <details style={{ marginTop: 22, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: 16 }}>
+              <summary style={{ cursor: "pointer", fontSize: 16, fontWeight: 600 }}>העלאת הצעת מחיר ידנית (ללא סריקה)</summary>
+              <div className="heillo-card" style={{ padding: 16, marginTop: 14 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: DARK, margin: "0 0 12px" }}>
                 העלאת הצעת מחיר
               </h3>
 
@@ -257,6 +271,8 @@ export default function SupplierQuotesModal({ open, onClose }) {
               </p>
             </div>
 
+            </details>
+
             {/* ── List ───────────────────────────────────────────────── */}
             <h3 style={{ fontSize: 14, fontWeight: 600, color: DARK, margin: "20px 0 10px" }}>
               הצעות מחיר שמורות
@@ -290,7 +306,7 @@ export default function SupplierQuotesModal({ open, onClose }) {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {c.total > 0 && (
-                          <Button variant="outline" size="sm" onClick={() => { setEditQuoteId(q.id); setMode("edit"); }}>
+                          <Button variant="outline" size="sm" onClick={() => editQuote(q.id)}>
                             תיקון שורות ואריזות
                           </Button>
                         )}
@@ -317,7 +333,6 @@ export default function SupplierQuotesModal({ open, onClose }) {
             )}
           </>
         )}
-      </DialogContent>
-    </Dialog>
+    </section>
   );
 }
