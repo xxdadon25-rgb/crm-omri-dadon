@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getQuoteForEditing, listQuoteItems, updateReviewedItem, approveMatch } from "@/api/supplierQuotes";
 import QuoteProductPicker from "@/components/suppliers/quotes/QuoteProductPicker";
+import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
 
 /**
@@ -30,7 +31,7 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
 
   const change = (index, patch) => setItems(prev => prev.map((item, i) =>
     index === i ? { ...item, ...patch } : item));
-  const valid = (i) => !!i.product_id && !!i.base_unit &&
+  const valid = (i) => !!i.product_id && ["unit", "pack", "carton"].includes(i.sale_level) && !!i.base_unit &&
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
@@ -49,6 +50,7 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
           unit: item.unit || null,
           pack_size: item.pack_size === "" ? null : item.pack_size,
           base_unit: item.base_unit || null,
+          sale_level: item.sale_level || null,
           base_qty_per_pack: Number(item.base_qty_per_pack) > 0 ? Number(item.base_qty_per_pack) : null,
           unit_price: item.unit_price,
           price_before_vat: price,
@@ -109,6 +111,10 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
                 onChange={e => change(idx, { base_qty_per_pack: e.target.value })} />
             </label>
           </div>
+          <QuotePackagingEditor productId={item.product_id}
+            saleLevel={item.sale_level}
+            disabled={busy}
+            onApply={patch => change(idx, patch)} />
           <small style={{ color: valid(item) ? "#047857" : "#a16207" }}>
             {valid(item) ? "מוכן להשוואת מחירים" : "לא ייכנס להשוואה עד שיושלמו שיוך, אריזה ומחיר"}
           </small>
@@ -122,7 +128,7 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
         selectedId={picker === null ? null : items[picker]?.product_id}
         line={picker === null ? null : items[picker]}
         onClose={() => setPicker(null)}
-        onSelect={p => { if (picker !== null) change(picker, { product_id: p?.id ?? null }); }} />
+        onSelect={p => { if (picker !== null) change(picker, { product_id: p?.id ?? null, sale_level: null }); }} />
     </div>
   );
 }
