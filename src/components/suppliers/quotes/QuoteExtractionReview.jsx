@@ -32,7 +32,7 @@ import {
   priceBeforeVat, parsePackaging, comparablePrice, reviewFlags,
   canAutoApplyMatch, documentCompleteness, round2, toNumber,
 } from "@/lib/quoteMath";
-import { createScannedQuote, saveReviewedItems, approveMatch, listMatchesForSupplier, getProductsByIds } from "@/api/supplierQuotes";
+import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 
@@ -63,8 +63,6 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   // id -> { name, sku, unit, image_url } — so the table can show a name and a
   // thumbnail without holding the whole catalogue in memory.
   const [pickerIdx, setPickerIdx] = useState(null);
-  const [packageDirty, setPackageDirty] = useState({});
-  const [packEditorIdx, setPackEditorIdx] = useState(null);
   const [productById, setProductById] = useState({});
 
   useEffect(() => {
@@ -182,7 +180,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const approvedCount = items.filter(i => i.match_status === "approved").length;
   const vatUnknown = vatBasis !== "excluded" && vatBasis !== "included";
 
-  const hasUnappliedPackage = Object.values(packageDirty).some(Boolean);
+  const hasUnappliedPackage = false; // Package changes are applied to the draft immediately.
   const handleSave = async () => {
     if (hasUnappliedPackage) { toast.error("החל את כל שינויי האריזות לפני שמירת המסמך"); return; }
     if (vatUnknown) { toast.error("בחר אם מחירי השורות כוללים מע\"מ"); return; }
@@ -196,6 +194,21 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       });
 
       await saveReviewedItems({ quoteId: quote.id, items });
+      // Persist owner-defined profiles only after document lines were saved.
+      // A failed profile write is reported, not disguised as complete success.
+      const profiles = new Map();
+      for (const line of items) {
+        if (line.product_id && line.pack_profile && line.match_status === "approved") {
+          profiles.set(line.product_id, line.pack_profile);
+        }
+      }
+      for (const [productId, profile] of profiles) {
+        await saveProductPackage({
+          productId, unitsPerPack: profile.units_per_pack,
+          packsPerCarton: profile.packs_per_carton,
+        });
+      }
+
 
       // Remember each approved match so the same line is never reviewed twice.
       for (const line of items) {
@@ -293,7 +306,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, fontFamily: "'Heebo', sans-serif" }}>
           <thead className="heillo-table-header">
             <tr>
-              {["#", "מק\"ט ספק", "תיאור בחשבונית", "כמות בחשבונית", "מחיר לפי החשבונית", "שיוך מוצר והגדרת אריזה", "מצב"]
+              {["#", "מק\"ט ספק", "תיאור המוצר בחשבונית", "שיוך למוצר קיים · יחידה / חבילה / קרטון", "עלות בחשבונית", "מצב"]
                 .map((c, i) => <th key={i} style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{c}</th>)}
             </tr>
           </thead>
@@ -318,22 +331,6 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                   <td style={{ padding: "6px 8px", minWidth: 220 }}>
                     <Input value={line.supplier_name_raw ?? ""} style={{ width: "100%", height: 30 }}
                       onChange={(e) => updateLine(idx, { supplier_name_raw: e.target.value })} />
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <Input type="number" step="0.001" value={line.quantity ?? ""} style={{ width: 80, height: 30 }}
-                      onChange={(e) => updateLine(idx, { quantity: toNumber(e.target.value) })} />
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <Input type="number" step="0.01" value={line.unit_price ?? ""} style={{ width: 90, height: 30 }}
-                      onChange={(e) => updateLine(idx, { unit_price: toNumber(e.target.value) })} />
-                    {line.price_adjusted && (
-                      <div style={{ fontSize: 10, color: "#b45309" }}>חושב מהסה"כ</div>
-                    )}
-                    {line.discount_ok === false && (
-                      <div style={{ fontSize: 10, color: "#b45309" }}>
-                        הנחה לא מסתדרת (צפוי {line.discount_expected})
-                      </div>
-                    )}
                   </td>
                   <td style={{ padding: "6px 8px" }}>
                     {/* The visual picker replaces a plain dropdown: a supplier
@@ -381,24 +378,30 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                         </button>
                       );
                     })()}
-                    <Button variant="outline" size="sm" style={{ marginTop: 5 }}
-                      onClick={() => setPackEditorIdx(packEditorIdx === idx ? null : idx)}>
-                      {packEditorIdx === idx ? "סגור" : "כמה בחבילה ובקרטון? ומה מחיר הספק?"}
-                    </Button>
-                    {packEditorIdx === idx && (
-                      <div style={{ minWidth: 280, marginTop: 7 }}>
+                    <div style={{ marginTop: 8, width: "100%" }}>
                         <QuotePackagingEditor
                           productId={line.product_id}
                           saleLevel={line.sale_level}
                           invoicedPrice={line.price_before_vat}
                           disabled={saving}
                           onApply={patch => updateLine(idx, patch)}
-                          onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })}
                         />
-                      </div>
-                    )}
+                    </div>
                     {line.auto_matched && (
                       <div style={{ fontSize: 10, color: "#047857" }}>שויך אוטומטית לפי מק"ט ואריזה</div>
+                    )}
+                  </td>
+                  <td style={{ padding: "6px 8px" }}>
+                    <div style={{ fontSize: 12, marginBottom: 5, color: MUTED }}>עלות לפי יחידת החיוב בחשבונית (₪)</div>
+                    <Input type="number" step="0.01" value={line.unit_price ?? ""} style={{ width: 118, height: 38 }}
+                      onChange={(e) => updateLine(idx, { unit_price: toNumber(e.target.value) })} />
+                    {line.price_adjusted && (
+                      <div style={{ fontSize: 10, color: "#b45309" }}>חושב מהסה"כ</div>
+                    )}
+                    {line.discount_ok === false && (
+                      <div style={{ fontSize: 10, color: "#b45309" }}>
+                        הנחה לא מסתדרת (צפוי {line.discount_expected})
+                      </div>
                     )}
                   </td>
                   <td style={{ padding: "6px 8px", minWidth: 150 }}>
