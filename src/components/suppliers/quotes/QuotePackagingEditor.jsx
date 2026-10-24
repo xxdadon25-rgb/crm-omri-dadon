@@ -76,11 +76,11 @@ export default function QuotePackagingEditor({ productId, saleLevel = "", invoic
     {dirty && <p role="alert" style={{ margin: 0, color: "#b45309", fontWeight: 600, fontSize: 12 }}>שינית פרטי אריזה — לחץ על ״אישור פרטי אריזה״ לפני שמירת החשבונית.</p>}
     <span style={{ fontSize: 14, fontWeight: 600 }}>
       {normalized && units && invoicedPrice !== null && invoicedPrice !== undefined && invoicedPrice !== ""
-        ? "מחיר לחבילה לפי החשבונית: " + (Number(invoicedPrice) * Number(units) / normalized).toFixed(3).replace(/0+$/, "").replace(/\\.$/, "") + " ₪ לפני מע״מ"
+        ? "מחיר לחבילה לפי החשבונית: " + new Intl.NumberFormat("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(Number(invoicedPrice) * Number(units) / normalized) + " ₪ לפני מע״מ"
         : "בחר מה הספק מחייב וכמה יש בחבילה"}
     </span>
     <Button size="sm" variant="outline" disabled={!productId || busy || loading || disabled || !normalized}
-      onClick={apply}>{busy ? "שומר..." : "שמור הגדרה והחל על השורה"}</Button>
+      onClick={apply}>{busy ? "שומר..." : "אישור פרטי אריזה"}</Button>
     <small style={{ color: "#666" }}>הפרטים נשמרים להשוואות הבאות בלבד. המלאי לא משתנה.</small>
   </div>;
 }
