@@ -16,6 +16,7 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
   const [items, setItems] = useState([]);
   const [picker, setPicker] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [packageDirty, setPackageDirty] = useState({});
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
@@ -35,7 +36,9 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
+  const hasUnappliedPackage = Object.values(packageDirty).some(Boolean);
   const save = async () => {
+    if (hasUnappliedPackage) { toast.error("יש להחיל את הגדרות האריזה לפני שמירת החשבונית"); return; }
     setBusy(true);
     try {
       for (const item of items) {
@@ -114,14 +117,16 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
           <QuotePackagingEditor productId={item.product_id}
             saleLevel={item.sale_level}
             disabled={busy}
-            onApply={patch => change(idx, patch)} />
+            onApply={patch => change(idx, patch)}
+            onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })} />
           <small style={{ color: valid(item) ? "#047857" : "#a16207" }}>
             {valid(item) ? "מוכן להשוואת מחירים" : "לא ייכנס להשוואה עד שיושלמו שיוך, אריזה ומחיר"}
           </small>
         </div>
       ))}
+      {hasUnappliedPackage && <p role="alert" style={{ fontSize: 12, color: "#b45309", fontWeight: 600 }}>יש שינויי אריזה שעדיין לא הוחלו. לחץ קודם ״שמור הגדרה והחל על השורה״.</p>}
       <div style={{ display: "flex", gap: 8 }}>
-        <Button onClick={save} disabled={busy}>{busy ? "שומר..." : "שמור תיקונים"}</Button>
+        <Button onClick={save} disabled={busy || hasUnappliedPackage}>{busy ? "שומר..." : "שמור תיקונים"}</Button>
         <Button variant="outline" onClick={onClose} disabled={busy}>חזרה</Button>
       </div>
       <QuoteProductPicker open={picker !== null}
