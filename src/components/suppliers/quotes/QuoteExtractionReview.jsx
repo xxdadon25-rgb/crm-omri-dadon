@@ -63,6 +63,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   // id -> { name, sku, unit, image_url } — so the table can show a name and a
   // thumbnail without holding the whole catalogue in memory.
   const [pickerIdx, setPickerIdx] = useState(null);
+  const [packageDirty, setPackageDirty] = useState({});
   const [packEditorIdx, setPackEditorIdx] = useState(null);
   const [productById, setProductById] = useState({});
 
@@ -178,7 +179,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const approvedCount = items.filter(i => i.match_status === "approved").length;
   const vatUnknown = vatBasis !== "excluded" && vatBasis !== "included";
 
+  const hasUnappliedPackage = Object.values(packageDirty).some(Boolean);
   const handleSave = async () => {
+    if (hasUnappliedPackage) { toast.error("החל את כל שינויי האריזות לפני שמירת המסמך"); return; }
     if (vatUnknown) { toast.error("בחר אם מחירי השורות כוללים מע\"מ"); return; }
     setSaving(true);
     try {
@@ -413,6 +416,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                           saleLevel={line.sale_level}
                           disabled={saving}
                           onApply={patch => updateLine(idx, patch)}
+                          onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })}
                         />
                       </div>
                     )}
@@ -439,6 +443,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         </table>
       </div>
 
+      {hasUnappliedPackage && <p role="alert" style={{ color: "#b45309", fontSize: 12, fontWeight: 600 }}>יש שינויי אריזה שטרם הוחלו. לחץ על ״שמור הגדרה והחל על השורה״ לפני שמירת המסמך.</p>}
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <p style={{ fontSize: 12, color: MUTED, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
@@ -450,7 +455,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
           <Button variant="outline" onClick={onCancel} disabled={saving}>
             <X style={{ width: 15, height: 15, marginInlineEnd: 4 }} /> ביטול
           </Button>
-          <Button onClick={handleSave} disabled={saving || vatUnknown}>
+          <Button onClick={handleSave} disabled={saving || vatUnknown || hasUnappliedPackage}>
             {saving ? "שומר..." : `אישור ושמירה (${approvedCount}/${items.length})`}
           </Button>
         </div>
