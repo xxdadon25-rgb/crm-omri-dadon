@@ -34,6 +34,7 @@ import {
 } from "@/lib/quoteMath";
 import { createScannedQuote, saveReviewedItems, approveMatch, listMatchesForSupplier, getProductsByIds } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
+import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -62,6 +63,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   // id -> { name, sku, unit, image_url } — so the table can show a name and a
   // thumbnail without holding the whole catalogue in memory.
   const [pickerIdx, setPickerIdx] = useState(null);
+  const [packEditorIdx, setPackEditorIdx] = useState(null);
   const [productById, setProductById] = useState({});
 
   useEffect(() => {
@@ -114,9 +116,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
           ? { ...line, base_unit: candidate.base_unit, base_qty_per_pack: candidate.base_qty_per_pack }
           : line;
       const verdict = canAutoApplyMatch({ line: withPack, match: candidate });
-      if (!verdict.apply) return line;
+      if (!verdict.apply || !["unit", "pack", "carton"].includes(candidate?.sale_level)) return line;
       const next = { ...withPack, product_id: candidate.product_id,
-        auto_matched: true, match_status: "approved" };
+        auto_matched: true, sale_level: candidate.sale_level, match_status: "approved" };
       next.comparable_price = comparablePrice(next);
       next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
       return next;
@@ -154,7 +156,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       next.comparable_price = comparablePrice(next);
       // A match alone is NOT enough to compare a price. Require known package
       // units too; purchased quantity is never used as pack size.
-      next.match_status = next.product_id && next.base_unit &&
+      next.match_status = next.product_id && ["unit", "pack", "carton"].includes(next.sale_level) && next.base_unit &&
         Number(next.base_qty_per_pack) > 0 && next.price_before_vat !== null
           ? "approved" : "pending";
       next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
@@ -400,6 +402,20 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                         </button>
                       );
                     })()}
+                    <Button variant="outline" size="sm" style={{ marginTop: 5 }}
+                      onClick={() => setPackEditorIdx(packEditorIdx === idx ? null : idx)}>
+                      {packEditorIdx === idx ? "סגור הגדרת אריזה" : "יחידות בחבילה / חבילות בקרטון"}
+                    </Button>
+                    {packEditorIdx === idx && (
+                      <div style={{ minWidth: 320, marginTop: 7 }}>
+                        <QuotePackagingEditor
+                          productId={line.product_id}
+                          saleLevel={line.sale_level}
+                          disabled={saving}
+                          onApply={patch => updateLine(idx, patch)}
+                        />
+                      </div>
+                    )}
                     {line.auto_matched && (
                       <div style={{ fontSize: 10, color: "#047857" }}>שויך אוטומטית לפי מק"ט ואריזה</div>
                     )}
@@ -466,12 +482,13 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
             const missingPack = !current.base_unit || !(Number(current.base_qty_per_pack) > 0);
             updateLine(pickerIdx, {
               product_id: product.id,
+              sale_level: current.product_id === product.id ? current.sale_level : null,
               ...(missingPack && inferred ? {
                 base_unit: inferred.base_unit, base_qty_per_pack: inferred.base_qty_per_pack,
               } : {}),
             });
           } else {
-            updateLine(pickerIdx, { product_id: null });
+            updateLine(pickerIdx, { product_id: null, sale_level: null });
           }
         }}
       />
