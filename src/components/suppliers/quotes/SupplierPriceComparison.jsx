@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   listSelectedPrices, listQuoteItemsNeedingReview, getProductsByIds,
@@ -52,20 +53,29 @@ export default function SupplierPriceComparison({ suppliers = [], onEditQuote })
     catch(e) { toast.error(e?.message || "הסרת המחיר נכשלה"); }
     finally { setWorking(false); }
   };
-  if (loading) return <p style={{ fontSize: 12 }}>טוען מחירי השוואה...</p>;
-  return <section dir="rtl" style={{ display: "grid", gap: 12 }}>
+  if (loading) return <p style={{ fontSize: 16 }}>טוען מחירי השוואה...</p>;
+  return <section dir="rtl" style={{ display: "grid", gap: 16, minWidth: 0, marginTop: 18 }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <strong>מחירים זמינים להשוואה ({prices.length})</strong>
+      <strong style={{ fontSize: 20 }}>מחירים זמינים להשוואה ({prices.length})</strong>
       <Button variant="outline" size="sm" onClick={load}>רענן נתונים</Button>
     </div>
-    <p style={{ fontSize: 12, color: "#666" }}>
+    <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>
       מחיר היסטורי נמוך אינו הבטחה למחיר עדכני. המחירים לפני מע״מ, ליחידת הבסיס שמוצגת.
       הכמות שנרכשה בחשבונית אינה משמשת כגודל האריזה.
     </p>
     {prices.length === 0 && <p style={{ fontSize: 12 }}>עדיין אין שורות שמוכנות להשוואה. השלם שיוך ואריזה בחשבונית השמורה.</p>}
     {prices.map(p => <div key={[p.supplier_id,p.product_id,p.base_unit].join(":")}
-      className="heillo-card" style={{ padding: 12, display: "grid", gap: 4, fontSize: 12 }}>
-      <strong>{products[p.product_id]?.name || "מוצר"} · {names[p.supplier_id] || "ספק"}</strong>
+      className="heillo-card" style={{ padding: 18, display: "grid", gap: 9, fontSize: 15, minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <strong style={{ fontSize: 18 }}>{products[p.product_id]?.name || "מוצר"}</strong>
+          <span style={{ color: "#666" }}>{names[p.supplier_id] || "ספק"}</span>
+        </div>
+        <Button variant="outline" size="sm" disabled={!p.supplier_quote_id}
+          onClick={() => onEditQuote?.(p.supplier_quote_id, p.supplier_quote_item_id)}>
+          <Pencil size={16} style={{ marginInlineEnd: 5 }} /> עריכת מוצר
+        </Button>
+      </div>
       <span>מחיר נבחר: <b>{fmt(p.price_before_vat)} ₪ / {p.base_unit}</b>
         {p.price_source === "manual_override" ? " · מחיר ידני" : " · הנמוך ביותר בהיסטוריה"}</span>
       <span>מחיר חבילה במקור: {fmt(p.pack_price_before_vat)} ₪ · באריזה: {p.base_qty_per_pack ?? "—"} {p.base_unit}
@@ -93,11 +103,11 @@ export default function SupplierPriceComparison({ suppliers = [], onEditQuote })
       </div>}
     </div>)}
     {excluded.length > 0 && <>
-      <strong>שורות שדורשות תיקון ({excluded.length})</strong>
+      <strong style={{ fontSize: 19 }}>מוצרים שדורשים תיקון ({excluded.length})</strong>
       {excluded.map(e => <div key={e.supplier_quote_item_id}
-        className="heillo-card" style={{ padding: 10, fontSize: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        className="heillo-card" style={{ padding: 15, fontSize: 15, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <span style={{ flex: 1 }}>{names[e.supplier_id] || "ספק"} · {e.supplier_name_raw} · {e.review_reasons?.join(", ")}</span>
-        <Button size="sm" variant="outline" onClick={() => onEditQuote?.(e.supplier_quote_id)}>תקן שורה</Button>
+        <Button size="sm" variant="outline" onClick={() => onEditQuote?.(e.supplier_quote_id, e.supplier_quote_item_id)}>עריכת מוצר</Button>
       </div>)}
     </>}
   </section>;
