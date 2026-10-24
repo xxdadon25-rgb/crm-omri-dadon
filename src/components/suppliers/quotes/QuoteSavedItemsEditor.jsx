@@ -11,7 +11,7 @@ import { priceBeforeVat } from "@/lib/quoteMath";
  * Corrections belong ONLY to the independent quotation tables.
  * Quantity purchased is never assumed to be units per pack.
  */
-export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
+export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onClose, onSaved }) {
   const [quote, setQuote] = useState(null);
   const [items, setItems] = useState([]);
   const [picker, setPicker] = useState(null);
@@ -36,12 +36,12 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
-  const hasUnappliedPackage = Object.values(packageDirty).some(Boolean);
+  const hasUnappliedPackage = Object.entries(packageDirty).some(([idx, dirty]) => dirty && (!focusItemId || items[Number(idx)]?.id === focusItemId));
   const save = async () => {
     if (hasUnappliedPackage) { toast.error("יש להחיל את הגדרות האריזה לפני שמירת החשבונית"); return; }
     setBusy(true);
     try {
-      for (const item of items) {
+      for (const item of items.filter(item => !focusItemId || item.id === focusItemId)) {
         const eligible = valid(item);
         const price = priceBeforeVat({
           unit_price: item.unit_price, vat_basis: quote.vat_basis, vat_rate: quote.vat_rate,
@@ -76,13 +76,13 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
   if (!quote) return <Button onClick={onClose}>חזרה</Button>;
   return (
     <div dir="rtl" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h3 style={{ fontWeight: 700 }}>תיקון מוצרים ואריזות במסמך {quote.document_number || ""}</h3>
+      <h3 style={{ fontWeight: 700, fontSize: 21 }}>{focusItemId ? "עריכת מוצר" : "תיקון מוצרים ואריזות"} · מסמך {quote.document_number || ""}</h3>
       <p style={{ fontSize: 12, color: "#666" }}>
         הכמות המוזמנת אינה מספר היחידות באריזה. המחיר להשוואה מחושב ממחיר שורה ליחידת מכירה,
         מחולק בכמות יחידות הבסיס באריזה. הנתונים מתעדכנים רק במערכת השוואת המחירים.
       </p>
-      {items.map((item, idx) => (
-        <div key={item.id} className="heillo-card" style={{ padding: 12, display: "grid", gap: 8 }}>
+      {items.map((item, idx) => (!focusItemId || item.id === focusItemId) && (
+        <div key={item.id} className="heillo-card" style={{ padding: 18, display: "grid", gap: 12, fontSize: 15 }}>
           <strong>{idx + 1}. {item.supplier_name_raw}</strong>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <label style={{ fontSize: 12 }}>מק״ט ספק (כפי שמופיע במסמך)
