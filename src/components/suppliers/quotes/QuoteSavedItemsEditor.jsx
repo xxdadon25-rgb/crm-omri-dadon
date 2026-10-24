@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getQuoteForEditing, listQuoteItems, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
-import QuoteProductPicker from "@/components/suppliers/quotes/QuoteProductPicker";
+import { getQuoteForEditing, listQuoteItems, getProductsByIds, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
+import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
 
@@ -14,6 +14,7 @@ import { priceBeforeVat } from "@/lib/quoteMath";
 export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onClose, onSaved }) {
   const [quote, setQuote] = useState(null);
   const [items, setItems] = useState([]);
+  const [matchedProducts, setMatchedProducts] = useState({});
   const [picker, setPicker] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,12 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
       .then(([q, rows]) => {
         if (!active) return;
         setQuote(q); setItems(rows);
+        const ids = [...new Set(rows.map(row => row.product_id).filter(Boolean))];
+        if (ids.length) {
+          getProductsByIds(ids).then(products => {
+            if (active) setMatchedProducts(Object.fromEntries(products.map(p => [p.id, p])));
+          }).catch(() => { /* The saved link still exists if a product thumbnail cannot load. */ });
+        }
       })
       .catch(err => { if (active) toast.error(err?.message || "טעינת השורות נכשלה"); })
       .finally(() => { if (active) setLoading(false); });
@@ -103,8 +110,23 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
               לספק אין מק״ט
             </label>
             <span style={{ fontSize: 12 }}>כמות שנרכשה: {item.quantity ?? "—"}</span>
+            {item.product_id && (
+              <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 10px",
+                borderRadius: 10, border: "1px solid rgba(4,120,87,0.22)", background: "#f0fdf4" }}>
+                {primaryImageUrl(matchedProducts[item.product_id]) ? (
+                  <img src={primaryImageUrl(matchedProducts[item.product_id])}
+                    alt="" loading="lazy"
+                    style={{ width: 42, height: 42, borderRadius: 7, objectFit: "cover" }}
+                    onError={e => { e.currentTarget.style.display = "none"; }} />
+                ) : null}
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontSize: 11, color: "#047857" }}>מוצר משויך בקטלוג</span>
+                  <strong style={{ fontSize: 14 }}>{matchedProducts[item.product_id]?.name || "המוצר המשויך נטען..."}</strong>
+                </div>
+              </div>
+            )}
             <Button variant="outline" size="sm" onClick={() => setPicker(idx)}>
-              {item.product_id ? "שינוי מוצר משויך" : "שיוך מוצר מהקטלוג"}
+              {item.product_id ? "שינוי שיוך" : "שיוך מוצר מהקטלוג"}
             </Button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(135px,1fr))", gap: 8 }}>
@@ -133,7 +155,10 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
         selectedId={picker === null ? null : items[picker]?.product_id}
         line={picker === null ? null : items[picker]}
         onClose={() => setPicker(null)}
-        onSelect={p => { if (picker !== null) change(picker, { product_id: p?.id ?? null, sale_level: null }); }} />
+        onSelect={p => { if (picker !== null) {
+          if (p?.id) setMatchedProducts(prev => ({ ...prev, [p.id]: p }));
+          change(picker, { product_id: p?.id ?? null, sale_level: null });
+        } }} />
     </div>
   );
 }
