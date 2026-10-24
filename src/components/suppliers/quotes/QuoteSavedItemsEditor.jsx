@@ -78,8 +78,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
     <div dir="rtl" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <h3 style={{ fontWeight: 700, fontSize: 21 }}>{focusItemId ? "עריכת מוצר" : "תיקון מוצרים ואריזות"} · מסמך {quote.document_number || ""}</h3>
       <p style={{ fontSize: 12, color: "#666" }}>
-        הכמות המוזמנת אינה מספר היחידות באריזה. המחיר להשוואה מחושב ממחיר שורה ליחידת מכירה,
-        מחולק בכמות יחידות הבסיס באריזה. הנתונים מתעדכנים רק במערכת השוואת המחירים.
+        ודא את מחיר הספק, כמות בחבילה וכמות חבילות בקרטון. השינויים נשמרים רק בהשוואת המחירים.
       </p>
       {items.map((item, idx) => (!focusItemId || item.id === focusItemId) && (
         <div key={item.id} className="heillo-card" style={{ padding: 18, display: "grid", gap: 12, fontSize: 15 }}>
@@ -103,28 +102,15 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
             </Button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(135px,1fr))", gap: 8 }}>
-            <label style={{ fontSize: 12 }}>מחיר ליחידת מכירה לפני/כולל מע״מ לפי המסמך
+            <label style={{ fontSize: 12 }}>מחיר לפי החשבונית
               <Input type="number" min="0" step="0.01" value={item.unit_price ?? ""}
                 onChange={e => change(idx, { unit_price: e.target.value })} />
             </label>
-            <label style={{ fontSize: 12 }}>יחידת בסיס להשוואה
-              <select className="heillo-input" value={item.base_unit || ""}
-                onChange={e => change(idx, { base_unit: e.target.value })}>
-                <option value="">— בחר —</option>
-                <option value="unit">יחידה</option>
-                <option value="kg">ק״ג</option>
-                <option value="liter">ליטר</option>
-                <option value="meter">מטר</option>
-              </select>
-            </label>
-            <label style={{ fontSize: 12 }}>כמה יחידות בסיס יש באריזה אחת?
-              <Input type="number" min="0.001" step="any"
-                value={item.base_qty_per_pack ?? ""}
-                onChange={e => change(idx, { base_qty_per_pack: e.target.value })} />
-            </label>
+
           </div>
           <QuotePackagingEditor productId={item.product_id}
             saleLevel={item.sale_level}
+            invoicedPrice={Number(item.price_before_vat ?? item.unit_price)}
             disabled={busy}
             onApply={patch => change(idx, patch)}
             onDirtyChange={dirty => setPackageDirty(prev => prev[idx] === dirty ? prev : { ...prev, [idx]: dirty })} />
@@ -133,7 +119,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
           </small>
         </div>
       ))}
-      {hasUnappliedPackage && <p role="alert" style={{ fontSize: 12, color: "#b45309", fontWeight: 600 }}>יש שינויי אריזה שעדיין לא הוחלו. לחץ קודם ״שמור הגדרה והחל על השורה״.</p>}
+      {hasUnappliedPackage && <p role="alert" style={{ fontSize: 12, color: "#b45309", fontWeight: 600 }}>יש שינויי אריזה שעדיין לא הוחלו. לחץ קודם ״אישור פרטי אריזה״.</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button onClick={save} disabled={busy || hasUnappliedPackage}>{busy ? "שומר..." : "שמור תיקונים"}</Button>
         <Button variant="outline" onClick={onClose} disabled={busy}>חזרה</Button>
