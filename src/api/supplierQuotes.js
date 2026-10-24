@@ -94,7 +94,7 @@ export async function countItemsByQuote(quoteIds) {
 export async function listQuoteItems(quoteId) {
   const { data, error } = await supabase
     .from("supplier_quote_items")
-    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, currency, match_status, created_at")
+    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, sale_level, currency, match_status, created_at")
     .eq("supplier_quote_id", quoteId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -116,10 +116,10 @@ export async function updateReviewedItem(id, patch) {
   if (!session?.user?.id) throw new Error("not signed in");
   const safe = {};
   for (const field of ["product_id", "match_status", "supplier_sku", "supplier_name_raw",
-    "unit", "pack_size", "base_unit", "base_qty_per_pack", "unit_price", "price_before_vat"]) {
+    "unit", "pack_size", "base_unit", "base_qty_per_pack", "sale_level", "unit_price", "price_before_vat"]) {
     if (Object.prototype.hasOwnProperty.call(patch, field)) safe[field] = patch[field];
   }
-  if (safe.match_status === "approved" && (!safe.product_id || !safe.base_unit ||
+  if (safe.match_status === "approved" && (!safe.product_id || !safe.base_unit || !["unit","pack","carton"].includes(safe.sale_level) ||
       !(Number(safe.base_qty_per_pack) > 0) || !(Number(safe.price_before_vat) >= 0))) {
     throw new Error("חסרים מוצר, אריזה או מחיר תקין לפני אישור");
   }
@@ -394,6 +394,7 @@ export async function saveReviewedItems({ quoteId, items }) {
     price_before_vat: i.price_before_vat ?? null,
     base_unit: i.base_unit ?? null,
     base_qty_per_pack: i.base_qty_per_pack ?? null,
+    sale_level: i.sale_level ?? null,
     line_total: i.line_total ?? null,
     confidence: i.confidence ?? null,
     match_status: i.match_status ?? "pending",
@@ -441,6 +442,7 @@ export async function approveMatch({ supplierId, item, productId }) {
       supplier_description: item.supplier_name_raw ?? null,
       base_unit: item.base_unit ?? null,
       base_qty_per_pack: item.base_qty_per_pack ?? null,
+      sale_level: item.sale_level ?? null,
       approved_by: userId,
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -452,7 +454,7 @@ export async function approveMatch({ supplierId, item, productId }) {
 export async function listMatchesForSupplier(supplierId) {
   const { data, error } = await supabase
     .from("supplier_product_matches")
-    .select("supplier_key, supplier_sku, product_id, status, base_unit, base_qty_per_pack, supplier_description")
+    .select("supplier_key, supplier_sku, product_id, status, base_unit, base_qty_per_pack, sale_level, supplier_description")
     .eq("supplier_id", supplierId);
   if (error) throw error;
   return data || [];
@@ -505,6 +507,34 @@ export async function getProductsByIds(ids) {
   return data || [];
 }
 
+/** Canonical packaging chosen by the owner; separate from the CRM product record. */
+export async function getProductPackage(productId) {
+  if (!productId) return null;
+  const { data, error } = await supabase.from("supplier_quote_product_packages")
+    .select("product_id, units_per_pack, packs_per_carton")
+    .eq("product_id", productId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+export async function saveProductPackage({ productId, unitsPerPack, packsPerCarton }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId || !productId) throw new Error("בחר מוצר לפני שמירת הגדרת אריזה");
+  const parse = (v) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) throw new Error("כמות באריזה חייבת להיות חיובית");
+    return n;
+  };
+  const units = parse(unitsPerPack);
+  const cartons = parse(packsPerCarton);
+  if (cartons && !units) throw new Error("יש להגדיר כמה יחידות בחבילה לפני חבילות בקרטון");
+  const { error } = await supabase.from("supplier_quote_product_packages").upsert({
+    user_id: userId, product_id: productId, units_per_pack: units,
+    packs_per_carton: cartons, updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id,product_id" });
+  if (error) throw error;
+}
 /** The stored page images of one document, for inspecting it while reviewing.
  *  Signed on demand, because the bucket is private. */
 export async function listQuotePages(quoteId) {
