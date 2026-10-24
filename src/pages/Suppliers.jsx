@@ -11,7 +11,7 @@ const setPendingDeletedSuppliers = (set) => {
 };
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, Pencil, Trash2, Truck, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart, History, Scale } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, PackagePlus, FolderOpen, ExternalLink, X, ShoppingCart, History } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/api/supabaseClient";
 import DeliveryModal from "@/components/suppliers/DeliveryModal";
@@ -57,10 +57,6 @@ export default function Suppliers() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [deleteOrderId, setDeleteOrderId] = useState(null);
   const [deletingOrder, setDeletingOrder] = useState(false);
-  // The new quotation-comparison window. Section-level rather than per-supplier,
-  // because comparing suppliers is the point of it. It shares no state with the
-  // windows above.
-  const [quotesOpen, setQuotesOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -369,13 +365,6 @@ export default function Suppliers() {
           <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{suppliers.length} ספקים</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {/* Styled with the page's own actionBtn helper rather than a new CSS
-              class, so no shared stylesheet is touched. */}
-          <button onClick={() => setQuotesOpen(true)} style={{ ...actionBtn("#0891b2"), padding: "8px 14px", fontSize: 13 }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(8,145,178,0.06)"}
-            onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}>
-            <Scale style={{ width: 15, height: 15 }} /> השוואת הצעות מחיר
-          </button>
           <button className="heillo-btn-primary" onClick={() => openDialog(null)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Plus style={{ width: 16, height: 16 }} /> ספק חדש
           </button>
@@ -492,6 +481,9 @@ export default function Suppliers() {
         </div>
       )}
 
+      {/* Full-width price comparison below the supplier list. */}
+      <SupplierQuotesModal />
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader><DialogTitle>{editItem?.id ? "עריכת ספק" : "ספק חדש"}</DialogTitle></DialogHeader>
@@ -530,9 +522,6 @@ export default function Suppliers() {
         onClose={() => setDeliverySupplier(null)}
       />
 
-      {/* The new window. Rendered beside the existing ones and sharing nothing
-          with them: it takes only open/onClose and does its own loading. */}
-      <SupplierQuotesModal open={quotesOpen} onClose={() => setQuotesOpen(false)} />
 
       {/* Delivery documents modal */}
       <Dialog open={!!docsSupplier} onOpenChange={(o) => { if (!o) setDocsSupplier(null); }}>
