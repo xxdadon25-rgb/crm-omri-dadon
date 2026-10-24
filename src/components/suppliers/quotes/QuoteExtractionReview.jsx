@@ -108,7 +108,10 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
     setItems(prev => prev.map(line => {
       if (line.product_id) return line;
       const candidate = matches.find(m =>
-        (m.supplier_sku ?? "").trim() && (m.supplier_sku ?? "").trim() === (line.supplier_sku ?? "").trim());
+        line.sku_unavailable && m.sku_unavailable
+          ? String(m.supplier_description || "").trim().toLowerCase() === String(line.supplier_name_raw || "").trim().toLowerCase()
+          : !line.sku_unavailable && !m.sku_unavailable && String(m.supplier_sku || "").trim() !== "0" &&
+            !!String(m.supplier_sku || "").trim() && String(m.supplier_sku).trim() === String(line.supplier_sku || "").trim());
       // If the document omitted the pack, reuse the exact SKU's previously
       // confirmed pack. Never use the PURCHASE quantity as pack size.
       const withPack = candidate && candidate.status === "approved" &&
