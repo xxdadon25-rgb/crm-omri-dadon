@@ -381,7 +381,7 @@ export async function saveReviewedItems({ quoteId, items }) {
     supplier_quote_id: quoteId,
     line_no: i.line_no ?? idx + 1,
     page_no: i.page_no ?? null,
-    product_id: i.match_status === "approved" ? i.product_id ?? null : null,
+    product_id: i.product_id ?? null, // preserve tentative match so saved drafts are editable
     supplier_sku: i.supplier_sku ?? null,
     supplier_name_raw: i.supplier_name_raw || "—",
     quantity: i.quantity ?? null,
