@@ -305,8 +305,12 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                   </td>
                   <td style={{ padding: "6px 8px" }}>
                     {/* TEXT input, never a number field: leading zeros matter. */}
-                    <Input value={line.supplier_sku ?? ""} style={{ width: 110, height: 30 }}
+                    <Input value={line.sku_unavailable ? "" : (line.supplier_sku ?? "")} disabled={line.sku_unavailable === true} style={{ width: 110, height: 30 }}
                       onChange={(e) => updateLine(idx, { supplier_sku: e.target.value })} />
+                    <label style={{ display: "flex", gap: 4, fontSize: 10, alignItems: "center" }}>
+                      <input type="checkbox" checked={line.sku_unavailable === true}
+                        onChange={(e) => updateLine(idx, { sku_unavailable: e.target.checked, supplier_sku: e.target.checked ? null : "" })} /> לספק אין מק״ט
+                    </label>
                   </td>
                   <td style={{ padding: "6px 8px", minWidth: 220 }}>
                     <Input value={line.supplier_name_raw ?? ""} style={{ width: "100%", height: 30 }}
