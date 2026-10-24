@@ -48,7 +48,8 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
         });
         await updateReviewedItem(item.id, {
           product_id: item.product_id || null,
-          supplier_sku: item.supplier_sku || null,
+          supplier_sku: item.sku_unavailable ? null : (item.supplier_sku || null),
+          sku_unavailable: item.sku_unavailable === true,
           supplier_name_raw: item.supplier_name_raw,
           unit: item.unit || null,
           pack_size: item.pack_size === "" ? null : item.pack_size,
@@ -59,9 +60,9 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
           price_before_vat: price,
           match_status: eligible ? "approved" : "pending",
         });
-        if (eligible && item.supplier_sku) {
+        if (eligible && (item.sku_unavailable || (item.supplier_sku && item.supplier_sku !== "0"))) {
           await approveMatch({ supplierId: quote.supplier_id,
-            item: { ...item, base_qty_per_pack: Number(item.base_qty_per_pack) },
+            item: { ...item, supplier_sku: item.sku_unavailable ? null : item.supplier_sku, base_qty_per_pack: Number(item.base_qty_per_pack) },
             productId: item.product_id });
         }
       }
@@ -85,8 +86,16 @@ export default function QuoteSavedItemsEditor({ quoteId, onClose, onSaved }) {
           <strong>{idx + 1}. {item.supplier_name_raw}</strong>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <label style={{ fontSize: 12 }}>מק״ט ספק (כפי שמופיע במסמך)
-              <Input value={item.supplier_sku ?? ""} style={{ width: 160 }}
+              <Input value={item.sku_unavailable ? "" : (item.supplier_sku ?? "")} disabled={item.sku_unavailable} style={{ width: 160 }}
                 onChange={e => change(idx, { supplier_sku: e.target.value })} />
+            </label>
+            <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
+              <input type="checkbox" checked={item.sku_unavailable === true}
+                onChange={e => change(idx, {
+                  sku_unavailable: e.target.checked,
+                  supplier_sku: e.target.checked ? null : (item.supplier_sku || ""),
+                })} />
+              לספק אין מק״ט
             </label>
             <span style={{ fontSize: 12 }}>כמות שנרכשה: {item.quantity ?? "—"}</span>
             <Button variant="outline" size="sm" onClick={() => setPicker(idx)}>
