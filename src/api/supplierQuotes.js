@@ -513,6 +513,18 @@ export async function listMatchesForSupplier(supplierId) {
  * error or match something unintended. Stripping those characters keeps the
  * filter a filter.
  */
+/** Read-only catalogue snapshot for quick suggestions on saved supplier invoices.
+ * Bounded to a thousand active products; no writes to CRM product records. */
+export async function listCatalogForQuoteSuggestions() {
+  const { data, error } = await supabase.from("products")
+    .select("id, name, sku, barcode, unit, description, image_url")
+    .eq("is_active", true)
+    .order("name", { ascending: true })
+    .limit(1000);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function listProductsForMatching({ search = "", limit = 30, offset = 0 } = {}) {
   let q = supabase
     .from("products")
