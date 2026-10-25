@@ -493,8 +493,17 @@ Deno.serve(async(req:Request)=>{
        }
      }
      if(!selected){
-       await reply("לאיזה מוצר בהזמנה אתה מתכוון?");
-       return output({ok:true});
+       // Direct supplier-price questions must also work without an open cart.
+       const product=String(input)
+         .replace(/^(?:מה\\s+(?:ה)?מחיר\\s+(?:של|ל)?|כמה\\s+עולה|כמה\\s+יעלה|בכמה\\s+(?:ה)?קרטון|מחיר\\s+(?:ל)?קרטון)\\s*/,"")
+         .replace(/^(?:של|ל)\\s+/,"").trim();
+       if(product.length>3 && /כפפות|כפפה|מכל|מיכל|מטליות|מטלית|מגב|שקיות|שקית|תבנית|נייר|יעה|מכסה/.test(product)){
+         selected={name:product,qty:1,unit:/קרטון/.test(input)?"carton":/חביל/.test(input)?"pack":/יחיד/.test(input)?"unit":"unknown",
+           size:"",kind:"",color:"",notes:""};
+       }else{
+         await reply("איזה מוצר אתה רוצה שאבדוק?");
+         return output({ok:true});
+       }
      }
      const target=cleanWanted(selected);
      const isCarton=/קרטון/.test(input);
