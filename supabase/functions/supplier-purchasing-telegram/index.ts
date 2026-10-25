@@ -88,8 +88,8 @@ type ConversationResult={mode:"update"|"question"|"chat";items:Wanted[];reply:st
 async function understandConversation(history:string[],key:string):Promise<ConversationResult>{
  const instructions=[
   "אתה עוזר רכש אישי מקצועי שמנהל שיחה טבעית בעברית, לא מסמך ולא טופס.",
-  "קלט: רק הודעות המשתמש בסדר כרונולוגי. הפק מצב הזמנה עדכני — מוצרים שכבר הוזמנו בשיחה, לא שאלות על מחיר שלא ביקשו להוסיף.",
-  "הודעה מאוחרת שמתקנת כמות, סוג או מידה מחליפה רק את הפרט המתוקן. '330 מ״ל' עונה לשאלה קודמת על כוס ברד, ולא מוסיף מוצר.",
+  "קלט: תמליל הודעות משתמש ועוזר בסדר כרונולוגי. הודעות העוזר הן הקשר בלבד, לא דרישות להוסיף מוצר. הפק רשימת מוצרים עדכנית רק מהבקשות של המשתמש.",
+  "הודעה מאוחרת שמתקנת כמות, סוג או מידה מחליפה רק את הפרט המתוקן. תשובות קצרות כמו 330 מ״ל, כן, לא או אפשרות 1 מתייחסות לשאלת העוזר הקודמת, ולא יוצרות מוצר חדש.",
   "אם המשתמש אומר שהוא לא בטוח, אל תקבע את הפרט. אם הוא מבקש לראות אפשרויות, השאר את המוצר ללא מידה ומצב השיחה question.",
   "הבדל בין 'מה המחיר של X' — שאלה, לבין 'תוסיף X' — הזמנה.",
   "אל תמציא מחירים, ספקים, זמינות, כמויות, מידות, מותגים, או התאמה בין מכסה לכוס.",
@@ -227,18 +227,25 @@ Deno.serve(async(req:Request)=>{
     return output({ok:true});
    }
 
+   const {error:inErr}=await admin.rpc("append_supplier_purchasing_draft",{p_telegram_user_id:telegramUser,p_message:"משתמש: "+input.slice(0,900)});
+   if(inErr)throw inErr;
+   const reply=async(message:string)=>{
+      await respondTelegram(token,chat,message);
+      const {error:e}=await admin.rpc("append_supplier_purchasing_draft",{p_telegram_user_id:telegramUser,p_message:"עוזר: "+message.slice(0,850)});
+      if(e)console.error("chat_history_save_failed",e.code);
+   };
    const {data:pending}=await admin.from("supplier_purchasing_pending_lids")
      .select("cup_quote_item_id,candidates,created_at").eq("telegram_user_id",telegramUser).maybeSingle();
    const chosen=/^(?:אפשרות\s*)?([1-9])$/.exec(input);
    if(pending && chosen){
      if(Date.now()-new Date(pending.created_at).getTime()>30*60*1000){
        await admin.from("supplier_purchasing_pending_lids").delete().eq("telegram_user_id",telegramUser);
-       await respondTelegram(token,chat,"האפשרויות הקודמות פגו. בקש שוב מכסים לכוס כדי לראות מחירים מעודכנים.");
+       await reply("האפשרויות הקודמות פגו. בקש שוב מכסים לכוס כדי לראות מחירים מעודכנים.");
        return output({ok:true});
      }
      const opt=Array.isArray(pending.candidates)?pending.candidates[Number(chosen[1])-1]:null;
      if(!opt){
-       await respondTelegram(token,chat,"אין אפשרות במספר הזה. שלח את מספר האפשרות שהצגתי.");
+       await reply("אין אפשרות במספר הזה. שלח את מספר האפשרות שהצגתי.");
        return output({ok:true});
      }
      const {error:confirmErr}=await admin.from("supplier_purchasing_lid_confirmations").upsert({
@@ -247,7 +254,7 @@ Deno.serve(async(req:Request)=>{
      },{onConflict:"telegram_user_id,cup_quote_item_id"});
      if(confirmErr)throw confirmErr;
      await admin.from("supplier_purchasing_pending_lids").delete().eq("telegram_user_id",telegramUser);
-     await respondTelegram(token,chat,"✅ שמרתי את האישור שלך: "+opt.name+
+     await reply("✅ שמרתי את האישור שלך: "+opt.name+
        "\nההתאמה נשמרה לכוס שבחרת בלבד, ולא לכוסות דומות במידות אחרות."+
        "\nמעכשיו אפשר לבקש ממני להשוות את מחירי המכסה הזה אצל הספקים.");
      return output({ok:true});
@@ -257,108 +264,24 @@ Deno.serve(async(req:Request)=>{
      .select("messages").eq("telegram_user_id",telegramUser).maybeSingle();
    if(loadError)throw loadError;
    const savedMessages=Array.isArray(stored?.messages)?stored.messages.filter((v:unknown)=>typeof v==="string").slice(-20):[];
-   // Append before any model request, so failures cannot lose the user's changes.
-   if(!finishedOrder(input)){
-     const {error:appendError}=await admin.rpc("append_supplier_purchasing_draft",{
-       p_telegram_user_id:telegramUser,p_message:input.slice(0,1000)});
-     if(appendError)throw appendError;
-   }
-   if(/מכס/.test(input) && /כוס/.test(input) && /ברד/.test(input) && !finishedOrder(input)){
-     const {data:rawRows,error:rowErr}=await admin.from("supplier_quote_normalized_prices_v")
-      .select("product_name,supplier_name_raw,product_key,quote_item_id,supplier_id,document_number,price_per_pack,units_per_pack,packs_per_carton,comparison_status")
-      .eq("comparison_status","ready").limit(2000);
-     if(rowErr)throw rowErr;
-     const list=(rawRows||[]) as Product[];
-     const requestedCapacity=capacities(input);
-     if(requestedCapacity.length!==1){
-       await respondTelegram(token,chat,"איזה נפח כוסות ברד אתה צריך — 330 או 500 מ״ל? אחרי הבחירה אציג לך מכסים שקיימים אצל הספקים.");
-       return output({ok:true});
-     }
-     const size=requestedCapacity[0];
-     const cups=list.filter(p=>/כוס/.test(p.product_name+" "+p.supplier_name_raw)
-       && !/מכס/.test(p.product_name+" "+p.supplier_name_raw)
-       && capacities(p.supplier_name_raw).includes(size)
-       && /ברד/.test(p.product_name+" "+p.supplier_name_raw));
-     if(!cups.length){
-       await respondTelegram(token,chat,"לא מצאתי בחשבוניות כוס ברד בנפח "+size+" מ״ל. כתוב את דגם הכוס כדי שאוכל לזהות אותה.");
-       return output({ok:true});
-     }
-     const distinctCups=new Map<string,Product>();
-     for(const p of cups)if(!distinctCups.has(p.product_key))distinctCups.set(p.product_key,p);
-     if(distinctCups.size!==1){
-       await respondTelegram(token,chat,"מצאתי כמה דגמי כוסות בנפח "+size+" מ״ל: "+
-         [...distinctCups.values()].map(p=>p.supplier_name_raw).join(" / ")+
-         "\nכתוב את הדגם המדויק לפני שנשייך מכסה.");
-       return output({ok:true});
-     }
-     const cup=[...distinctCups.values()][0];
-     const lids=list.filter(p=>
-       /מכס/.test(p.product_name+" "+p.supplier_name_raw)
-       && (/כוס/.test(p.product_name+" "+p.supplier_name_raw)||/כיפה/.test(p.product_name+" "+p.supplier_name_raw))
-     );
-     const byKey=new Map<string,Product[]>();
-     for(const p of lids){if(!byKey.has(p.product_key))byKey.set(p.product_key,[]);byKey.get(p.product_key)!.push(p);}
-     if(!byKey.size){
-       await respondTelegram(token,chat,"לא נמצאו כרגע מכסים בחשבוניות. לא אוכל להמליץ בלי מוצר תואם.");
-       return output({ok:true});
-     }
-     const {data:existing}=await admin.from("supplier_purchasing_lid_confirmations")
-       .select("lid_product_key").eq("telegram_user_id",telegramUser).eq("cup_quote_item_id",cup.quote_item_id).maybeSingle();
-     const {data:vendors}=await admin.from("suppliers").select("id,name").limit(2000);
-     const vendorNames=Object.fromEntries((vendors||[]).map((v:any)=>[v.id,v.name]));
-     const choices=[...byKey.entries()].slice(0,8).map(([product_key,offers])=>({
-       product_key,name:offers[0].product_name,
-       offers:offers.map(p=>({
-         supplier:vendorNames[p.supplier_id]||"ספק",
-         supplier_description:p.supplier_name_raw,
-         carton_price:Number(p.price_per_pack)*Number(p.packs_per_carton),
-         packs_per_carton:p.packs_per_carton,
-         units_per_pack:p.units_per_pack,
-         document_number:p.document_number
-       }))
-     }));
-     const described=choices.map((c,i)=>String(i+1)+". "+c.name+"\n"+
-       c.offers.map(o=>"• "+o.supplier+" — "+currency(o.carton_price)+" ₪ לקרטון לפני מע״מ"+
-         " ("+o.units_per_pack+" יח׳ בחבילה, "+o.packs_per_carton+" חבילות בקרטון)"+
-         "\n  תיאור הספק: "+o.supplier_description).join("\n")).join("\n\n");
-     if(existing){
-       const selected=choices.find(c=>c.product_key===existing.lid_product_key);
-       if(selected){
-         await respondTelegram(token,chat,"✅ כבר אישרת בעבר את התאמת המכסה הבא לכוס הזאת:\n"+
-           selected.name+"\n\n"+selected.offers.map(o=>o.supplier+" — "+currency(o.carton_price)+" ₪ לקרטון לפני מע״מ").join("\n")+
-           "\n\nאם ברצונך להחליף את ההתאמה, כתוב 'הצג אפשרויות מכסים'.");
-         return output({ok:true});
-       }
-     }
-     const {error:pendingErr}=await admin.from("supplier_purchasing_pending_lids").upsert({
-       telegram_user_id:telegramUser,cup_quote_item_id:cup.quote_item_id,
-       candidates:choices.map(c=>({product_key:c.product_key,name:c.name})),created_at:new Date().toISOString()
-     });
-     if(pendingErr)throw pendingErr;
-     await respondTelegram(token,chat,"מצאתי בחשבוניות את האפשרויות הבאות למכסים:\n\n"+
-       described+"\n\nעדיין לא אומתה התאמה לכוס ברד "+size+" מ״ל ("+cup.supplier_name_raw+")."+
-       "\nאם אתה יודע בוודאות איזה מכסה מתאים, שלח רק את מספר האפשרות (למשל 1). אשמור את הבחירה לפעמים הבאות. אם אינך בטוח, אל תאשר.");
-     return output({ok:true});
-   }
-
    const {data:afterAppend,error:readError}=await admin.from("supplier_purchasing_order_drafts")
      .select("messages").eq("telegram_user_id",telegramUser).maybeSingle();
    if(readError)throw readError;
    const history=Array.isArray(afterAppend?.messages)?afterAppend.messages.filter((v:unknown)=>typeof v==="string").slice(-20):savedMessages;
    if(!history.length){
-     await respondTelegram(token,chat,"מה תרצה להזמין?");
+     await reply("מה תרצה להזמין?");
      return output({ok:true});
    }
    const geminiKey=Deno.env.get("GEMINI_API_KEY");
    if(!geminiKey){
-     await respondTelegram(token,chat,"אני לא מצליח כרגע לקרוא את בקשת הרכש. שמרתי את ההודעה שלך.");
+     await reply("אני לא מצליח כרגע לקרוא את בקשת הרכש. שמרתי את ההודעה שלך.");
      return output({ok:true});
    }
    let conversation:ConversationResult;
    try{conversation=await understandConversation(history,geminiKey);}
    catch(error){
      console.error("conversation_parse_failed",error instanceof Error?error.message:String(error));
-     await respondTelegram(token,chat,"לא הצלחתי להבין בדיוק את הבקשה. תוכל לכתוב לי מה רצית להוסיף או לשנות? שמרתי את מה ששלחת.");
+     await reply("לא הצלחתי להבין בדיוק את הבקשה. תוכל לכתוב לי מה רצית להוסיף או לשנות? שמרתי את מה ששלחת.");
      return output({ok:true});
    }
    const lastDimensions=dimensions(input);
@@ -366,16 +289,16 @@ Deno.serve(async(req:Request)=>{
    const allDetails=conversation.items.map(x=>[x.name,x.size,x.kind,x.color,x.notes].join(" ")).join(" ");
    if(conversation.mode!=="chat" && lastDimensions.some(x=>!dimensions(allDetails).includes(x))
       && !/^(?:לא|אל|במקום|תמחק|תוריד)/.test(input)){
-     await respondTelegram(token,chat,"רק מוודא: התכוונת למידה "+lastDimensions.join(", ")+"? לא אשנה את המידה בלי אישור.");
+     await reply("רק מוודא: התכוונת למידה "+lastDimensions.join(", ")+"? לא אשנה את המידה בלי אישור.");
      return output({ok:true});
    }
    if(conversation.mode!=="chat" && lastVolumes.some(x=>!capacities(allDetails).includes(x))
       && !/^(?:לא|אל|במקום|תמחק|תוריד)/.test(input)){
-     await respondTelegram(token,chat,"רק מוודא: התכוונת לנפח "+lastVolumes.join(", ")+" מ״ל?");
+     await reply("רק מוודא: התכוונת לנפח "+lastVolumes.join(", ")+" מ״ל?");
      return output({ok:true});
    }
    if(conversation.mode==="chat" && !finishedOrder(input)){
-     await respondTelegram(token,chat,conversation.reply||"ברור. מה תרצה לעשות עם ההזמנה?");
+     await reply(conversation.reply||"ברור. מה תרצה לעשות עם ההזמנה?");
      return output({ok:true});
    }
    const {data:priceRows,error:pricesErr}=await admin.from("supplier_quote_normalized_prices_v")
@@ -387,7 +310,7 @@ Deno.serve(async(req:Request)=>{
    const evaluated=conversation.items.map(p=>({...p,result:match(p,(priceRows||[]) as Product[])}));
    if(finishedOrder(input)){
      const summary=orderSummary(evaluated,names);
-     await respondTelegram(token,chat,summary);
+     await reply(summary);
      if(evaluated.length && evaluated.every(x=>x.result?.status==="matched")){
        await admin.from("supplier_purchasing_order_drafts").delete().eq("telegram_user_id",telegramUser);
        await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
@@ -398,12 +321,12 @@ Deno.serve(async(req:Request)=>{
      const target=evaluated.filter(x=>x.result?.status==="matched");
      if(target.length===1){
        const r=target[0].result;
-       await respondTelegram(token,chat,r.product+":\n"+r.offers.slice(0,4).map((o:any)=>
+       await reply(r.product+":\n"+r.offers.slice(0,4).map((o:any)=>
          (names[o.supplier_id]||"ספק")+" — "+currency(Number(o.total_before_vat))+" ₪ "+
          (o.unit==="carton"?"לקרטון":o.unit==="pack"?"לחבילה":"ליחידה")+" לפני מע״מ").join("\n"));
      }else{
        const unresolved=evaluated.filter(x=>x.result?.status==="clarify");
-       await respondTelegram(token,chat,unresolved[0]?.result?.question||conversation.reply||"איזה מוצר או מידה תרצה לבדוק?");
+       await reply(unresolved[0]?.result?.question||conversation.reply||"איזה מוצר או מידה תרצה לבדוק?");
      }
      return output({ok:true});
    }
@@ -417,14 +340,14 @@ Deno.serve(async(req:Request)=>{
        last_question:currentQuestion,updated_at:new Date().toISOString()
      });
      if(previousQuestion?.last_question===currentQuestion){
-       await respondTelegram(token,chat,"רשמתי. עדיין חסר לנו פרט אחד לגבי "+firstMissing.name+
+       await reply("רשמתי. עדיין חסר לנו פרט אחד לגבי "+firstMissing.name+
          ". אפשר להמשיך להוסיף מוצרים ולחזור אליו בסוף.");
      }else{
-       await respondTelegram(token,chat,currentQuestion);
+       await reply(currentQuestion);
      }
    }else{
      await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
-     await respondTelegram(token,chat,conversation.reply||"רשמתי. יש עוד משהו שתרצה להוסיף או לשנות?");
+     await reply(conversation.reply||"רשמתי. יש עוד משהו שתרצה להוסיף או לשנות?");
    }
    return output({ok:true});
    })().catch(async err=>{
