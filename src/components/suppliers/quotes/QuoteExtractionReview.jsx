@@ -32,7 +32,7 @@ import {
   priceBeforeVat, parsePackaging, comparablePrice, reviewFlags,
   canAutoApplyMatch, documentCompleteness, round2, toNumber,
 } from "@/lib/quoteMath";
-import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds } from "@/api/supplierQuotes";
+import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds, listConfirmedQuoteProductNames } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 
@@ -57,6 +57,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const [vatRate, setVatRate] = useState(draft.document.vat_rate ?? 18);
   const [items, setItems] = useState(draft.items);
   const [matches, setMatches] = useState([]);
+  const [crossSupplierLoaded, setCrossSupplierLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPages, setShowPages] = useState(false);
   // Which line's picker is open, and the chosen products we know about —
@@ -74,6 +75,32 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         setMatches(m);
       } catch { /* matching is still possible by hand */ }
     })();
+    return () => { cancelled = true; };
+  }, [supplierId]);
+
+  // Reuse identity across suppliers only for an EXACT, uniquely verified
+  // invoice description. A different supplier's billing unit is never copied.
+  useEffect(() => {
+    let cancelled = false;
+    listConfirmedQuoteProductNames().then(rows => {
+      if (cancelled) return;
+      const grouped = new Map();
+      const normalize = name => String(name || "").normalize("NFKC").toLowerCase().replace(/\\s+/g, " ").trim();
+      for (const row of rows) {
+        const key = normalize(row.supplier_name_raw);
+        if (!key || !row.product_id) continue;
+        if (!grouped.has(key)) grouped.set(key, new Set());
+        grouped.get(key).add(row.product_id);
+      }
+      setItems(previous => previous.map(line => {
+        if (line.product_id) return line;
+        const candidates = grouped.get(normalize(line.supplier_name_raw));
+        if (!candidates || candidates.size !== 1) return line;
+        return { ...line, product_id: [...candidates][0], auto_suggested: true,
+          sale_level: null, match_status: "pending", review_reasons: ["match_not_approved"] };
+      }));
+      setCrossSupplierLoaded(true);
+    }).catch(() => { if (!cancelled) setCrossSupplierLoaded(true); });
     return () => { cancelled = true; };
   }, [supplierId]);
 
@@ -104,7 +131,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   useEffect(() => {
     if (!matches.length) return;
     setItems(prev => prev.map(line => {
-      if (line.product_id) return line;
+      if (line.product_id && !line.auto_suggested) return line;
       const candidate = matches.find(m =>
         line.sku_unavailable && m.sku_unavailable
           ? String(m.supplier_description || "").trim().toLowerCase() === String(line.supplier_name_raw || "").trim().toLowerCase()
@@ -120,7 +147,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       const verdict = canAutoApplyMatch({ line: withPack, match: candidate });
       if (!verdict.apply || !["unit", "pack", "carton"].includes(candidate?.sale_level)) return line;
       const next = { ...withPack, product_id: candidate.product_id,
-        auto_matched: true, sale_level: candidate.sale_level, match_status: "approved" };
+        auto_matched: true, auto_suggested: false, sale_level: candidate.sale_level, match_status: "approved" };
       next.comparable_price = comparablePrice(next);
       next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
       return next;
@@ -142,7 +169,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const updateLine = (idx, patch) => {
     setItems(prev => prev.map((line, i) => {
       if (i !== idx) return line;
-      const next = { ...line, ...patch };
+      const next = { ...line, ...patch, auto_suggested: "product_id" in patch ? false : line.auto_suggested };
       // Re-parse packaging when the unit or pack size is corrected by hand.
       if ("unit" in patch || "pack_size" in patch) {
         const pack = parsePackaging({ unit: next.unit, pack_size: next.pack_size, text: next.supplier_name_raw });
@@ -181,6 +208,8 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   }), [lineSum, draft.document.amount_net, draft.document.amount_gross, vatBasis]);
 
   const approvedCount = items.filter(i => i.match_status === "approved").length;
+  const suggestedCount = items.filter(i => i.auto_suggested).length;
+  const needsCheck = items.length - approvedCount;
   const vatUnknown = vatBasis !== "excluded" && vatBasis !== "included";
 
   const hasUnappliedPackage = false; // Package changes are applied to the draft immediately.
@@ -304,6 +333,12 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         )}
       </div>
 
+      <div style={{ padding: "10px 14px", background: "rgba(8,145,178,0.06)", borderRadius: 10, fontSize: 13 }}>
+        {crossSupplierLoaded ? `מוצרים מוכנים: ${approvedCount} · שיוך מוצע מספקים קודמים: ${suggestedCount} · דורשים בדיקה: ${needsCheck}` : "בודק מוצרים שכבר זוהו אצל ספקים אחרים..."}
+        <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>
+          שיוך מוצע לפי שם זהה בלבד. מחיר ליחידה, לחבילה או לקרטון מחייב זיהוי בחשבונית או בחירה שלך.
+        </div>
+      </div>
       {/* ── Lines ───────────────────────────────────────────────────────── */}
       <div className="heillo-card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, fontFamily: "'Heebo', sans-serif" }}>
@@ -392,6 +427,11 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                           onApply={patch => updateLine(idx, patch)}
                         />
                     </div>
+                    {line.auto_suggested && (
+                      <div style={{ fontSize: 11, color: "#b45309", marginTop: 3 }}>
+                        זוהה לפי חשבונית מספק אחר — יש לאשר את סוג החיוב
+                      </div>
+                    )}
                     {line.auto_matched && (
                       <div style={{ fontSize: 10, color: "#047857" }}>שויך אוטומטית לפי מק"ט ואריזה</div>
                     )}
