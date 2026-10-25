@@ -22,7 +22,7 @@
  * The original pages stay one click away throughout, because every figure here
  * is a claim about a document that must remain checkable.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const [matches, setMatches] = useState([]);
   const [crossSupplierLoaded, setCrossSupplierLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const saveProgress = useRef({ quoteId: null, linesSaved: false });
   const [showPages, setShowPages] = useState(false);
   // Which line's picker is open, and the chosen products we know about —
   // id -> { name, sku, unit, image_url } — so the table can show a name and a
@@ -245,12 +246,18 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
     try {
       // The document and its pages are stored first, so the lines always have
       // a document — and the preserved pages — to belong to.
-      const quote = await createScannedQuote({
-        supplierId, files, pages: scan.pages, contentHash: scan.contentHash,
-        document: { ...draft.document, vat_basis: vatBasis, vat_rate: vatRate },
-      });
-
-      await saveReviewedItems({ quoteId: quote.id, items });
+      if (!saveProgress.current.quoteId) {
+        const quote = await createScannedQuote({
+          supplierId, files, pages: scan.pages, contentHash: scan.contentHash,
+          document: { ...draft.document, vat_basis: vatBasis, vat_rate: vatRate },
+        });
+        saveProgress.current.quoteId = quote.id;
+      }
+      const quoteId = saveProgress.current.quoteId;
+      if (!saveProgress.current.linesSaved) {
+        await saveReviewedItems({ quoteId, items });
+        saveProgress.current.linesSaved = true;
+      }
       // Persist owner-defined profiles only after document lines were saved.
       // A failed profile write is reported, not disguised as complete success.
       const profiles = new Map();
@@ -275,9 +282,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       }
 
       toast.success(`נשמרו ${items.length} שורות · ${approvedCount} אושרו להשוואה`);
-      onSaved?.(quote.id);
+      onSaved?.(quoteId);
     } catch (err) {
-      toast.error(err?.message || "השמירה נכשלה");
+      toast.error(`${err?.message || "השמירה נכשלה"} · אפשר לנסות לשמור שוב בלי ליצור חשבונית נוספת`);
     } finally {
       setSaving(false);
     }
