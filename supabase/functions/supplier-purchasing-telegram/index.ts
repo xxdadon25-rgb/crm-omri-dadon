@@ -153,10 +153,24 @@ Deno.serve(async(req:Request)=>{
    }
    const {data:prior}=await admin.from("supplier_purchasing_bot_chat_state").select("initial_request,last_question,updated_at").eq("telegram_user_id",telegramUser).maybeSingle();
    const recent=prior&&Date.now()-new Date(prior.updated_at).getTime()<30*60*1000;
+   // Do not call the language model for a safety-critical cup/lid compatibility
+   // question: the cup volume does not establish lid diameter.
+   if(/מכס/.test(input) && /כוס/.test(input) && /ברד/.test(input)
+     && !/\\b\\d{2,3}\\s*(?:ממ|mm)\\b/i.test(input)){
+     await respondTelegram(token,chat,"כדי להתאים מכסים לכוסות ברד, אני צריך את קוטר פתח הכוס במ״מ או את דגם הכוס והמכסה התואמים. 330 מ״ל מתאר את נפח הכוס ולא את קוטר המכסה. יש מחירי מכסים אצל הספקים, אבל לא אוכל להמליץ לפני שאאמת התאמה.");
+     return output({ok:true});
+   }
    const requestText=recent ? "בקשת הרכש המקורית: "+prior.initial_request+"\nשאלת ההבהרה שלי: "+prior.last_question+"\nתשובת המשתמש: "+input+"\nפענח את כל בקשת הרכש עם התשובה האחרונה ואל תחליף מידות מקוריות." : input;
    const geminiKey=Deno.env.get("GEMINI_API_KEY");
    if(!geminiKey){await respondTelegram(token,chat,"מנוע השפה אינו מוגדר. פנה למנהל המערכת.");return output({ok:false,reason:"no_gemini"});}
-   const items=await parse(requestText,geminiKey);
+   let items:Wanted[];
+   try {
+     items=await parse(requestText,geminiKey);
+   }catch(parseErr){
+     console.error("purchasing_parse_failed",String(parseErr instanceof Error?parseErr.message:parseErr));
+     await respondTelegram(token,chat,"לא הצלחתי להבין את רשימת המוצרים בצורה בטוחה. נסה לכתוב מוצר אחד בכל הודעה ולציין את המידה והכמות. לא אבחר מוצר על סמך ניחוש.");
+     return output({ok:true,parse_failed:true});
+   }
    // Never let an AI rewrite a dimension or capacity explicitly present in the user's request.
    const initialDimensions=dimensions(recent?prior.initial_request:input);
    const recognizedDimensions=dimensions(items.map(x=>[x.name,x.size,x.kind,x.color,x.notes].join(" ")).join(" "));
