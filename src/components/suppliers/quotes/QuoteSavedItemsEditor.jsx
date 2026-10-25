@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getQuoteForEditing, listQuoteItems, getProductsByIds, listCatalogForQuoteSuggestions, listConfirmedQuoteProductNames, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
+import { getQuoteForEditing, listQuoteItems, getProductsByIds, listCatalogForQuoteSuggestions, listConfirmedQuoteProductNames, listQuoteCatalogProducts, createQuoteCatalogProduct, saveQuoteCatalogPackage, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
@@ -75,6 +75,9 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   const [items, setItems] = useState([]);
   const [matchedProducts, setMatchedProducts] = useState({});
   const [catalog, setCatalog] = useState([]);
+  const [quoteCatalog, setQuoteCatalog] = useState([]);
+  const [newProductFor, setNewProductFor] = useState(null);
+  const [newProductName, setNewProductName] = useState("");
   const [confirmed, setConfirmed] = useState([]);
   const [autoLinking, setAutoLinking] = useState(false);
   const [picker, setPicker] = useState(null);
@@ -83,6 +86,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   useEffect(() => {
     let active = true;
     listCatalogForQuoteSuggestions().then(products => { if (active) setCatalog(products); }).catch(() => {});
+    listQuoteCatalogProducts().then(products => { if (active) setQuoteCatalog(products); }).catch(() => {});
     listConfirmedQuoteProductNames().then(rows => { if (active) setConfirmed(rows); }).catch(() => {});
     Promise.all([getQuoteForEditing(quoteId), listQuoteItems(quoteId)])
       .then(([q, rows]) => {
@@ -102,7 +106,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
 
   const change = (index, patch) => setItems(prev => prev.map((item, i) =>
     index === i ? { ...item, ...patch } : item));
-  const valid = (i) => !!i.product_id && ["unit", "pack", "carton"].includes(i.sale_level) && !!i.base_unit &&
+  const valid = (i) => !!(i.product_id || i.quote_product_id) && ["unit", "pack", "carton"].includes(i.sale_level) && !!i.base_unit &&
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
@@ -126,6 +130,24 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
       toast.error((err?.message || "השמירה נכשלה") + " — ייתכן שחלק מהשיוכים נשמרו; פתח שוב לבדיקה");
     } finally { setAutoLinking(false); }
   };
+  const createAndLink = async (idx) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const product = await createQuoteCatalogProduct(newProductName);
+      // Link immediately as a pending item, so creation cannot disappear from
+      // the invoice even when the user closes without saving the pricing details.
+      await updateReviewedItem(items[idx].id, {
+        product_id: null, quote_product_id: product.id, match_status: "pending",
+      });
+      setQuoteCatalog(prev => [...prev, product]);
+      change(idx, { product_id: null, quote_product_id: product.id, sale_level: null, match_status: "pending" });
+      setNewProductFor(null);
+      setNewProductName("");
+      toast.success("המוצר נוצר ונקשר לחשבונית בהשוואת המחירים בלבד");
+    } catch (err) { toast.error(err?.message || "יצירת מוצר נכשלה"); }
+    finally { setBusy(false); }
+  };
   const hasUnappliedPackage = false;
   const save = async () => {
     if (hasUnappliedPackage) { toast.error("יש להחיל את הגדרות האריזה לפני שמירת החשבונית"); return; }
@@ -138,6 +160,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
         });
         await updateReviewedItem(item.id, {
           product_id: item.product_id || null,
+          quote_product_id: item.quote_product_id || null,
           supplier_sku: item.sku_unavailable ? null : (item.supplier_sku || null),
           sku_unavailable: item.sku_unavailable === true,
           supplier_name_raw: item.supplier_name_raw,
@@ -151,13 +174,21 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
           match_status: eligible ? "approved" : "pending",
         });
         if (eligible && item.pack_profile) {
-          await saveProductPackage({
-            productId: item.product_id,
-            unitsPerPack: item.pack_profile.units_per_pack,
-            packsPerCarton: item.pack_profile.packs_per_carton,
-          });
+          if (item.quote_product_id) {
+            await saveQuoteCatalogPackage({
+              productId: item.quote_product_id,
+              unitsPerPack: item.pack_profile.units_per_pack,
+              packsPerCarton: item.pack_profile.packs_per_carton,
+            });
+          } else if (item.product_id) {
+            await saveProductPackage({
+              productId: item.product_id,
+              unitsPerPack: item.pack_profile.units_per_pack,
+              packsPerCarton: item.pack_profile.packs_per_carton,
+            });
+          }
         }
-        if (eligible && (item.sku_unavailable || (item.supplier_sku && item.supplier_sku !== "0"))) {
+        if (eligible && item.product_id && (item.sku_unavailable || (item.supplier_sku && item.supplier_sku !== "0"))) {
           await approveMatch({ supplierId: quote.supplier_id,
             item: { ...item, supplier_sku: item.sku_unavailable ? null : item.supplier_sku, base_qty_per_pack: Number(item.base_qty_per_pack) },
             productId: item.product_id });
@@ -175,7 +206,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
     <div dir="rtl" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <h3 style={{ fontWeight: 700, fontSize: 21 }}>{focusItemId ? "עריכת מוצר" : "תיקון מוצרים ואריזות"} · מסמך {quote.document_number || ""}</h3>
       <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",padding:12,border:"1px solid #d1d5db",borderRadius:10}}>
-        <strong>משויכים לקטלוג: {items.filter(x=>x.product_id).length} מתוך {items.length}</strong>
+        <strong>מוצרים משויכים: {items.filter(x=>x.product_id || x.quote_product_id).length} מתוך {items.length}</strong>
         <span style={{fontSize:12,color:"#666"}}>דורשים אישור מחיר/אריזה: {items.filter(x=>!valid(x)).length}</span>
         <Button onClick={autoLinkAll} disabled={busy || autoLinking || !autoCandidates.length}>
           {autoLinking ? "משייך..." : `שיוך אוטומטי של ${autoCandidates.length} מוצרים בטוחים`}
@@ -202,6 +233,11 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
               לספק אין מק״ט
             </label>
             <span style={{ fontSize: 12 }}>כמות שנרכשה: {item.quantity ?? "—"}</span>
+            {item.quote_product_id && (
+              <div style={{padding:"7px 10px",borderRadius:9,background:"#ecfeff",fontSize:13}}>
+                מוצר להשוואה בלבד: <strong>{quoteCatalog.find(p=>p.id===item.quote_product_id)?.name || "מוצר חדש"}</strong>
+              </div>
+            )}
             {item.product_id && (
               <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 10px",
                 borderRadius: 10, border: "1px solid rgba(4,120,87,0.22)", background: "#f0fdf4" }}>
@@ -220,8 +256,26 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
             <Button variant="outline" size="sm" onClick={() => setPicker(idx)}>
               {item.product_id ? "שינוי שיוך" : "שיוך מוצר מהקטלוג"}
             </Button>
+            <select value={item.quote_product_id || ""} disabled={busy}
+              onChange={e => change(idx, {quote_product_id:e.target.value || null, product_id:null, sale_level:null, match_status:"pending"})}
+              style={{padding:"7px",border:"1px solid #d1d5db",borderRadius:7,maxWidth:300}}>
+              <option value="">מוצר קיים להשוואה בלבד...</option>
+              {quoteCatalog.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <Button variant="outline" size="sm" onClick={() => {setNewProductFor(idx);setNewProductName(item.supplier_name_raw);}}>
+              + מוצר חדש להשוואה
+            </Button>
           </div>
-          {!item.product_id && catalog.length > 0 && (() => {
+          {newProductFor===idx && (
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",padding:10,background:"#f8fafc",borderRadius:8}}>
+              <Input value={newProductName} onChange={e=>setNewProductName(e.target.value)}
+                placeholder="שם המוצר להשוואת ספקים" style={{flex:"1 1 240px"}} />
+              <Button onClick={()=>createAndLink(idx)} disabled={busy || newProductName.trim().length<2}>צור ושייך לחשבונית</Button>
+              <Button variant="outline" disabled={busy} onClick={()=>setNewProductFor(null)}>ביטול</Button>
+              <small>המוצר לא נוסף לקטלוג החנות או למלאי.</small>
+            </div>
+          )}
+          {!item.product_id && !item.quote_product_id && catalog.length > 0 && (() => {
             const suggestions = quoteCandidates(item.supplier_name_raw, catalog);
             if (!suggestions.length) return null;
             return <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -244,6 +298,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
 
           </div>
           <QuotePackagingEditor productId={item.product_id}
+            quoteProduct={quoteCatalog.find(p=>p.id===item.quote_product_id) || null}
             saleLevel={item.sale_level}
             invoicedPrice={Number(item.price_before_vat ?? item.unit_price)}
             disabled={busy}
@@ -264,7 +319,7 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
         onClose={() => setPicker(null)}
         onSelect={p => { if (picker !== null) {
           if (p?.id) setMatchedProducts(prev => ({ ...prev, [p.id]: p }));
-          change(picker, { product_id: p?.id ?? null, sale_level: null });
+          change(picker, { product_id: p?.id ?? null, quote_product_id: null, sale_level: null });
         } }} />
     </div>
   );
