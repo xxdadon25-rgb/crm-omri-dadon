@@ -382,7 +382,7 @@ Deno.serve(async(req:Request)=>{
            const raw=norm(p.supplier_name_raw);
            const cartonText=raw.match(/(\d+)\s*יח[^\n]{0,25}בקרטון/);
            return text+(cartonText && Number(cartonText[1])!==packs*pieces
-             ? "\nיש סתירה: בתיאור המקורי בחשבונית כתוב "+cartonText[1]+" יחידות בקרטון. צריך לאמת את הכמות לפני הזמנה."
+             ? "\nבתיאור הספק כתוב "+cartonText[1]+" יחידות בקרטון, אך לא ברור אם הכוונה לחבילות או לשקיות בודדות. כדאי לאמת את יחידת האריזה מול הספק."
              : "");
          });
          await reply("לשקיות אשפה "+dim+":\n"+answers.join("\n\n"));
