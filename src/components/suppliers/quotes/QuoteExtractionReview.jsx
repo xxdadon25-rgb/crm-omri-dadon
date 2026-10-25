@@ -32,7 +32,7 @@ import {
   priceBeforeVat, parsePackaging, comparablePrice, reviewFlags,
   canAutoApplyMatch, documentCompleteness, round2, toNumber,
 } from "@/lib/quoteMath";
-import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds, listConfirmedQuoteProductNames } from "@/api/supplierQuotes";
+import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds, listConfirmedQuoteProductNames, findCatalogProductsByExactNames } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 
@@ -85,7 +85,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
     listConfirmedQuoteProductNames().then(rows => {
       if (cancelled) return;
       const grouped = new Map();
-      const normalize = name => String(name || "").normalize("NFKC").toLowerCase().replace(/\\s+/g, " ").trim();
+      const normalize = name => String(name || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
       for (const row of rows) {
         const key = normalize(row.supplier_name_raw);
         if (!key || !row.product_id) continue;
@@ -103,6 +103,31 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
     }).catch(() => { if (!cancelled) setCrossSupplierLoaded(true); });
     return () => { cancelled = true; };
   }, [supplierId]);
+
+  // A second conservative shortcut: only EXACT catalog names, uniquely found.
+  // The chosen sale unit stays unset unless the invoice explicitly proves it.
+  useEffect(() => {
+    let cancelled = false;
+    const names = draft.items.map(line => line.supplier_name_raw);
+    findCatalogProductsByExactNames(names).then(products => {
+      if (cancelled) return;
+      const byName = new Map();
+      for (const p of products) {
+        const key = String(p.name || "").trim();
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(p);
+      }
+      setItems(prev => prev.map(line => {
+        if (line.product_id) return line;
+        const candidates = byName.get(String(line.supplier_name_raw || "").trim()) || [];
+        if (candidates.length !== 1) return line;
+        return { ...line, product_id: candidates[0].id, auto_suggested: true,
+          sale_level: null, match_status: "pending", review_reasons: ["match_not_approved"] };
+      }));
+      setProductById(prev => ({ ...prev, ...Object.fromEntries(products.map(p => [p.id, p])) }));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [supplierId, draft.items]);
 
   // Resolve the products referenced by auto-applied matches, so an
   // automatically matched line shows its name and image like a hand-picked one.
