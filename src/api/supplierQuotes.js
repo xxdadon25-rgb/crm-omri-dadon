@@ -95,7 +95,7 @@ export async function countItemsByQuote(quoteIds) {
 export async function listQuoteItems(quoteId) {
   const { data, error } = await supabase
     .from("supplier_quote_items")
-    .select("id, line_no, product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, sale_level, sku_unavailable, currency, match_status, created_at")
+    .select("id, line_no, product_id, quote_product_id, supplier_sku, supplier_name_raw, quantity, line_total, unit_price, price_before_vat, unit, pack_size, base_unit, base_qty_per_pack, sale_level, sku_unavailable, currency, match_status, created_at")
     .eq("supplier_quote_id", quoteId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -116,11 +116,11 @@ export async function updateReviewedItem(id, patch) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user?.id) throw new Error("not signed in");
   const safe = {};
-  for (const field of ["product_id", "match_status", "supplier_sku", "supplier_name_raw",
+  for (const field of ["product_id", "quote_product_id", "match_status", "supplier_sku", "supplier_name_raw",
     "unit", "pack_size", "base_unit", "base_qty_per_pack", "sale_level", "sku_unavailable", "unit_price", "price_before_vat"]) {
     if (Object.prototype.hasOwnProperty.call(patch, field)) safe[field] = patch[field];
   }
-  if (safe.match_status === "approved" && (!safe.product_id || !safe.base_unit || !["unit","pack","carton"].includes(safe.sale_level) ||
+  if (safe.match_status === "approved" && (!(safe.product_id || safe.quote_product_id) || !safe.base_unit || !["unit","pack","carton"].includes(safe.sale_level) ||
       !(Number(safe.base_qty_per_pack) > 0) || !(Number(safe.price_before_vat) >= 0))) {
     throw new Error("חסרים מוצר, אריזה או מחיר תקין לפני אישור");
   }
@@ -383,6 +383,7 @@ export async function saveReviewedItems({ quoteId, items }) {
     line_no: i.line_no ?? idx + 1,
     page_no: i.page_no ?? null,
     product_id: i.product_id ?? null, // preserve tentative match so saved drafts are editable
+    quote_product_id: i.quote_product_id ?? null,
     supplier_sku: i.supplier_sku ?? null,
     supplier_name_raw: i.supplier_name_raw || "—",
     quantity: i.quantity ?? null,
@@ -557,6 +558,37 @@ export async function getProductsByIds(ids) {
   return data || [];
 }
 
+/** Products that exist only in independent supplier price comparison. */
+export async function listQuoteCatalogProducts() {
+  const { data, error } = await supabase.from("supplier_quote_catalog_products")
+    .select("id, name, units_per_pack, packs_per_carton").order("name");
+  if (error) throw error;
+  return data || [];
+}
+export async function createQuoteCatalogProduct(name) {
+  const clean = String(name || "").trim().replace(/\\s+/g, " ");
+  if (clean.length < 2 || clean.length > 200) throw new Error("יש להזין שם מוצר באורך 2 עד 200 תווים");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) throw new Error("יש להתחבר למערכת");
+  const { data, error } = await supabase.from("supplier_quote_catalog_products")
+    .insert({ user_id: session.user.id, name: clean })
+    .select("id, name, units_per_pack, packs_per_carton").single();
+  if (error) {
+    if (error.code === "23505") throw new Error("מוצר בשם זה כבר קיים בהשוואת המחירים — בחר אותו מהרשימה");
+    throw error;
+  }
+  return data;
+}
+export async function saveQuoteCatalogPackage({ productId, unitsPerPack, packsPerCarton }) {
+  const positive = v => v === null || v === undefined || v === "" ? null : Number(v);
+  const units = positive(unitsPerPack), cartons = positive(packsPerCarton);
+  if ([units, cartons].some(v => v !== null && (!Number.isFinite(v) || v <= 0)))
+    throw new Error("כמות באריזה חייבת להיות חיובית");
+  const { error } = await supabase.from("supplier_quote_catalog_products")
+    .update({ units_per_pack: units, packs_per_carton: cartons, updated_at: new Date().toISOString() })
+    .eq("id", productId);
+  if (error) throw error;
+}
 /** Canonical packaging chosen by the owner; separate from the CRM product record. */
 export async function getProductPackage(productId) {
   if (!productId) return null;
