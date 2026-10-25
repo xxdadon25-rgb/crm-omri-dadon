@@ -423,11 +423,18 @@ Deno.serve(async(req:Request)=>{
        /(?:אני צריך|אני צריכה|צריך להזמין|רוצה להזמין|לעשות הזמנה)/.test(m));
      if(firstOrder){
        try{
-         const recovered=await parse(firstOrder.replace(/^משתמש:\\s*/,""),geminiKey);
+         const recovered=await parse(firstOrder.replace(/^משתמש:\s*/,""),geminiKey);
          const verified=recovered.map(cleanWanted).filter(p=>p.name);
          if(verified.length && dimensions(firstOrder).every(d=>
             dimensions(verified.map(x=>[x.name,x.size,x.notes].join(" ")).join(" ")).includes(d))){
-           const recoveredNames=new Set(verified.map(x=>norm(x.name)));
+           // Preserve any explicitly requested separate product category even
+         // if the parser omitted it from a multi-product utterance.
+         const original=firstOrder.replace(/^משתמש:\s*/,"");
+         if(/כוסות?\s+ברד/.test(original) &&
+            !verified.some(x=>/כוס/.test(x.name)&&/ברד/.test(x.name))){
+           verified.push({name:"כוסות ברד",qty:1,unit:"unknown",size:"",kind:"",color:"",notes:""});
+         }
+         const recoveredNames=new Set(verified.map(x=>norm(x.name)));
            for(const product of conversation.items)
              if(!recoveredNames.has(norm(product.name))) verified.push(product);
            conversation.items=verified;
