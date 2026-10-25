@@ -10,16 +10,16 @@ import { priceBeforeVat } from "@/lib/quoteMath";
 // Suggestions are NOT associations: only an explicit user click selects a product.
 const FILLER = new Set(["יח", "יחידות", "יחידה", "יחיד", "בקרטון", "קרטון", "חבילה", "קג", "קילו", "מל", "סמק", "של", "עם", "מארז", "גדול"]);
 const cleanWords = name => String(name || "").normalize("NFKC").toLowerCase()
-  .replace(/["'״׳.,()\\[\\]\\/\\\\*+_-]/g, " ")
-  .split(/\\s+/).map(v => v.trim()).filter(v => v.length >= 2 && !FILLER.has(v));
+  .replace(/[^\p{L}\p{N}]+/gu, " ")
+  .split(/\s+/).map(v => v.trim()).filter(v => v.length >= 2 && !FILLER.has(v));
 function quoteCandidates(invoiceName, catalog) {
   const tokens = new Set(cleanWords(invoiceName));
-  const invoiceNumbers = new Set([...tokens].filter(t => /^\\d+$/.test(t)));
-  const words = [...tokens].filter(t => !/^\\d+$/.test(t));
+  const invoiceNumbers = new Set([...tokens].filter(t => /^\d+$/.test(t)));
+  const words = [...tokens].filter(t => !/^\d+$/.test(t));
   if (!words.length) return [];
   return catalog.map(product => {
     const pTokens = new Set(cleanWords(product.name));
-    const pNumbers = [...pTokens].filter(t => /^\\d+$/.test(t));
+    const pNumbers = [...pTokens].filter(t => /^\d+$/.test(t));
     // Never suggest a conflicting numerical size as if it were the same item.
     if (invoiceNumbers.size && pNumbers.length && !pNumbers.some(n => invoiceNumbers.has(n))) return null;
     const common = words.filter(t => pTokens.has(t));
