@@ -534,7 +534,7 @@ export async function saveProductPackage({ productId, unitsPerPack, packsPerCart
   };
   const units = parse(unitsPerPack);
   const cartons = parse(packsPerCarton);
-  if (cartons && !units) throw new Error("יש להגדיר כמה יחידות בחבילה לפני חבילות בקרטון");
+  // Carton-only products are valid: cartons represents individual pieces per carton.\n  // A pack size is required only when the user explicitly enables packs.
   const { error } = await supabase.from("supplier_quote_product_packages").upsert({
     user_id: userId, product_id: productId, units_per_pack: units,
     packs_per_carton: cartons, updated_at: new Date().toISOString(),
