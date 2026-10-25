@@ -505,16 +505,12 @@ Deno.serve(async(req:Request)=>{
      await reply("מה תרצה להזמין?");
      return output({ok:true});
    }
-   const geminiKey=""; // Purchasing bot: paid model usage disabled by owner request
-   if(!geminiKey){
-     await reply("אני לא מצליח כרגע לקרוא את בקשת הרכש. שמרתי את ההודעה שלך.");
-     return output({ok:true});
-   }
+   // No Gemini key or paid language model is used by purchasing chat.
    let conversation:ConversationResult;
    try{
      conversation=finishedOrder(input)
        ? {mode:"update",items:cart,reply:""}
-       : await understandConversation(history,geminiKey,cart);
+       : await understandConversation(history,"",cart);
    }
    catch(error){
      console.error("conversation_parse_failed",error instanceof Error?error.message:String(error));
@@ -537,7 +533,7 @@ Deno.serve(async(req:Request)=>{
        /(?:אני צריך|אני צריכה|צריך להזמין|רוצה להזמין|לעשות הזמנה)/.test(m));
      if(firstOrder){
        try{
-         const recovered=await parse(firstOrder.replace(/^משתמש:\s*/,""),geminiKey);
+         const recovered=await parse(firstOrder.replace(/^משתמש:\s*/,""),"");
          const verified=recovered.map(cleanWanted).filter(p=>p.name);
          if(verified.length && dimensions(firstOrder).every(d=>
             dimensions(verified.map(x=>[x.name,x.size,x.notes].join(" ")).join(" ")).includes(d))){
