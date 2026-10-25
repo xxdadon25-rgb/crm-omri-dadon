@@ -476,7 +476,7 @@ Deno.serve(async(req:Request)=>{
      await reply("מה תרצה להזמין?");
      return output({ok:true});
    }
-   const geminiKey=Deno.env.get("GEMINI_API_KEY");
+   const geminiKey=""; // Purchasing bot: paid model usage disabled by owner request
    if(!geminiKey){
      await reply("אני לא מצליח כרגע לקרוא את בקשת הרכש. שמרתי את ההודעה שלך.");
      return output({ok:true});
