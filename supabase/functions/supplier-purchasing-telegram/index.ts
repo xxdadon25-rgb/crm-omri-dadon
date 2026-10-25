@@ -85,63 +85,92 @@ function match(item:Wanted,rows:Product[]) {
  if(!offers.length)return {status:"clarify",question:"חסר מספר חבילות מאומת בקרטון, ולכן לא אוכל לחשב מחיר."};
  return {status:"matched",product:prices[0].product_name,offers,notice:"המחירים היסטוריים, לפני מע״מ, לא כולל הובלה או מינימום הזמנה."};
 }
-async function parse(message:string,key:string):Promise<Wanted[]>{
- const prompt='חלץ בקשת רכש בעברית ל-JSON בפורמט {"items":[{"name":"","qty":1,"unit":"unit|pack|carton|unknown","size":"","kind":"","color":"","notes":""}]}. שמור מידות ונפחים בדיוק, כולל 75/90. אל תמציא פרטים. כל מוצר בנפרד. תקן שגיאות כתיב רק כשברור, אך לא מידות. אם לא נאמר נפח השאר ריק. בקשה: '+JSON.stringify(message);
- const url="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="+encodeURIComponent(key);
- const response=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json",temperature:0,maxOutputTokens:1200}})});
- if(!response.ok)throw new Error("AI request failed");
- const data=await response.json();
- const raw=(data.candidates?.[0]?.content?.parts||[]).map((p:{text?:string})=>p.text||"").join("");
- const v=JSON.parse(raw);
- if(!Array.isArray(v.items)||v.items.length<1||v.items.length>12)throw new Error("Cannot parse order");
- return v.items.map((p:Wanted)=>({name:String(p.name||""),qty:Math.min(1000,Math.max(1,Number(p.qty)||1)),unit:["unit","pack","carton"].includes(p.unit)?p.unit:"unknown",size:String(p.size||""),kind:String(p.kind||""),color:String(p.color||""),notes:String(p.notes||"")}));
+
+function basicKnownProducts(text:string):Wanted[]{
+ const found:Wanted[]=[];
+ const add=(name:string,size:string,unit:string,kind="",color="")=>{
+   if(found.some(x=>x.name===name&&x.size===size))return;
+   found.push({name,qty:1,unit,size,kind,color,notes:""});
+ };
+ const parts=text.split(/(?:\s+וגם\s+|\s+ועוד\s+|,\s*|;\s*)/);
+ for(const chunk of parts){
+  const dim=dimensions(chunk)[0]||"";
+  const capacity=capacities(chunk)[0];
+  let unit=/קרטונ/.test(chunk)?"carton":/חביל|שרוול/.test(chunk)?"pack":/יחידות?|בודד/.test(chunk)?"unit":"unknown";
+  let qty=1;const quantity=chunk.match(/(\d{1,3})\s*(?:קרטונים|חבילות|שרוולים)/);
+  if(quantity)qty=Number(quantity[1]);
+  let name="";
+  if(/שקיות|שקית/.test(chunk)&&/אשפה/.test(chunk))name="שקיות אשפה";
+  else if(/מכס/.test(chunk)&&/ברד/.test(chunk))name="מכסים לכוסות ברד";
+  else if(/כוסות?|גביעים?/.test(chunk)&&/ברד/.test(chunk))name="כוסות ברד";
+  else if(/מכס/.test(chunk)&&/כוס/.test(chunk))name="מכסים לכוסות";
+  else if(/צלחות?/.test(chunk))name="צלחות";
+  else if(/כפיות?/.test(chunk))name="כפיות";
+  else if(/מזלגות?/.test(chunk))name="מזלגות";
+  else if(/סכינים?/.test(chunk))name="סכינים";
+  else if(/כוסות?/.test(chunk))name="כוסות";
+  if(name)found.push({name,qty,unit,size:capacity?capacity+" מ״ל":dim,
+    kind:"",color:/שחור(?:ות|ים)?/.test(chunk)?"שחור":/שקוף(?:ות|ים)?/.test(chunk)?"שקוף":"",notes:""});
+ }
+ return found.map(cleanWanted);
 }
-
-
+async function parse(message:string,_unusedKey:string):Promise<Wanted[]>{
+ return basicKnownProducts(message);
+}
 type ConversationResult={mode:"update"|"question"|"chat";items:Wanted[];reply:string};
-async function understandConversation(history:string[],key:string,cart:Wanted[]):Promise<ConversationResult>{
- const instructions=[
-  "אתה עוזר רכש אישי מקצועי שמנהל שיחה טבעית בעברית, לא מסמך ולא טופס.",
-  "קלט: תמליל הודעות משתמש ועוזר בסדר כרונולוגי. הודעות העוזר הן הקשר בלבד, לא דרישות להוסיף מוצר. הפק רשימת מוצרים עדכנית רק מהבקשות של המשתמש.",
-  "הודעה מאוחרת שמתקנת כמות, סוג או מידה מחליפה רק את הפרט המתוקן. תשובות קצרות כמו 330 מ״ל, כן, לא או אפשרות 1 מתייחסות לשאלת העוזר הקודמת, ולא יוצרות מוצר חדש.",
-  "אם המשתמש אומר שהוא לא בטוח, אל תקבע את הפרט. אם הוא מבקש לראות אפשרויות, השאר את המוצר ללא מידה ומצב השיחה question. אם מבקשים להציג אפשרויות למכסים, mode question ו-items יכלול פריט מכסים לכוס ברד כדי שאוכל לשלוף אפשרויות אמיתיות מתוך החשבוניות.",
-  "הבדל בין 'מה המחיר של X' — שאלה, לבין 'תוסיף X' — הזמנה.",
-  "אל תמציא מחירים, ספקים, זמינות, כמויות, מידות, מותגים, או התאמה בין מכסה לכוס.",
-  "הפק items המשקפים את ההזמנה בלבד. לשאלה על מחיר של מוצר שאינו בהזמנה, במצב question מותר להחזיר אותו כפריט חיפוש בלבד ורק אם ברור שהוא לא נוסף להזמנה.",
-  "reply הוא תשובה קצרה אנושית בעברית: בלי אימוג׳י, בלי סימני קריאה או אזהרות קבועות, בלי מחירים מומצאים ובלי חזרה על כל ההזמנה.",
-  "לעולם אל תכתוב שאתה בודק ומעדכן מיד, אחזור אליך או כל הבטחה לעבודה מאוחרת. אם אין נתון, אמור מה חסר.",
-  "אם הבקשה לא מובנת שאל רק שאלה אחת ממוקדת. קח בחשבון את ההקשר. מצב chat לשיחות חולין, question לבירור או שאלה, update לתוספת או תיקון הזמנה.",
-  "שמור כל מידה בדיוק כפי שנכתבה (75/90 לעולם אינו 75/85, 330 מ״ל אינו 350).",
-  "השתמש ב-unit carton עבור קרטון, pack עבור חבילה, unit עבור יחידה, unknown אם לא צוין. מספר יחידות qty ללא ניחוש.",
-  "כל המוצרים ב-items כרשימה אחת עדכנית, ללא כפילות אחרי תיקונים. לכל היותר 12 מוצרים."
- ].join("\n");
- const schema={type:"OBJECT",properties:{
-   mode:{type:"STRING",enum:["update","question","chat"]},
-   reply:{type:"STRING"},
-   items:{type:"ARRAY",items:{type:"OBJECT",properties:{
-     name:{type:"STRING"},qty:{type:"INTEGER"},unit:{type:"STRING",enum:["unit","pack","carton","unknown"]},
-     size:{type:"STRING"},kind:{type:"STRING"},color:{type:"STRING"},notes:{type:"STRING"}
-   },required:["name","qty","unit","size","kind","color","notes"]}}
- },required:["mode","reply","items"]};
- const url="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="+encodeURIComponent(key);
- const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({contents:[{parts:[{text:instructions+"\nטיוטת הזמנה קיימת (שמור את כל הפריטים האלה אלא אם המשתמש שינה או מחק במפורש): "+JSON.stringify(cart)+"\nהודעות אחרונות:\n"+history.map((x,i)=>String(i+1)+". "+x).join("\n")}]}],
-   generationConfig:{responseMimeType:"application/json",responseSchema:schema,temperature:0.15,maxOutputTokens:2500}})});
- if(!res.ok){console.error("conversation_model_http",res.status);throw new Error("conversation_model_unavailable");}
- const raw=await res.json();
- const txt=(raw.candidates?.[0]?.content?.parts||[]).map((p:{text?:string})=>p.text||"").join("");
- const parsed=JSON.parse(txt);
- if(!["update","question","chat"].includes(parsed.mode)||!Array.isArray(parsed.items)||parsed.items.length>12)
-   throw new Error("conversation_invalid_output");
- const items:Wanted[]=parsed.items.map((p:any)=>({
-  name:String(p.name||"").slice(0,150),qty:Math.min(1000,Math.max(1,Number(p.qty)||1)),
-  unit:["unit","pack","carton"].includes(p.unit)?p.unit:"unknown",
-  size:String(p.size||"").slice(0,80),kind:String(p.kind||"").slice(0,80),
-  color:String(p.color||"").slice(0,80),notes:String(p.notes||"").slice(0,100)
- })).map(cleanWanted).filter(p=>p.name);
- return {mode:parsed.mode,items,reply:String(parsed.reply||"").slice(0,300)};
-}
 
+async function understandConversation(history:string[],_unusedKey:string,cart:Wanted[]):Promise<ConversationResult>{
+ const latest=String([...history].reverse().find(m=>m.startsWith("משתמש: "))||"").replace(/^משתמש:\s*/,"").trim();
+ const items=cart.map(cleanWanted).filter(x=>x.name);
+ const lastAssistant=String([...history].reverse().find(m=>m.startsWith("עוזר: "))||"").replace(/^עוזר:\s*/,"");
+ if(!latest)return {mode:"chat",items,reply:"מה תרצה להזמין?"};
+ const priceQuestion=/(?:מה\s+(?:ה)?מחיר|כמה\s+עולה|כמה\s+יעלה)/.test(latest);
+ if(priceQuestion)return {mode:"question",items,reply:"לאיזה מוצר התכוונת?"};
+ const inquiry=/^(?:מה|איזה|איך|אפשר|האם|כמה)\b/.test(latest)||latest.endsWith("?");
+ if(inquiry&&!/(?:תוסיף|תרשום|תכניס)/.test(latest))
+  return {mode:"question",items,reply:"איזה מוצר בדיוק תרצה לבדוק?"};
+ if(/^(?:שלום|היי|תודה|תודה רבה|סבבה|מעולה|בסדר|אוקיי)[.! ]*$/.test(latest))
+  return {mode:"chat",items,reply:"בשמחה. מה תרצה להזמין או לשנות?"};
+ const capacity=capacities(latest)[0];
+ const dim=dimensions(latest)[0];
+ const isCorrection=/\b(?:במקום|תשנה|תתקן|תעדכן|התכוונתי|לא)\b/.test(latest);
+ const requestedUnit=/קרטונ/.test(latest)?"carton":/חביל|שרוול/.test(latest)?"pack":/יחידות?|בודד/.test(latest)?"unit":null;
+ const proposed=basicKnownProducts(latest);
+ const inferredTarget=(()=>{
+   if(/שקיות|אשפה/.test(latest))return items.find(x=>/שקיות|אשפה/.test(x.name));
+   if(/כוס|ברד/.test(latest))return items.find(x=>/כוס/.test(x.name)&&/ברד/.test(x.name)&&!/מכס/.test(x.name));
+   if(/מכס/.test(lastAssistant))return items.find(x=>/מכס/.test(x.name));
+   if(/כוס|ברד|נפח/.test(lastAssistant))return items.find(x=>/כוס/.test(x.name)&&/ברד/.test(x.name));
+   if(/אשפה|שקיות/.test(lastAssistant))return items.find(x=>/אשפה/.test(x.name));
+   return items.length===1?items[0]:null;
+ })();
+ if(!proposed.length && (capacity||dim||requestedUnit)){
+   if(!inferredTarget)return {mode:"question",items,reply:"לאיזה מוצר מתייחס השינוי?"};
+   if(capacity)inferredTarget.size=capacity+" מ״ל";
+   if(dim)inferredTarget.size=dim;
+   if(requestedUnit)inferredTarget.unit=requestedUnit;
+   return {mode:"update",items,reply:"עדכנתי את הפרט בהזמנה. יש עוד משהו להוסיף או לשנות?"};
+ }
+ if(proposed.length){
+   for(const p of proposed){
+     const old=items.find(x=>norm(x.name)===norm(p.name));
+     if(old){
+       if(p.size)old.size=p.size;
+       if(p.color)old.color=p.color;
+       if(p.unit!=="unknown")old.unit=p.unit;
+       if(/(\d+)\s*(?:קרטונים|חבילות|שרוולים)/.test(latest))old.qty=p.qty;
+     }else if(!/^(?:מה|איזה|כמה|האם)/.test(latest) && !priceQuestion){
+       items.push(p);
+     }
+   }
+   return {mode:"update",items,reply:"רשמתי. יש עוד משהו שתרצה להוסיף?"};
+ }
+ if(/(?:תמשיך|נמשיך|בוא נמשיך|תתקדם)/.test(latest))
+  return {mode:"update",items,reply:"בוא נמשיך. מה תרצה להשלים בהזמנה?"};
+ if(/(?:תמחק|תוריד|תסיר|בטל|לא צריך)/.test(latest))
+  return {mode:"question",items,reply:"איזה פריט להסיר מההזמנה?"};
+ return {mode:"chat",items,reply:"לא הבנתי בדיוק מה רצית. תוכל לנסח שוב או לציין את המוצר והכמות?"};
+}
 async function resolveApprovedLids(evaluated:any[],rawRows:Product[],admin:any,telegramUser:number){
  const lidItems=evaluated.filter(x=>/מכס/.test(x.name+" "+x.size+" "+x.kind+" "+x.notes));
  if(!lidItems.length)return;
