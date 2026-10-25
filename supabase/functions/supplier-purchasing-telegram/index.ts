@@ -295,6 +295,57 @@ function orderSummary(evaluated:any[],supplierNames:Record<string,string>){
  if(!groups.length&&!unresolved.length)result="אין כרגע פריטים להזמנה. מה תרצה להזמין?";
  return result.slice(0,3800);
 }
+
+type VerifiedPack={
+ product_label:string;reference_document:string;supplier_name:string;
+ units_per_small_pack:number|null;small_packs_per_carton:number|null;units_per_carton:number|null;
+ unit_price_ex_vat:number|null;small_pack_price_ex_vat:number|null;carton_price_ex_vat:number|null;
+ needs_review:boolean;
+};
+const unitTokens=(v:string)=>norm(v).replace(/מיכל/g,"מכל").replace(/כפפות/g,"כפפה").replace(/שחורות/g,"שחור").replace(/מטליות/g,"מטלית").replace(/שקיות/g,"שקית");
+function verifiedIdentity(w:Wanted,records:VerifiedPack[]){
+ const phrase=unitTokens([w.name,w.size,w.kind,w.color,w.notes].filter(Boolean).join(" "));
+ const mentions=(...needles:string[])=>needles.every(x=>phrase.includes(x));
+ let identity="";
+ if(mentions("כפפה","ניטריל")) {
+  const size=phrase.match(/(?:מידה\s*)\b([ml])\b/i)?.[1]||phrase.match(/(?:^|\s)([ml])(?:\s|$)/i)?.[1];
+  if(!size)return {status:"clarify",question:"איזו מידה של כפפות ניטריל שחורות — M או L?"};
+  identity="כפפות ניטריל שחורות מידה "+size.toUpperCase();
+ }else if(mentions("מכל","ליטר")){
+  const m=phrase.match(/(\d+(?:\.\d+)?)\s*ליטר/);
+  if(!m)return {status:"clarify",question:"איזה נפח מכל אתה צריך?"};
+  identity="מכל "+m[1]+" ליטר";
+  if(mentions("מכסה"))identity="מכסה למכל 2.5 ו-4.5 ליטר";
+ }else if(mentions("מכסה","מכל")) {
+  if(!/2\.5|4\.5/.test(phrase))return {status:"clarify",question:"למכל של איזה נפח המכסה צריך להתאים — 2.5 או 4.5 ליטר?"};
+  identity="מכסה למכל 2.5 ו-4.5 ליטר";
+ }else if(mentions("מטלית")&&(/רצפה|לחות/.test(phrase)))identity="מטליות לחות לרצפה";
+ else if(mentions("שקית","מזון"))identity="שקיות מזון LD150";
+ else if(mentions("יעה","אשפה"))identity="יעה אשפה";
+ else if(mentions("מגב")&&/40/.test(phrase))identity="מגב פלסטיק 40 ס״מ";
+ else if(mentions("מגב"))return {status:"clarify",question:"איזה גודל מגב צריך? יש לי מחיר מאומת למגב 40 ס״מ."};
+ else if(mentions("תבנית")&&/r\s*31|אר\s*31/i.test(phrase))identity="תבנית אלומיניום R31";
+ else if(mentions("נייר","טואלט"))identity="נייר טואלט 32 גלילים";
+ else return null;
+ const found=records.filter(r=>unitTokens(r.product_label)===unitTokens(identity)&&!r.needs_review);
+ if(found.length!==1)return {status:"clarify",question:"אין מחיר מאומת למוצר שביקשת במידה הזאת."};
+ const p=found[0],qty=Number(w.qty)||1;
+ const unit=w.unit;
+ if(!["unit","pack","carton"].includes(unit))return {status:"clarify",question:"כמה אתה צריך — יחידות, חבילות או קרטונים?"};
+ let rate:number|null=null;
+ if(unit==="unit")rate=p.unit_price_ex_vat!=null?Number(p.unit_price_ex_vat):
+  (p.small_pack_price_ex_vat!=null&&Number(p.units_per_small_pack)>0?Number(p.small_pack_price_ex_vat)/Number(p.units_per_small_pack):null);
+ else if(unit==="pack")rate=p.small_pack_price_ex_vat!=null?Number(p.small_pack_price_ex_vat):null;
+ else rate=p.carton_price_ex_vat!=null?Number(p.carton_price_ex_vat):null;
+ if(rate===null)return {status:"clarify",question:"אני מכיר את מחיר המוצר אבל אין לי אריזת "+(unit==="pack"?"חבילה":unit==="carton"?"קרטון":"יחידה")+" מאומתת שאפשר להזמין. איזו כמות אתה צריך?"};
+ if(unit==="pack"&&identity==="שקיות מזון LD150" && qty%2!==0)
+  return {status:"clarify",question:"שקיות המזון נמכרות בזוג חבילות של 150 שקיות. צריך מספר זוגי של חבילות — כמה זוגות להזמין?"};
+ return {status:"matched",product:p.product_label,offers:[{
+  supplier_id:"193b77f4-9213-492d-8c1e-55bc2400bf39",document_number:p.reference_document,
+  quantity:qty,unit,total_before_vat:Math.round(rate*qty*10000)/10000,
+  units_per_pack:p.units_per_small_pack,packs_per_carton:p.small_packs_per_carton
+ }]};
+}
 const telegramApi=async(token:string,method:string,body:Record<string,unknown>)=>{
  const res=await fetch("https://api.telegram.org/bot"+token+"/"+method,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
  const data=await res.json();
@@ -451,7 +502,13 @@ Deno.serve(async(req:Request)=>{
      const {data:rows,error:rowsError}=await admin.from("supplier_quote_normalized_prices_v")
        .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
      if(rowsError)throw rowsError;
-     const matched:any=match(target,(rows||[]) as Product[]);
+     const {data:verifiedRows,error:verifiedErr}=await admin.from("supplier_purchasing_verified_packaging")
+       .select("supplier_name,product_label,reference_document,units_per_small_pack,small_packs_per_carton,units_per_carton,unit_price_ex_vat,small_pack_price_ex_vat,carton_price_ex_vat,needs_review")
+       .eq("needs_review",false).limit(2000);
+     if(verifiedErr)throw verifiedErr;
+     const verified=verifiedIdentity(target,(verifiedRows||[]) as VerifiedPack[]);
+     const fromInvoice=match(target,(rows||[]) as Product[]);
+     const matched:any=verified?.status==="matched"?verified:fromInvoice.status==="matched"?fromInvoice:verified||fromInvoice;
      if(matched.status!=="matched"){
        await reply(matched.question||"חסר לי פרט כדי לזהות את המוצר במדויק.");
        return output({ok:true});
@@ -586,7 +643,16 @@ Deno.serve(async(req:Request)=>{
    const {data:supplierRows,error:supplierErr}=await admin.from("suppliers").select("id,name").limit(2000);
    if(supplierErr)throw supplierErr;
    const names=Object.fromEntries((supplierRows||[]).map((x:any)=>[x.id,x.name]));
-   const evaluated=conversation.items.map(p=>({...p,result:match(p,(priceRows||[]) as Product[])}));
+   const {data:verifiedRows,error:verifiedError}=await admin.from("supplier_purchasing_verified_packaging")
+     .select("supplier_name,product_label,reference_document,units_per_small_pack,small_packs_per_carton,units_per_carton,unit_price_ex_vat,small_pack_price_ex_vat,carton_price_ex_vat,needs_review")
+     .eq("needs_review",false).limit(2000);
+   if(verifiedError)throw verifiedError;
+   const verified=(verifiedRows||[]) as VerifiedPack[];
+   const evaluated=conversation.items.map(p=>{
+     const standard=match(p,(priceRows||[]) as Product[]);
+     const fromVerified=verifiedIdentity(p,verified);
+     return {...p,result:fromVerified?.status==="matched"?fromVerified:standard.status==="matched"?standard:fromVerified||standard};
+   });
    await resolveApprovedLids(evaluated,(priceRows||[]) as Product[],admin,telegramUser);
    if(finishedOrder(input)){
      const summary=orderSummary(evaluated,names);
