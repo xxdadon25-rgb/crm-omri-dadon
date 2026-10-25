@@ -352,6 +352,46 @@ Deno.serve(async(req:Request)=>{
       const {error:e}=await admin.rpc("append_supplier_purchasing_draft",{p_telegram_user_id:telegramUser,p_message:"עוזר: "+message.slice(0,850)});
       if(e)console.error("chat_history_save_failed",e.code);
    };
+
+   // Answer packaging follow-ups from stored invoice values, not from AI
+   // product re-identification or conversational cart extraction.
+   if(/(?:כמה|מה\s+(?:ה)?כמות)/.test(input) &&
+      /(?:חבילות|חבילה|שרוולים|שרוול|יחידות|שקיות)/.test(input) &&
+      /(?:קרטון|בארגז|בקרטון)/.test(input)){
+     const {data:thread,error:threadError}=await admin.from("supplier_purchasing_order_drafts")
+       .select("messages,items").eq("telegram_user_id",telegramUser).maybeSingle();
+     if(threadError)throw threadError;
+     const threadMessages=Array.isArray(thread?.messages)?thread.messages.filter((x:unknown)=>typeof x==="string"):[];
+     const explicitDim=dimensions(input);
+     const relevant=threadMessages.slice(-12).reverse().find((m:string)=>/שקיות|אשפה/.test(m)&&dimensions(m).length);
+     const dim=explicitDim[0]|| (relevant?dimensions(relevant)[0]:null);
+     if(dim && /שקיות|אשפה/.test(input+" "+String(relevant||""))){
+       const {data:priceRows,error:pricesError}=await admin.from("supplier_quote_normalized_prices_v")
+         .select("product_name,supplier_name_raw,supplier_id,units_per_pack,packs_per_carton,price_per_pack,comparison_status")
+         .eq("comparison_status","ready").limit(2000);
+       if(pricesError)throw pricesError;
+       const records=(priceRows||[]).filter((p:any)=>/שקיות|אשפה/.test(p.product_name)&&
+          dimensions(p.product_name).includes(dim)&&dimensions(p.supplier_name_raw).includes(dim));
+       if(records.length){
+         const {data:suppliers}=await admin.from("suppliers").select("id,name").limit(2000);
+         const names=Object.fromEntries((suppliers||[]).map((v:any)=>[v.id,v.name]));
+         const answers=records.map((p:any)=>{
+           const packs=Number(p.packs_per_carton),pieces=Number(p.units_per_pack);
+           const text=(names[p.supplier_id]||"ספק")+": ברישום המערכת "+
+             packs+" חבילות בקרטון, "+pieces+" שקיות בחבילה ("+(packs*pieces)+" שקיות לפי החישוב).";
+           const raw=norm(p.supplier_name_raw);
+           const cartonText=raw.match(/(\d+)\s*יח[^\n]{0,25}בקרטון/);
+           return text+(cartonText && Number(cartonText[1])!==packs*pieces
+             ? "\nיש סתירה: בתיאור המקורי בחשבונית כתוב "+cartonText[1]+" יחידות בקרטון. צריך לאמת את הכמות לפני הזמנה."
+             : "");
+         });
+         await reply("לשקיות אשפה "+dim+":\n"+answers.join("\n\n"));
+         return output({ok:true});
+       }
+     }
+     await reply("לא הצלחתי לקשר בוודאות את השאלה למוצר. לאיזה מוצר או מידה התכוונת?");
+     return output({ok:true});
+   }
    const {data:pending}=await admin.from("supplier_purchasing_pending_lids")
      .select("cup_quote_item_id,candidates,created_at").eq("telegram_user_id",telegramUser).maybeSingle();
    const chosen=/^(?:אפשרות\s*)?([1-9])$/.exec(input);
