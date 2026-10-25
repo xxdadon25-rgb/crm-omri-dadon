@@ -85,7 +85,7 @@ async function parse(message:string,key:string):Promise<Wanted[]>{
 
 
 type ConversationResult={mode:"update"|"question"|"chat";items:Wanted[];reply:string};
-async function understandConversation(history:string[],key:string):Promise<ConversationResult>{
+async function understandConversation(history:string[],key:string,cart:Wanted[]):Promise<ConversationResult>{
  const instructions=[
   "אתה עוזר רכש אישי מקצועי שמנהל שיחה טבעית בעברית, לא מסמך ולא טופס.",
   "קלט: תמליל הודעות משתמש ועוזר בסדר כרונולוגי. הודעות העוזר הן הקשר בלבד, לא דרישות להוסיף מוצר. הפק רשימת מוצרים עדכנית רק מהבקשות של המשתמש.",
@@ -110,7 +110,7 @@ async function understandConversation(history:string[],key:string):Promise<Conve
  },required:["mode","reply","items"]};
  const url="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="+encodeURIComponent(key);
  const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({contents:[{parts:[{text:instructions+"\nהודעות:\n"+history.map((x,i)=>String(i+1)+". "+x).join("\n")}]}],
+  body:JSON.stringify({contents:[{parts:[{text:instructions+"\nטיוטת הזמנה קיימת (שמור את כל הפריטים האלה אלא אם המשתמש שינה או מחק במפורש): "+JSON.stringify(cart)+"\nהודעות אחרונות:\n"+history.map((x,i)=>String(i+1)+". "+x).join("\n")}]}],
    generationConfig:{responseMimeType:"application/json",responseSchema:schema,temperature:0.15,maxOutputTokens:2500}})});
  if(!res.ok){console.error("conversation_model_http",res.status);throw new Error("conversation_model_unavailable");}
  const raw=await res.json();
@@ -315,13 +315,14 @@ Deno.serve(async(req:Request)=>{
    }
 
    const {data:stored,error:loadError}=await admin.from("supplier_purchasing_order_drafts")
-     .select("messages").eq("telegram_user_id",telegramUser).maybeSingle();
+     .select("messages,items").eq("telegram_user_id",telegramUser).maybeSingle();
    if(loadError)throw loadError;
    const savedMessages=Array.isArray(stored?.messages)?stored.messages.filter((v:unknown)=>typeof v==="string").slice(-20):[];
    const {data:afterAppend,error:readError}=await admin.from("supplier_purchasing_order_drafts")
-     .select("messages").eq("telegram_user_id",telegramUser).maybeSingle();
+     .select("messages,items").eq("telegram_user_id",telegramUser).maybeSingle();
    if(readError)throw readError;
    const history=Array.isArray(afterAppend?.messages)?afterAppend.messages.filter((v:unknown)=>typeof v==="string").slice(-20):savedMessages;
+   const cart=Array.isArray(afterAppend?.items)?afterAppend.items:[];
    if(!history.length){
      await reply("מה תרצה להזמין?");
      return output({ok:true});
@@ -332,7 +333,11 @@ Deno.serve(async(req:Request)=>{
      return output({ok:true});
    }
    let conversation:ConversationResult;
-   try{conversation=await understandConversation(history,geminiKey);}
+   try{
+     conversation=finishedOrder(input)
+       ? {mode:"update",items:cart,reply:""}
+       : await understandConversation(history,geminiKey,cart);
+   }
    catch(error){
      console.error("conversation_parse_failed",error instanceof Error?error.message:String(error));
      await reply("לא הצלחתי להבין בדיוק את הבקשה. תוכל לכתוב לי מה רצית להוסיף או לשנות? שמרתי את מה ששלחת.");
@@ -354,6 +359,12 @@ Deno.serve(async(req:Request)=>{
    if(conversation.mode==="chat" && !finishedOrder(input)){
      await reply(conversation.reply||"ברור. מה תרצה לעשות עם ההזמנה?");
      return output({ok:true});
+   }
+   if(conversation.mode==="update" && !finishedOrder(input)){
+     const {error:cartSaveErr}=await admin.from("supplier_purchasing_order_drafts")
+       .update({items:conversation.items,updated_at:new Date().toISOString()})
+       .eq("telegram_user_id",telegramUser);
+     if(cartSaveErr)throw cartSaveErr;
    }
    const {data:priceRows,error:pricesErr}=await admin.from("supplier_quote_normalized_prices_v")
      .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
