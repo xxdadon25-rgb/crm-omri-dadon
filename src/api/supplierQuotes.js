@@ -457,6 +457,22 @@ export async function approveMatch({ supplierId, item, productId }) {
 }
 
 /** Remembered mappings for one supplier, for auto-applying to new lines. */
+/**
+ * Previously confirmed quote-only product links from ANY supplier.
+ * Used as a cautious cross-supplier suggestion, never to infer pricing units.
+ * Limited to recent records to avoid downloading the entire quotation history.
+ */
+export async function listConfirmedQuoteProductNames() {
+  const { data, error } = await supabase.from("supplier_quote_items")
+    .select("supplier_name_raw, product_id")
+    .eq("match_status", "approved")
+    .not("product_id", "is", null)
+    .order("reviewed_at", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function listMatchesForSupplier(supplierId) {
   const { data, error } = await supabase
     .from("supplier_product_matches")
