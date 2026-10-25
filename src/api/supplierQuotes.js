@@ -635,6 +635,17 @@ export async function listQuotePages(quoteId) {
 
 /** The selected price per supplier+product — the phase-2 view, read as-is.
  *  The lowest approved historical price unless a manual override is active. */
+/** Verified purchasing prices across CRM and comparison-only products.
+ * Prices are normalized to the SAME declared pack size and never invent a unit. */
+export async function listNormalizedSupplierPrices() {
+  const { data, error } = await supabase.from("supplier_quote_normalized_prices_v")
+    .select("user_id,supplier_id,quote_item_id,quote_id,document_number,quote_date,product_id,quote_product_id,product_name,product_key,supplier_name_raw,supplier_sku,sale_level,price_before_vat,units_per_pack,packs_per_carton,base_qty_per_pack,price_per_pack,price_per_unit,comparison_status")
+    .order("quote_date", { ascending: false })
+    .limit(2000);
+  if(error) throw error;
+  return data || [];
+}
+
 export async function listSelectedPrices({ supplierId = null, productId = null } = {}) {
   let q = supabase.from("supplier_product_selected_price_v").select("*");
   if (supplierId) q = q.eq("supplier_id", supplierId);
