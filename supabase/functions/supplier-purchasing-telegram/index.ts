@@ -407,6 +407,34 @@ Deno.serve(async(req:Request)=>{
      await reply("לא הצלחתי להבין בדיוק את הבקשה. תוכל לכתוב לי מה רצית להוסיף או לשנות? שמרתי את מה ששלחת.");
      return output({ok:true});
    }
+   // The model sometimes labels an instruction to continue shopping as a price
+   // question. Treat explicit shopping/continuation intent as a cart update.
+   const explicitContinue=/(?:תמשיך|תמשיכי|נמשיך|תמשיכו|המשך|להמשיך|תתקדם|תתקדמי)/.test(input);
+   const explicitlyOrdering=/(?:אני צריך|אני צריכה|צריך להזמין|רוצה להזמין|תוסיף|להוסיף|תכניס|תזמין)/.test(input)
+     && !/(?:כמה עולה|מה המחיר|תראה מחיר|המחיר של)/.test(input);
+   if(!finishedOrder(input) && (explicitContinue||explicitlyOrdering)
+      && conversation.mode!=="update"){
+     conversation.mode="update";
+   }
+   // Recover an old shopping request if a previous question-mode response left
+   // the cart empty. Never infer products from the bot's own replies.
+   if(!finishedOrder(input) && conversation.mode==="update" && cart.length===0){
+     const firstOrder=history.find((m:string)=>m.startsWith("משתמש: ") &&
+       /(?:אני צריך|אני צריכה|צריך להזמין|רוצה להזמין|לעשות הזמנה)/.test(m));
+     if(firstOrder){
+       try{
+         const recovered=await parse(firstOrder.replace(/^משתמש:\\s*/,""),geminiKey);
+         const verified=recovered.map(cleanWanted).filter(p=>p.name);
+         if(verified.length && dimensions(firstOrder).every(d=>
+            dimensions(verified.map(x=>[x.name,x.size,x.notes].join(" ")).join(" ")).includes(d))){
+           const recoveredNames=new Set(verified.map(x=>norm(x.name)));
+           for(const product of conversation.items)
+             if(!recoveredNames.has(norm(product.name))) verified.push(product);
+           conversation.items=verified;
+         }
+       }catch(error){console.error("cart_recovery_failed",error instanceof Error?error.message:String(error))}
+     }
+   }
    const lastDimensions=dimensions(input);
    const lastVolumes=capacities(input);
    const allDetails=conversation.items.map(x=>[x.name,x.size,x.kind,x.color,x.notes].join(" ")).join(" ");
