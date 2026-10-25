@@ -1,0 +1,181 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2.57.0";
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info","Access-Control-Allow-Methods":"POST,OPTIONS"};
+const output=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json",...cors}});
+const norm=(s:unknown)=>String(s??"").normalize("NFKC").toLowerCase().replace(/[״"'׳]/g,"");
+const terms=(s:unknown)=>norm(s).replace(/[^\p{L}\p{N}/]+/gu," ").split(/\s+/).filter(Boolean);
+const dimensions=(s:unknown)=>Array.from(norm(s).matchAll(/(\d{2,4})\s*[\/x×*]\s*(\d{2,4})/g),m=>Number(m[1])+"/"+Number(m[2]));
+const capacities=(s:unknown)=>Array.from(norm(s).matchAll(/(\d{2,4})\s*(?:מל|מ"ל|ml|cc|סמק)/gi),m=>Number(m[1]));
+const ignore=new Set(["אני","צריך","צריכה","להזמין","לקנות","קרטון","קרטונים","חבילה","חבילות","יחידות","יחידה","של","עם","עוד","וגם","בבקשה","זה","את","כמה","מאיפה","מוצר","מוצרים","יח","בקרטון"]);
+type Product={product_name:string;supplier_name_raw:string;product_key:string;quote_item_id:string;quote_id:string;supplier_id:string;document_number:string;quote_date:string;price_per_pack:number;units_per_pack:number;packs_per_carton:number;comparison_status:string};
+type Wanted={name:string;qty:number;unit:string;size:string;kind:string;color:string;notes:string};
+function match(item:Wanted,rows:Product[]) {
+ const phrase=[item.name,item.size,item.kind,item.color,item.notes].filter(Boolean).join(" ");
+ const requiredDimensions=dimensions(phrase),requiredCapacities=capacities(phrase);
+ if(/מכס/.test(phrase)&&(/כוס/.test(phrase)||/ברד/.test(phrase))&&!requiredDimensions.length&&!requiredCapacities.length&&!/\b\d{2,3}\s*(?:ממ|mm)\b/i.test(phrase))
+  return {status:"clarify",question:"איזה גודל או קוטר מכסה צריך? כדי למנוע הזמנת מכסה שלא מתאים לכוס."};
+ const wanted=terms(phrase).filter(t=>!ignore.has(t)&&!/^\d+$/.test(t)&&!t.includes("/"));
+ if(!wanted.length) return {status:"clarify",question:"איזה מוצר בדיוק אתה צריך?"};
+ const matches=rows.map(p=>{
+  const title=p.product_name+" "+p.supplier_name_raw;
+  const availableDims=dimensions(title),availableCap=capacities(title);
+  if(requiredDimensions.some(d=>!availableDims.includes(d)) || (requiredDimensions.length>0 && availableDims.some(d=>!requiredDimensions.includes(d))))return null;
+  if(requiredCapacities.some(v=>!availableCap.includes(v)) || (requiredCapacities.length>0 && availableCap.some(v=>!requiredCapacities.includes(v))))return null;
+  const found=new Set(terms(title));
+  const overlap=wanted.filter(w=>found.has(w)).length;
+  const score=overlap/wanted.length;
+  return overlap>0?{p,score}:null;
+ }).filter(Boolean) as {p:Product;score:number}[];
+ matches.sort((a,b)=>b.score-a.score);
+ if(!matches.length||matches[0].score<0.8)return {status:"clarify",question:"לא מצאתי התאמה מדויקת ל־"+phrase+". אפשר להבהיר סוג, צבע או מידה?"};
+ const best=matches[0].score;
+ const keys=new Set(matches.filter(x=>x.score===best).map(x=>x.p.product_key));
+ if(keys.size!==1)return {status:"clarify",question:"יש כמה מוצרים דומים. לאיזה מהם התכוונת?",options:[...new Set(matches.filter(x=>x.score===best).map(x=>x.p.product_name))].slice(0,6)};
+ const selected=[...keys][0];
+ const prices=rows.filter(p=>{if(p.product_key!==selected||p.comparison_status!=="ready"||Number(p.price_per_pack)<0||Number(p.units_per_pack)<=0)return false;const dims=dimensions(p.product_name+" "+p.supplier_name_raw);const vols=capacities(p.product_name+" "+p.supplier_name_raw);return (!requiredDimensions.length||dims.every(d=>requiredDimensions.includes(d)))&&(!requiredCapacities.length||vols.every(v=>requiredCapacities.includes(v)));});
+ if(!prices.length)return {status:"clarify",question:"זיהיתי את המוצר, אבל אין מחיר מאומת או נתוני אריזה תקינים."};
+ const packSizes=new Set(prices.map(p=>Number(p.units_per_pack)));
+ if(packSizes.size>1)return {status:"clarify",question:"קיימות חבילות בגדלים שונים. איזו חבילה אתה צריך?",sizes:[...packSizes]};
+ if(!["unit","pack","carton"].includes(item.unit))return {status:"clarify",question:"האם אתה צריך יחידה, חבילה או קרטון?"};
+ const latest=new Map<string,Product>();
+ for(const p of prices){const prev=latest.get(p.supplier_id);if(!prev||Number(p.price_per_pack)<Number(prev.price_per_pack))latest.set(p.supplier_id,p)}
+ const offers=[...latest.values()].filter(p=>item.unit!=="carton"||Number(p.packs_per_carton)>0).map(p=>{
+ const qty=Number(item.qty)||1;
+ const pack=Number(p.price_per_pack);
+ const sum=(item.unit==="carton"?pack*Number(p.packs_per_carton):item.unit==="unit"?pack/Number(p.units_per_pack):pack)*qty;
+ return {supplier_id:p.supplier_id,quote_id:p.quote_id,quote_item_id:p.quote_item_id,document_number:p.document_number,quote_date:p.quote_date,units_per_pack:p.units_per_pack,packs_per_carton:p.packs_per_carton,quantity:qty,unit:item.unit,total_before_vat:Math.round(sum*10000)/10000};
+ }).sort((a,b)=>a.total_before_vat-b.total_before_vat);
+ if(!offers.length)return {status:"clarify",question:"חסר מספר חבילות מאומת בקרטון, ולכן לא אוכל לחשב מחיר."};
+ return {status:"matched",product:prices[0].product_name,offers,notice:"המחירים היסטוריים, לפני מע״מ, לא כולל הובלה או מינימום הזמנה."};
+}
+async function parse(message:string,key:string):Promise<Wanted[]>{
+ const prompt='חלץ בקשת רכש בעברית ל-JSON בפורמט {"items":[{"name":"","qty":1,"unit":"unit|pack|carton|unknown","size":"","kind":"","color":"","notes":""}]}. שמור מידות ונפחים בדיוק, כולל 75/90. אל תמציא פרטים. כל מוצר בנפרד. תקן שגיאות כתיב רק כשברור, אך לא מידות. אם לא נאמר נפח השאר ריק. בקשה: '+JSON.stringify(message);
+ const url="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="+encodeURIComponent(key);
+ const response=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json",temperature:0,maxOutputTokens:1200}})});
+ if(!response.ok)throw new Error("AI request failed");
+ const data=await response.json();
+ const raw=(data.candidates?.[0]?.content?.parts||[]).map((p:{text?:string})=>p.text||"").join("");
+ const v=JSON.parse(raw);
+ if(!Array.isArray(v.items)||v.items.length<1||v.items.length>12)throw new Error("Cannot parse order");
+ return v.items.map((p:Wanted)=>({name:String(p.name||""),qty:Math.min(1000,Math.max(1,Number(p.qty)||1)),unit:["unit","pack","carton"].includes(p.unit)?p.unit:"unknown",size:String(p.size||""),kind:String(p.kind||""),color:String(p.color||""),notes:String(p.notes||"")}));
+}
+
+const telegramApi=async(token:string,method:string,body:Record<string,unknown>)=>{
+ const res=await fetch("https://api.telegram.org/bot"+token+"/"+method,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+ const data=await res.json();
+ if(!res.ok||!data.ok)throw new Error("Telegram "+method+" failed: "+String(data.description||res.status));
+ return data.result;
+};
+async function webhookSecret(token:string){
+ const bytes=new TextEncoder().encode(token);
+ const hash=await crypto.subtle.digest("SHA-256",bytes);
+ return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+async function respondTelegram(token:string,chat_id:number,message:string){
+ return telegramApi(token,"sendMessage",{chat_id,text:message.slice(0,3900)});
+}
+const currency=(value:number)=>new Intl.NumberFormat("he-IL",{minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
+function buildReply(items:any[],supplierNames:Record<string,string>){
+ const parts:string[]=[];
+ for(const item of items){
+  const x=item.result;
+  if(x?.status==="matched"){
+   parts.push("✅ "+x.product+"\n"+x.offers.slice(0,4).map((o:any,i:number)=> (i===0?"המחיר הנמוך: ":"")+"🏪 "+(supplierNames[o.supplier_id]||"ספק")+" — "+currency(Number(o.total_before_vat))+" ₪ לפני מע״מ\n"+o.quantity+" "+(o.unit==="carton"?"קרטון":o.unit==="pack"?"חבילות":"יחידות")+" · מסמך "+(o.document_number||"ללא מספר")).join("\n"));
+  }else if(x?.status==="clarify"){
+   parts.push("❓ "+item.name+"\n"+x.question+(x.options?.length?"\nאפשרויות: "+x.options.join(" / "):""));
+  }else parts.push("❓ "+item.name+" — לא נמצאה התאמה בטוחה");
+ }
+ parts.push("\n⚠️ המחירים מבוססים על חשבוניות קיימות. לפני ביצוע הזמנה יש לאמת זמינות, משלוח ומינימום הזמנה.");
+ return parts.join("\n\n").slice(0,3800);
+}
+Deno.serve(async(req:Request)=>{
+ if(req.method==="OPTIONS")return new Response(null,{headers:cors});
+ if(req.method!=="POST")return output({error:"method_not_allowed"},405);
+ const token=Deno.env.get("TELEGRAM_PURCHASING_BOT_TOKEN");
+ if(!token)return output({error:"telegram_token_not_configured"},503);
+ const supabaseUrl=Deno.env.get("SUPABASE_URL")!;
+ const adminKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+ const anonKey=Deno.env.get("SUPABASE_ANON_KEY")!;
+ const admin=createClient(supabaseUrl,adminKey,{auth:{persistSession:false}});
+ try {
+  const webhookSig=req.headers.get("x-telegram-bot-api-secret-token")||"";
+  if(webhookSig && webhookSig===await webhookSecret(token)){
+   const data=await req.json();
+   const msg=data.message;
+   if(!msg||msg.chat?.type!=="private"||!msg.from?.id)return output({ok:true});
+   const telegramUser=Number(msg.from.id),chat=Number(msg.chat.id);
+   if(!Number.isSafeInteger(telegramUser)||!Number.isSafeInteger(chat))return output({ok:true});
+   const input=String(msg.text||"").trim();
+   if(!input)return output({ok:true});
+   const {data:authorized,error:authError}=await admin.from("supplier_purchasing_bot_auth").select("telegram_user_id").eq("telegram_user_id",telegramUser).maybeSingle();
+   if(authError)throw authError;
+   if(!authorized){
+    await respondTelegram(token,chat,"שלום! זה בוט הרכש של QuickStock.\nכדי להפעיל גישה מאובטחת למחירי הספקים, אשר את החשבון הזה בהגדרות החיבור ל־Telegram ב־CRM.\nמזהה הטלגרם שלך: "+telegramUser+"\n\nעד לאישור לא ניתן לראות מחירים או לבצע חיפושים.");
+    return output({ok:true});
+   }
+   if(input==="/start"||input==="/help"){
+    await respondTelegram(token,chat,"שלום! 👋\nשלח לי בעברית מה אתה רוצה להזמין, לדוגמה:\nקרטון שקיות אשפה 75/90 וקרטון כוסות ברד.\n\nאם חסר פרט או שיש כמה גדלים, אשאל לפני המלצה. אני לא מוציא הזמנות לספקים.");
+    return output({ok:true});
+   }
+   if(input==="/reset"){
+    await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
+    await respondTelegram(token,chat,"ניקיתי את בקשת הרכש הקודמת. כתוב מה תרצה להזמין.");
+    return output({ok:true});
+   }
+   const {data:prior}=await admin.from("supplier_purchasing_bot_chat_state").select("initial_request,last_question,updated_at").eq("telegram_user_id",telegramUser).maybeSingle();
+   const recent=prior&&Date.now()-new Date(prior.updated_at).getTime()<30*60*1000;
+   const requestText=recent ? "בקשת הרכש המקורית: "+prior.initial_request+"\nשאלת ההבהרה שלי: "+prior.last_question+"\nתשובת המשתמש: "+input+"\nפענח את כל בקשת הרכש עם התשובה האחרונה ואל תחליף מידות מקוריות." : input;
+   const geminiKey=Deno.env.get("GEMINI_API_KEY");
+   if(!geminiKey){await respondTelegram(token,chat,"מנוע השפה אינו מוגדר. פנה למנהל המערכת.");return output({ok:false,reason:"no_gemini"});}
+   const items=await parse(requestText,geminiKey);
+   // Never let an AI rewrite a dimension or capacity explicitly present in the user's request.
+   const initialDimensions=dimensions(recent?prior.initial_request:input);
+   const recognizedDimensions=dimensions(items.map(x=>[x.name,x.size,x.kind,x.color,x.notes].join(" ")).join(" "));
+   const initialCapacities=capacities(recent?prior.initial_request:input);
+   const recognizedCapacities=capacities(items.map(x=>[x.name,x.size,x.kind,x.color,x.notes].join(" ")).join(" "));
+   if(initialDimensions.some(x=>!recognizedDimensions.includes(x))||initialCapacities.some(x=>!recognizedCapacities.includes(x))){
+    await respondTelegram(token,chat,"לא הצלחתי לאמת את המידות או הנפחים שכתבת. אנא רשום שוב את הדגם והמידה המדויקת.");
+    return output({ok:true});
+   }
+   const {data:rows,error:priceError}=await admin.from("supplier_quote_normalized_prices_v").select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
+   if(priceError)throw priceError;
+   const {data:suppliers,error:supplierError}=await admin.from("suppliers").select("id,name").limit(2000);
+   if(supplierError)throw supplierError;
+   const names=Object.fromEntries((suppliers||[]).map((s:any)=>[s.id,s.name]));
+   const evaluated=items.map(p=>({...p,result:match(p,(rows||[]) as Product[])}));
+   const questions=evaluated.filter(x=>x.result?.status==="clarify");
+   if(questions.length){
+    await admin.from("supplier_purchasing_bot_chat_state").upsert({telegram_user_id:telegramUser,initial_request:recent?prior.initial_request:input,last_question:questions.map(x=>x.result.question).join("; ").slice(0,1000),updated_at:new Date().toISOString()});
+   }else await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
+   await respondTelegram(token,chat,buildReply(evaluated,names));
+   return output({ok:true});
+  }
+  // Only a signed-in staff user can register the webhook or grant Telegram access.
+  const jwt=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");
+  if(!jwt)return output({error:"unauthorized"},401);
+  const client=createClient(supabaseUrl,anonKey,{auth:{persistSession:false},global:{headers:{Authorization:"Bearer "+jwt}}});
+  const {data:{user},error:userError}=await client.auth.getUser(jwt);
+  if(userError||!user)return output({error:"unauthorized"},401);
+  const {data:staff,error:staffError}=await client.from("staff_members").select("id").eq("auth_user_id",user.id).maybeSingle();
+  if(staffError||!staff)return output({error:"forbidden"},403);
+  const body=await req.json();
+  if(body.action==="setup"){
+   const secret=await webhookSecret(token);
+   const url=supabaseUrl+"/functions/v1/supplier-purchasing-telegram";
+   await telegramApi(token,"setWebhook",{url,secret_token:secret,allowed_updates:["message"],max_connections:5,drop_pending_updates:false});
+   const info=await telegramApi(token,"getWebhookInfo",{});
+   return output({ok:true,connected:info.url===url,pending_update_count:info.pending_update_count,last_error_message:info.last_error_message||null});
+  }
+  if(body.action==="approve"){
+   const id=Number(body.telegram_user_id);
+   if(!Number.isSafeInteger(id)||id<=0)return output({error:"invalid_telegram_user_id"},400);
+   const {error}=await admin.from("supplier_purchasing_bot_auth").upsert({telegram_user_id:id,approved_by:user.id,approved_at:new Date().toISOString()});
+   if(error)throw error;
+   return output({ok:true,authorized:true});
+  }
+  return output({error:"invalid_action"},400);
+ } catch(err){
+  console.error("supplier-purchasing-telegram",String(err instanceof Error?err.message:err));
+  return output({error:"server_error"},500);
+ }
+});
