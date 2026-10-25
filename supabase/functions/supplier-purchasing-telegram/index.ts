@@ -124,6 +124,12 @@ Deno.serve(async(req:Request)=>{
   const webhookSig=req.headers.get("x-telegram-bot-api-secret-token")||"";
   if(webhookSig && webhookSig===await webhookSecret(token)){
    const data=await req.json();
+   const updateId=Number(data.update_id);
+   if(!Number.isSafeInteger(updateId)||updateId<0) return output({ok:true});
+   const {error:dedupeError}=await admin.from("supplier_purchasing_telegram_updates").insert({update_id:updateId});
+   if(dedupeError?.code==="23505")return output({ok:true});
+   if(dedupeError)throw dedupeError;
+   EdgeRuntime.waitUntil((async()=>{
    const msg=data.message;
    if(!msg||msg.chat?.type!=="private"||!msg.from?.id)return output({ok:true});
    const telegramUser=Number(msg.from.id),chat=Number(msg.chat.id);
@@ -171,6 +177,15 @@ Deno.serve(async(req:Request)=>{
     await admin.from("supplier_purchasing_bot_chat_state").upsert({telegram_user_id:telegramUser,initial_request:recent?prior.initial_request:input,last_question:questions.map(x=>x.result.question).join("; ").slice(0,1000),updated_at:new Date().toISOString()});
    }else await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
    await respondTelegram(token,chat,buildReply(evaluated,names));
+   return output({ok:true});
+   })().catch(async err=>{
+     console.error("purchasing_bot_async",String(err instanceof Error?err.message:err));
+     const chatId=Number(data?.message?.chat?.id);
+     if(Number.isSafeInteger(chatId)){
+       try{await respondTelegram(token,chatId,"נתקלתי בתקלה זמנית בעיבוד הבקשה. נסה לשלוח אותה שוב.");}
+       catch(e){console.error("telegram_reply_failed",String(e))}
+     }
+   }));
    return output({ok:true});
   }
   // Only a signed-in staff user can register the webhook or grant Telegram access.
