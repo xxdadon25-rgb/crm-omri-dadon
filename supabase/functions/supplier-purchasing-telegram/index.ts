@@ -9,7 +9,21 @@ const capacities=(s:unknown)=>Array.from(norm(s).matchAll(/(\d{2,4})\s*(?:מל|�
 const ignore=new Set(["אני","צריך","צריכה","להזמין","לקנות","קרטון","קרטונים","חבילה","חבילות","יחידות","יחידה","של","עם","עוד","וגם","בבקשה","זה","את","כמה","מאיפה","מוצר","מוצרים","יח","בקרטון"]);
 type Product={product_name:string;supplier_name_raw:string;product_key:string;quote_item_id:string;quote_id:string;supplier_id:string;document_number:string;quote_date:string;price_per_pack:number;units_per_pack:number;packs_per_carton:number;comparison_status:string};
 type Wanted={name:string;qty:number;unit:string;size:string;kind:string;color:string;notes:string};
+// Language models sometimes output literal "unknown" in optional fields.
+// That word is a missing value, not a product feature to match against invoices.
+const cleanField=(value:unknown)=> {
+ const t=String(value??"").trim();
+ return /^(?:unknown|null|undefined|none|n\/a|not specified|לא ידוע|לא צוין|לא צויין|אין)$/i.test(t)?"":t;
+};
+const cleanWanted=(p:Wanted):Wanted=>({
+ name:cleanField(p.name),qty:Math.min(1000,Math.max(1,Number(p.qty)||1)),
+ unit:["unit","pack","carton"].includes(p.unit)?p.unit:"unknown",
+ size:cleanField(p.size),kind:cleanField(p.kind),
+ color:cleanField(p.color),notes:cleanField(p.notes)
+});
+
 function match(item:Wanted,rows:Product[]) {
+ item=cleanWanted(item);
  const phrase=[item.name,item.size,item.kind,item.color,item.notes].filter(Boolean).join(" ");
  const requiredDimensions=dimensions(phrase),requiredCapacities=capacities(phrase);
  // Lid-to-cup compatibility needs a verified rim diameter or manufacturer's
@@ -123,7 +137,7 @@ async function understandConversation(history:string[],key:string,cart:Wanted[])
   unit:["unit","pack","carton"].includes(p.unit)?p.unit:"unknown",
   size:String(p.size||"").slice(0,80),kind:String(p.kind||"").slice(0,80),
   color:String(p.color||"").slice(0,80),notes:String(p.notes||"").slice(0,100)
- })).filter(p=>p.name);
+ })).map(cleanWanted).filter(p=>p.name);
  return {mode:parsed.mode,items,reply:String(parsed.reply||"").slice(0,300)};
 }
 
@@ -372,7 +386,7 @@ Deno.serve(async(req:Request)=>{
      .select("messages,items").eq("telegram_user_id",telegramUser).maybeSingle();
    if(readError)throw readError;
    const history=Array.isArray(afterAppend?.messages)?afterAppend.messages.filter((v:unknown)=>typeof v==="string").slice(-20):savedMessages;
-   const cart=Array.isArray(afterAppend?.items)?afterAppend.items:[];
+   const cart:Wanted[]=Array.isArray(afterAppend?.items)?afterAppend.items.map((p:Wanted)=>cleanWanted(p)).filter((p:Wanted)=>p.name):[];
    if(!history.length){
      await reply("מה תרצה להזמין?");
      return output({ok:true});
