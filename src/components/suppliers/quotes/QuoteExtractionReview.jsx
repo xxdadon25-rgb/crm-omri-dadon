@@ -32,7 +32,7 @@ import {
   priceBeforeVat, parsePackaging, comparablePrice, reviewFlags,
   canAutoApplyMatch, documentCompleteness, round2, toNumber,
 } from "@/lib/quoteMath";
-import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds, listConfirmedQuoteProductNames, findCatalogProductsByExactNames } from "@/api/supplierQuotes";
+import { createScannedQuote, saveReviewedItems, saveProductPackage, approveMatch, listMatchesForSupplier, getProductsByIds, listConfirmedQuoteProductNames, findCatalogProductsByExactNames, listQuoteCatalogProducts, createQuoteCatalogProduct, saveQuoteCatalogPackage } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 
@@ -57,6 +57,9 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const [vatRate, setVatRate] = useState(draft.document.vat_rate ?? 18);
   const [items, setItems] = useState(draft.items);
   const [matches, setMatches] = useState([]);
+  const [quoteCatalog, setQuoteCatalog] = useState([]);
+  const [newFor, setNewFor] = useState(null);
+  const [newName, setNewName] = useState("");
   const [crossSupplierLoaded, setCrossSupplierLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveProgress = useRef({ quoteId: null, linesSaved: false });
@@ -79,6 +82,8 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
     return () => { cancelled = true; };
   }, [supplierId]);
 
+  useEffect(() => { listQuoteCatalogProducts().then(setQuoteCatalog).catch(() => {}); }, []);
+
   // Reuse identity across suppliers only for an EXACT, uniquely verified
   // invoice description. A different supplier's billing unit is never copied.
   useEffect(() => {
@@ -94,7 +99,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         grouped.get(key).add(row.product_id);
       }
       setItems(previous => previous.map(line => {
-        if (line.product_id) return line;
+        if (line.product_id || line.quote_product_id) return line;
         const candidates = grouped.get(normalize(line.supplier_name_raw));
         if (!candidates || candidates.size !== 1) return line;
         return { ...line, product_id: [...candidates][0], auto_suggested: true,
@@ -119,7 +124,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
         byName.get(key).push(p);
       }
       setItems(prev => prev.map(line => {
-        if (line.product_id) return line;
+        if (line.product_id || line.quote_product_id) return line;
         const candidates = byName.get(String(line.supplier_name_raw || "").trim()) || [];
         if (candidates.length !== 1) return line;
         return { ...line, product_id: candidates[0].id, auto_suggested: true,
@@ -157,7 +162,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   useEffect(() => {
     if (!matches.length) return;
     setItems(prev => prev.map(line => {
-      if (line.product_id && !line.auto_suggested) return line;
+      if ((line.product_id && !line.auto_suggested) || line.quote_product_id) return line;
       const candidate = matches.find(m =>
         line.sku_unavailable && m.sku_unavailable
           ? String(m.supplier_description || "").trim().toLowerCase() === String(line.supplier_name_raw || "").trim().toLowerCase()
@@ -214,7 +219,7 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       next.comparable_price = comparablePrice(next);
       // A match alone is NOT enough to compare a price. Require known package
       // units too; purchased quantity is never used as pack size.
-      next.match_status = next.product_id && ["unit", "pack", "carton"].includes(next.sale_level) && next.base_unit &&
+      next.match_status = (next.product_id || next.quote_product_id) && ["unit", "pack", "carton"].includes(next.sale_level) && next.base_unit &&
         Number(next.base_qty_per_pack) > 0 && next.price_before_vat !== null
           ? "approved" : "pending";
       next.review_reasons = reviewFlags({ item: next, quote: { vat_basis: vatBasis } });
@@ -238,6 +243,15 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
   const needsCheck = items.length - approvedCount;
   const vatUnknown = vatBasis !== "excluded" && vatBasis !== "included";
 
+  const createQuoteOnly = async idx => {
+    try {
+      const product = await createQuoteCatalogProduct(newName);
+      setQuoteCatalog(prev => [...prev, product]);
+      updateLine(idx,{product_id:null,quote_product_id:product.id,sale_level:null});
+      setNewFor(null); setNewName("");
+      toast.success("מוצר להשוואה בלבד נוצר — אפשר להגדיר אריזה ומחיר");
+    } catch(err) {toast.error(err?.message || "יצירת מוצר נכשלה");}
+  };
   const hasUnappliedPackage = false; // Package changes are applied to the draft immediately.
   const handleSave = async () => {
     if (hasUnappliedPackage) { toast.error("החל את כל שינויי האריזות לפני שמירת המסמך"); return; }
@@ -262,15 +276,15 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
       // A failed profile write is reported, not disguised as complete success.
       const profiles = new Map();
       for (const line of items) {
-        if (line.product_id && line.pack_profile && line.match_status === "approved") {
-          profiles.set(line.product_id, line.pack_profile);
+        if ((line.product_id || line.quote_product_id) && line.pack_profile && line.match_status === "approved") {
+          profiles.set(line.quote_product_id ? `quote:${line.quote_product_id}` : `catalog:${line.product_id}`, line.pack_profile);
         }
       }
-      for (const [productId, profile] of profiles) {
-        await saveProductPackage({
-          productId, unitsPerPack: profile.units_per_pack,
-          packsPerCarton: profile.packs_per_carton,
-        });
+      for (const [key, profile] of profiles) {
+        const args = {productId:key.slice(key.indexOf(":")+1),
+          unitsPerPack: profile.units_per_pack,packsPerCarton: profile.packs_per_carton};
+        if(key.startsWith("quote:")) await saveQuoteCatalogPackage(args);
+        else await saveProductPackage(args);
       }
 
 
@@ -453,12 +467,27 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
                     <div style={{ marginTop: 8, width: "100%" }}>
                         <QuotePackagingEditor
                           productId={line.product_id}
+                          quoteProduct={quoteCatalog.find(p=>p.id===line.quote_product_id) || null}
                           saleLevel={line.sale_level}
                           invoicedPrice={line.price_before_vat}
                           disabled={saving}
                           onApply={patch => updateLine(idx, patch)}
                         />
                     </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+                      {line.quote_product_id && <strong style={{fontSize:11}}>להשוואה בלבד: {quoteCatalog.find(p=>p.id===line.quote_product_id)?.name}</strong>}
+                      <select value={line.quote_product_id || ""} onChange={e=>updateLine(idx,{product_id:null,quote_product_id:e.target.value||null,sale_level:null})}
+                        style={{maxWidth:220,border:"1px solid #ddd",borderRadius:6,fontSize:12}}>
+                        <option value="">מוצר קיים להשוואה...</option>
+                        {quoteCatalog.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <Button variant="outline" size="sm" onClick={()=>{setNewFor(idx);setNewName(line.supplier_name_raw)}}>+ מוצר חדש להשוואה</Button>
+                    </div>
+                    {newFor===idx && <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
+                      <Input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="שם מוצר חדש" />
+                      <Button size="sm" onClick={()=>createQuoteOnly(idx)}>צור ושייך</Button>
+                      <Button size="sm" variant="outline" onClick={()=>setNewFor(null)}>ביטול</Button>
+                    </div>}
                     {line.auto_suggested && (
                       <div style={{ fontSize: 11, color: "#b45309", marginTop: 3 }}>
                         זוהה לפי חשבונית מספק אחר — יש לאשר את סוג החיוב
@@ -546,13 +575,14 @@ export default function QuoteExtractionReview({ scan, suppliers = [], onCancel, 
             const missingPack = !current.base_unit || !(Number(current.base_qty_per_pack) > 0);
             updateLine(pickerIdx, {
               product_id: product.id,
+              quote_product_id: null,
               sale_level: current.product_id === product.id ? current.sale_level : null,
               ...(missingPack && inferred ? {
                 base_unit: inferred.base_unit, base_qty_per_pack: inferred.base_qty_per_pack,
               } : {}),
             });
           } else {
-            updateLine(pickerIdx, { product_id: null, sale_level: null });
+            updateLine(pickerIdx, { product_id: null, quote_product_id: null, sale_level: null });
           }
         }}
       />
