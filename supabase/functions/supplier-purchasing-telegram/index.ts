@@ -180,6 +180,56 @@ async function resolveApprovedLids(evaluated:any[],rawRows:Product[],admin:any,t
    item.result={status:"matched",product:verified[0].product_name,offers};
  }
 }
+
+async function offerLidChoices(
+ evaluated:any[],rows:Product[],supplierNames:Record<string,string>,admin:any,telegramUser:number
+):Promise<string|null>{
+ const lid=evaluated.find(x=>/מכס/.test(x.name+" "+x.kind)&&/ברד/.test(x.name+" "+x.size+" "+x.kind));
+ if(!lid || lid.result?.status==="matched")return null;
+ const volume=capacities(lid.name+" "+lid.size+" "+lid.notes);
+ const cup=evaluated.find(x=>/כוס/.test(x.name)&&/ברד/.test(x.name)&&!/מכס/.test(x.name));
+ const cupVolume=cup?capacities(cup.name+" "+cup.size+" "+cup.notes):[];
+ const cap=[...new Set([...volume,...cupVolume])];
+ if(cap.length!==1)return null;
+ const cupRows=rows.filter(p=>!/מכס/.test(p.product_name+" "+p.supplier_name_raw)&&
+  /כוס/.test(p.product_name+" "+p.supplier_name_raw)&&/ברד/.test(p.product_name+" "+p.supplier_name_raw)&&
+  capacities(p.supplier_name_raw).includes(cap[0]));
+ const keys=[...new Set(cupRows.map(p=>p.product_key))];
+ if(keys.length!==1 || !cupRows.length)return null;
+ const {data:pending}=await admin.from("supplier_purchasing_pending_lids")
+   .select("created_at").eq("telegram_user_id",telegramUser).maybeSingle();
+ if(pending&&Date.now()-new Date(pending.created_at).getTime()<30*60*1000)
+   return "כבר הצגתי לך אפשרויות למכסים. אפשר לבחור במספר של האפשרות המתאימה, או להמשיך להוסיף מוצרים ולחזור לזה אחר כך.";
+ const lidRows=rows.filter(p=>/מכס/.test(p.product_name+" "+p.supplier_name_raw) &&
+  (/כוס/.test(p.product_name+" "+p.supplier_name_raw)||/כיפה/.test(p.product_name+" "+p.supplier_name_raw)) &&
+  p.comparison_status==="ready");
+ const grouped=new Map<string,Product[]>();
+ for(const p of lidRows){
+  if(!grouped.has(p.product_key))grouped.set(p.product_key,[]);
+  grouped.get(p.product_key)!.push(p);
+ }
+ if(!grouped.size)return null;
+ const choices=[...grouped.entries()].slice(0,7).map(([key,offers])=>({product_key:key,name:offers[0].product_name,offers}));
+ const text=choices.map((choice,i)=>{
+  const details=choice.offers.map(p=>{
+   const carton=Number(p.units_per_pack)*Number(p.packs_per_carton);
+   const m=p.supplier_name_raw.match(/(\d+)\s*יח[^\n]{0,22}בקרטון/);
+   const discrepancy=m&&Number(m[1])!==carton;
+   return (supplierNames[p.supplier_id]||"ספק")+" — "+
+    (discrepancy?"מחיר הקרטון דורש בדיקת כמויות":currency(Number(p.price_per_pack)*Number(p.packs_per_carton))+" ₪ לקרטון לפני מע״מ")+
+    "\nתיאור בחשבונית: "+p.supplier_name_raw;
+  }).join("\n");
+  return String(i+1)+". "+choice.name+"\n"+details;
+ }).join("\n\n");
+ const {error}=await admin.from("supplier_purchasing_pending_lids").upsert({
+  telegram_user_id:telegramUser,cup_quote_item_id:cupRows[0].quote_item_id,
+  candidates:choices.map(c=>({product_key:c.product_key,name:c.name})),
+  created_at:new Date().toISOString()
+ });
+ if(error)throw error;
+ return "אלה המכסים שמצאתי בחשבוניות:\n\n"+text+
+  "\n\nאני עדיין לא יודע מה מתאים לכוס "+cap[0]+" מ״ל שלך. אם אתה מזהה מכסה שמתאים, תענה במספר שלו ואשמור את ההתאמה. אם אינך בטוח, נברר לפני שמזמינים.";
+}
 const finishedOrder=(input:string)=>/^(?:סיימתי|סיימנו|סכם(?:\s+(?:לי\s+)?(?:את\s+)?(?:ה)?הזמנה)?|סיכום(?:\s+הזמנה)?|זהו(?:\s+תודה)?|זה\s+הכל|תן\s+לי\s+סיכום|תכין\s+(?:לי\s+)?(?:סיכום|רשימת\s+הזמנה))[\s.!]*$/i.test(input);
 function orderSummary(evaluated:any[],supplierNames:Record<string,string>){
  const bySupplier=new Map<string,{name:string;lines:string[];total:number}>();
@@ -382,6 +432,14 @@ Deno.serve(async(req:Request)=>{
        await admin.from("supplier_purchasing_bot_chat_state").delete().eq("telegram_user_id",telegramUser);
      }
      return output({ok:true});
+   }
+   const lidToClarify=evaluated.find((x:any)=>/מכס/.test(x.name)&&/ברד/.test(x.name+" "+x.size)&&x.result?.status==="clarify");
+   if(lidToClarify && !finishedOrder(input)){
+     const options=await offerLidChoices(evaluated,(priceRows||[]) as Product[],names,admin,telegramUser);
+     if(options){
+       await reply(options);
+       return output({ok:true});
+     }
    }
    if(conversation.mode==="question"){
      const target=evaluated.filter(x=>x.result?.status==="matched");
