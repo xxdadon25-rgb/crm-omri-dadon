@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getQuoteForEditing, listQuoteItems, getProductsByIds, listCatalogForQuoteSuggestions, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
+import { getQuoteForEditing, listQuoteItems, getProductsByIds, listCatalogForQuoteSuggestions, listConfirmedQuoteProductNames, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
@@ -12,6 +12,42 @@ const FILLER = new Set(["יח", "יחידות", "יחידה", "יחיד", "בק�
 const cleanWords = name => String(name || "").normalize("NFKC").toLowerCase()
   .replace(/[^\p{L}\p{N}]+/gu, " ")
   .split(/\s+/).map(v => v.trim()).filter(v => v.length >= 2 && !FILLER.has(v));
+// This matcher is intentionally stricter than the displayed suggestions.
+// Only unique exact barcodes, confirmed cross-supplier identities, or a
+// dominant semantic match with compatible numeric attributes may be linked.
+function uniqueAutoMatch(item, catalog, confirmed = []) {
+  const sku = String(item.supplier_sku || "").trim();
+  if (sku && sku !== "0" && sku.length >= 8) {
+    const byBarcode = catalog.filter(p => String(p.barcode || "").trim() === sku);
+    if (byBarcode.length === 1) return byBarcode[0];
+  }
+  const key = cleanWords(item.supplier_name_raw).join(" ");
+  const confirmedIds = new Set(confirmed.filter(x => cleanWords(x.supplier_name_raw).join(" ") === key).map(x => x.product_id));
+  if (key && confirmedIds.size === 1) {
+    const known = catalog.find(p => p.id === [...confirmedIds][0]);
+    if (known) return known;
+  }
+  const exact = catalog.filter(p => cleanWords(p.name).join(" ") === key && key);
+  if (exact.length === 1) return exact[0];
+  const invoiceWords = new Set(cleanWords(item.supplier_name_raw));
+  const invoiceNums = [...invoiceWords].filter(x => /^\d+$/.test(x));
+  const invoiceText = [...invoiceWords].filter(x => !/^\d+$/.test(x));
+  const candidates = catalog.map(product => {
+    const prod = new Set(cleanWords(product.name));
+    const nums = [...prod].filter(x => /^\d+$/.test(x));
+    const prodText = [...prod].filter(x => !/^\d+$/.test(x));
+    const common = invoiceText.filter(x => prod.has(x));
+    if (common.length < 2 || invoiceText.length === 0 || prodText.length === 0) return null;
+    if (invoiceNums.length && nums.length && !nums.some(x => invoiceNums.includes(x))) return null;
+    const coverage = common.length / Math.min(invoiceText.length, prodText.length);
+    const totalCoverage = common.length / Math.max(invoiceText.length, prodText.length);
+    const score = coverage * .5 + totalCoverage * .5 + (nums.some(x => invoiceNums.includes(x)) ? .08 : 0);
+    return {product, score};
+  }).filter(Boolean).sort((a,b) => b.score-a.score);
+  return candidates.length && candidates[0].score >= .92 &&
+    (!candidates[1] || candidates[0].score-candidates[1].score >= .2)
+      ? candidates[0].product : null;
+}
 function quoteCandidates(invoiceName, catalog) {
   const tokens = new Set(cleanWords(invoiceName));
   const invoiceNumbers = new Set([...tokens].filter(t => /^\d+$/.test(t)));
@@ -39,12 +75,15 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   const [items, setItems] = useState([]);
   const [matchedProducts, setMatchedProducts] = useState({});
   const [catalog, setCatalog] = useState([]);
+  const [confirmed, setConfirmed] = useState([]);
+  const [autoLinking, setAutoLinking] = useState(false);
   const [picker, setPicker] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
     listCatalogForQuoteSuggestions().then(products => { if (active) setCatalog(products); }).catch(() => {});
+    listConfirmedQuoteProductNames().then(rows => { if (active) setConfirmed(rows); }).catch(() => {});
     Promise.all([getQuoteForEditing(quoteId), listQuoteItems(quoteId)])
       .then(([q, rows]) => {
         if (!active) return;
@@ -67,6 +106,26 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
     Number(i.base_qty_per_pack) > 0 &&
     i.unit_price !== null && i.unit_price !== "" &&
     Number(i.unit_price) >= 0 && ["included", "excluded"].includes(quote?.vat_basis);
+  const autoCandidates = items.map((item, idx) => ({idx, product: !item.product_id ? uniqueAutoMatch(item, catalog, confirmed) : null}))
+    .filter(x => x.product && (!focusItemId || items[x.idx].id === focusItemId));
+  const autoLinkAll = async () => {
+    if (!autoCandidates.length) return;
+    setAutoLinking(true);
+    try {
+      // Link only: NEVER approve prices or copy packaging/charging units.
+      for (const {idx, product} of autoCandidates) {
+        await updateReviewedItem(items[idx].id, { product_id: product.id, match_status: "pending" });
+      }
+      setItems(prev => prev.map((item, idx) => {
+        const found = autoCandidates.find(x => x.idx === idx);
+        return found ? {...item, product_id: found.product.id, match_status: "pending", auto_linked: true} : item;
+      }));
+      setMatchedProducts(prev => ({...prev, ...Object.fromEntries(autoCandidates.map(x => [x.product.id,x.product]))}));
+      toast.success(`שויכו אוטומטית ${autoCandidates.length} מוצרים. המחיר והאריזה עדיין דורשים אישור כשאינם ברורים.`);
+    } catch(err) {
+      toast.error((err?.message || "השמירה נכשלה") + " — ייתכן שחלק מהשיוכים נשמרו; פתח שוב לבדיקה");
+    } finally { setAutoLinking(false); }
+  };
   const hasUnappliedPackage = false;
   const save = async () => {
     if (hasUnappliedPackage) { toast.error("יש להחיל את הגדרות האריזה לפני שמירת החשבונית"); return; }
@@ -115,6 +174,14 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   return (
     <div dir="rtl" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <h3 style={{ fontWeight: 700, fontSize: 21 }}>{focusItemId ? "עריכת מוצר" : "תיקון מוצרים ואריזות"} · מסמך {quote.document_number || ""}</h3>
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",padding:12,border:"1px solid #d1d5db",borderRadius:10}}>
+        <strong>משויכים לקטלוג: {items.filter(x=>x.product_id).length} מתוך {items.length}</strong>
+        <span style={{fontSize:12,color:"#666"}}>דורשים אישור מחיר/אריזה: {items.filter(x=>!valid(x)).length}</span>
+        <Button onClick={autoLinkAll} disabled={busy || autoLinking || !autoCandidates.length}>
+          {autoLinking ? "משייך..." : `שיוך אוטומטי של ${autoCandidates.length} מוצרים בטוחים`}
+        </Button>
+        <span style={{fontSize:11,color:"#666"}}>רק שיוך ודאי. שאר המוצרים לא ישויכו בניחוש.</span>
+      </div>
       <p style={{ fontSize: 12, color: "#666" }}>
         ודא את מחיר הספק, כמות בחבילה וכמות חבילות בקרטון. השינויים נשמרים רק בהשוואת המחירים.
       </p>
