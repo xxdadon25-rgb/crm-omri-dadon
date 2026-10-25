@@ -12,17 +12,27 @@ type Wanted={name:string;qty:number;unit:string;size:string;kind:string;color:st
 function match(item:Wanted,rows:Product[]) {
  const phrase=[item.name,item.size,item.kind,item.color,item.notes].filter(Boolean).join(" ");
  const requiredDimensions=dimensions(phrase),requiredCapacities=capacities(phrase);
+ // A general cup request needs a capacity before any supplier offer.
+ // The actual saved invoices contain both 330ml and 500ml "כוס ברד".
+ if(/כוס/.test(phrase)&&/ברד/.test(phrase)&&!/מכס/.test(phrase)
+   &&requiredCapacities.length===0 && requiredDimensions.length===0)
+  return {status:"clarify",question:"איזה נפח כוסות ברד אתה צריך — 330 מ״ל או 500 מ״ל? אני לא בוחר גודל עבורך."};
  if(/מכס/.test(phrase)&&(/כוס/.test(phrase)||/ברד/.test(phrase))&&!requiredDimensions.length&&!requiredCapacities.length&&!/\b\d{2,3}\s*(?:ממ|mm)\b/i.test(phrase))
   return {status:"clarify",question:"איזה גודל או קוטר מכסה צריך? כדי למנוע הזמנת מכסה שלא מתאים לכוס."};
  const wanted=terms(phrase).filter(t=>!ignore.has(t)&&!/^\d+$/.test(t)&&!t.includes("/"));
  if(!wanted.length) return {status:"clarify",question:"איזה מוצר בדיוק אתה צריך?"};
  const matches=rows.map(p=>{
   const title=p.product_name+" "+p.supplier_name_raw;
+  const source=p.supplier_name_raw || "";
+  // When the user supplies an exact dimension/capacity, insist on explicit
+  // source-document evidence; a canonical catalog link is not sufficient.
+  if(requiredDimensions.length && requiredDimensions.some(d=>!dimensions(source).includes(d)))return null;
+  if(requiredCapacities.length && requiredCapacities.some(v=>!capacities(source).includes(v)))return null;
   const availableDims=dimensions(title),availableCap=capacities(title);
   if(requiredDimensions.some(d=>!availableDims.includes(d)) || (requiredDimensions.length>0 && availableDims.some(d=>!requiredDimensions.includes(d))))return null;
   if(requiredCapacities.some(v=>!availableCap.includes(v)) || (requiredCapacities.length>0 && availableCap.some(v=>!requiredCapacities.includes(v))))return null;
-  const found=new Set(terms(title));
-  const overlap=wanted.filter(w=>found.has(w)).length;
+  const found=new Set(terms(title).map(t=>t==="כוסות"?"כוס":t==="מכסים"?"מכסה":t));
+  const overlap=wanted.map(t=>t==="כוסות"?"כוס":t==="מכסים"?"מכסה":t).filter(w=>found.has(w)).length;
   const score=overlap/wanted.length;
   return overlap>0?{p,score}:null;
  }).filter(Boolean) as {p:Product;score:number}[];
@@ -32,7 +42,15 @@ function match(item:Wanted,rows:Product[]) {
  const keys=new Set(matches.filter(x=>x.score===best).map(x=>x.p.product_key));
  if(keys.size!==1)return {status:"clarify",question:"יש כמה מוצרים דומים. לאיזה מהם התכוונת?",options:[...new Set(matches.filter(x=>x.score===best).map(x=>x.p.product_name))].slice(0,6)};
  const selected=[...keys][0];
- const prices=rows.filter(p=>{if(p.product_key!==selected||p.comparison_status!=="ready"||Number(p.price_per_pack)<0||Number(p.units_per_pack)<=0)return false;const dims=dimensions(p.product_name+" "+p.supplier_name_raw);const vols=capacities(p.product_name+" "+p.supplier_name_raw);return (!requiredDimensions.length||dims.every(d=>requiredDimensions.includes(d)))&&(!requiredCapacities.length||vols.every(v=>requiredCapacities.includes(v)));});
+ const prices=rows.filter(p=>{
+  if(p.product_key!==selected||p.comparison_status!=="ready"||Number(p.price_per_pack)<0||Number(p.units_per_pack)<=0)return false;
+  const source=p.supplier_name_raw||"";
+  // Re-verify each offer independently, even for the same canonical product.
+  const dims=dimensions(source),vols=capacities(source);
+  if(requiredDimensions.length && (requiredDimensions.some(d=>!dims.includes(d))||dims.some(d=>!requiredDimensions.includes(d))))return false;
+  if(requiredCapacities.length && (requiredCapacities.some(v=>!vols.includes(v))||vols.some(v=>!requiredCapacities.includes(v))))return false;
+  return true;
+ });
  if(!prices.length)return {status:"clarify",question:"זיהיתי את המוצר, אבל אין מחיר מאומת או נתוני אריזה תקינים."};
  const packSizes=new Set(prices.map(p=>Number(p.units_per_pack)));
  if(packSizes.size>1)return {status:"clarify",question:"קיימות חבילות בגדלים שונים. איזו חבילה אתה צריך?",sizes:[...packSizes]};
