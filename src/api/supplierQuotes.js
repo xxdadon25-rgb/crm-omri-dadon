@@ -462,6 +462,22 @@ export async function approveMatch({ supplierId, item, productId }) {
  * Used as a cautious cross-supplier suggestion, never to infer pricing units.
  * Limited to recent records to avoid downloading the entire quotation history.
  */
+/** Exact catalog-name lookup, one batched read. Never searches loosely or writes catalog data. */
+export async function findCatalogProductsByExactNames(names) {
+  const unique = [...new Set((names || []).map(n => String(n || "").trim()).filter(Boolean))];
+  if (!unique.length) return [];
+  const result = [];
+  for (let start = 0; start < unique.length; start += 75) {
+    const { data, error } = await supabase.from("products")
+      .select("id, name, sku, unit, description, image_url")
+      .eq("is_active", true)
+      .in("name", unique.slice(start, start + 75));
+    if (error) throw error;
+    result.push(...(data || []));
+  }
+  return result;
+}
+
 export async function listConfirmedQuoteProductNames() {
   const { data, error } = await supabase.from("supplier_quote_items")
     .select("supplier_name_raw, product_id")
