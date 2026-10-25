@@ -109,6 +109,7 @@ async function understandConversation(history:string[],key:string,cart:Wanted[])
   "אל תמציא מחירים, ספקים, זמינות, כמויות, מידות, מותגים, או התאמה בין מכסה לכוס.",
   "הפק items המשקפים את ההזמנה בלבד. לשאלה על מחיר של מוצר שאינו בהזמנה, במצב question מותר להחזיר אותו כפריט חיפוש בלבד ורק אם ברור שהוא לא נוסף להזמנה.",
   "reply הוא תשובה קצרה אנושית בעברית: בלי אימוג׳י, בלי סימני קריאה או אזהרות קבועות, בלי מחירים מומצאים ובלי חזרה על כל ההזמנה.",
+  "לעולם אל תכתוב שאתה בודק ומעדכן מיד, אחזור אליך או כל הבטחה לעבודה מאוחרת. אם אין נתון, אמור מה חסר.",
   "אם הבקשה לא מובנת שאל רק שאלה אחת ממוקדת. קח בחשבון את ההקשר. מצב chat לשיחות חולין, question לבירור או שאלה, update לתוספת או תיקון הזמנה.",
   "שמור כל מידה בדיוק כפי שנכתבה (75/90 לעולם אינו 75/85, 330 מ״ל אינו 350).",
   "השתמש ב-unit carton עבור קרטון, pack עבור חבילה, unit עבור יחידה, unknown אם לא צוין. מספר יחידות qty ללא ניחוש.",
@@ -377,6 +378,63 @@ Deno.serve(async(req:Request)=>{
        }
      }
      await reply("לא הצלחתי לקשר בוודאות את השאלה למוצר. לאיזה מוצר או מידה התכוונת?");
+     return output({ok:true});
+   }
+
+   // A price follow-up must be answered from actual invoice rows, never
+   // delegated to a language-model promise of a future lookup.
+   if(/(?:מה\s+(?:ה)?מחיר|כמה\s+עולה|כמה\s+יעלה|מחיר\s+(?:ל)?קרטון|בכמה\s+(?:ה)?קרטון)/.test(input)){
+     const {data:draft,error:draftError}=await admin.from("supplier_purchasing_order_drafts")
+       .select("items,messages").eq("telegram_user_id",telegramUser).maybeSingle();
+     if(draftError)throw draftError;
+     const orderItems:Wanted[]=Array.isArray(draft?.items)
+       ?draft.items.map((p:Wanted)=>cleanWanted(p)).filter((p:Wanted)=>p.name):[];
+     const messages=Array.isArray(draft?.messages)?draft.messages.filter((m:unknown)=>typeof m==="string"):[];
+     const relevantMessages=messages.slice(-7).reverse();
+     const questionText=input+" "+relevantMessages.filter((m:string)=>m.startsWith("משתמש: ")).slice(1,3).join(" ");
+     const namesMentioned=(item:Wanted,text:string)=>{
+       const phrase=norm(item.name+" "+item.size);
+       const textNorm=norm(text);
+       if(/ברד/.test(phrase))return /ברד/.test(textNorm);
+       if(/שקיות|אשפה/.test(phrase))return /שקיות|אשפה/.test(textNorm);
+       return terms(item.name).some(w=>w.length>2&&textNorm.includes(w));
+     };
+     let selected:Wanted|undefined;
+     if(orderItems.length===1)selected=orderItems[0];
+     if(!selected){
+       const direct=orderItems.filter(p=>namesMentioned(p,input));
+       if(direct.length===1)selected=direct[0];
+     }
+     if(!selected){
+       for(const msg of relevantMessages){
+         if(!msg.startsWith("משתמש: ") && !msg.startsWith("עוזר: "))continue;
+         const options=orderItems.filter(p=>namesMentioned(p,msg));
+         if(options.length===1){selected=options[0];break;}
+       }
+     }
+     if(!selected){
+       await reply("לאיזה מוצר בהזמנה אתה מתכוון?");
+       return output({ok:true});
+     }
+     const target=cleanWanted(selected);
+     const isCarton=/קרטון/.test(input);
+     if(isCarton && target.unit==="unknown")target.unit="carton";
+     const {data:rows,error:rowsError}=await admin.from("supplier_quote_normalized_prices_v")
+       .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
+     if(rowsError)throw rowsError;
+     const matched:any=match(target,(rows||[]) as Product[]);
+     if(matched.status!=="matched"){
+       await reply(matched.question||"חסר לי פרט כדי לזהות את המוצר במדויק.");
+       return output({ok:true});
+     }
+     const {data:vendors,error:vendorError}=await admin.from("suppliers").select("id,name").limit(2000);
+     if(vendorError)throw vendorError;
+     const vendorsById=Object.fromEntries((vendors||[]).map((v:any)=>[v.id,v.name]));
+     const priced=matched.offers.slice(0,4).map((o:any)=>
+       (vendorsById[o.supplier_id]||"ספק")+" — "+currency(Number(o.total_before_vat))+
+       " ₪ "+(o.unit==="carton"?"לקרטון":o.unit==="pack"?"לחבילה":"ליחידה")+
+       " לפני מע״מ");
+     await reply(matched.product+":\n"+priced.join("\n"));
      return output({ok:true});
    }
    const {data:pending}=await admin.from("supplier_purchasing_pending_lids")
