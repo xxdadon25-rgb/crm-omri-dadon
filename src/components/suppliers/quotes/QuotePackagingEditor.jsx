@@ -6,7 +6,7 @@ import { baseUnitsForSale } from "@/lib/quotePackaging";
 /** All pricing choices are made in the product row. No separate apply step.
  * Only the final document save persists the packaging profile and quote rows. */
 export default function QuotePackagingEditor({
-  productId, saleLevel = "", invoicedPrice = null, onApply, disabled = false,
+  productId, quoteProduct = null, saleLevel = "", invoicedPrice = null, onApply, disabled = false,
 }) {
   const [unitEnabled, setUnitEnabled] = useState(true);
   const [packEnabled, setPackEnabled] = useState(false);
@@ -47,6 +47,14 @@ export default function QuotePackagingEditor({
     let alive = true;
     setUnits(""); setCartons(""); setPackEnabled(false); setCartonEnabled(false);
     setLevel(saleLevel || "");
+    if (quoteProduct?.id) {
+      const pack = quoteProduct.units_per_pack != null;
+      const carton = quoteProduct.packs_per_carton != null;
+      setPackEnabled(pack); setCartonEnabled(carton);
+      setUnits(pack ? String(quoteProduct.units_per_pack) : "");
+      setCartons(carton ? String(quoteProduct.packs_per_carton) : "");
+      return;
+    }
     if (!productId) return;
     setLoading(true);
     getProductPackage(productId).then(row => {
@@ -60,7 +68,7 @@ export default function QuotePackagingEditor({
       // merely because a profile was loaded. Profile is advisory until edited.
     }).catch(() => {}).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [productId]);
+  }, [productId, quoteProduct?.id]);
 
   const count = baseUnitsForSale({
     units_per_pack: packEnabled ? units : 1,
@@ -71,7 +79,7 @@ export default function QuotePackagingEditor({
   const priceValid = invoicedPrice !== null && invoicedPrice !== "" && Number.isFinite(money) && money >= 0;
   const packPrice = priceValid && count && packEnabled && Number(units) > 0
     ? money * Number(units) / count : null;
-  const canEdit = !!productId && !disabled && !loading;
+  const canEdit = !!(productId || quoteProduct?.id) && !disabled && !loading;
   const chk = { width: 16, height: 16, accentColor: "#eab308" };
 
   return <div dir="rtl" style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, display: "grid", gap: 10, minWidth: 270 }}>
@@ -113,7 +121,7 @@ export default function QuotePackagingEditor({
     </div>
     {packPrice !== null
       ? <strong style={{ fontSize: 15, color: "#047857" }}>מחיר לחבילה: {new Intl.NumberFormat("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(packPrice)} ₪ לפני מע״מ</strong>
-      : <span style={{ fontSize: 12, color: "#6b7280" }}>{!productId ? "בחר תחילה מוצר מהקטלוג" : "סמן את צורת האריזה והשלם את הכמויות"}</span>}
+      : <span style={{ fontSize: 12, color: "#6b7280" }}>{!(productId || quoteProduct?.id) ? "בחר תחילה מוצר להשוואה" : "סמן את צורת האריזה והשלם את הכמויות"}</span>}
     <span style={{ fontSize: 11, color: "#6b7280" }}>הנתונים יישמרו בלחיצה על ״אישור ושמירה״ של החשבונית.</span>
   </div>;
 }
