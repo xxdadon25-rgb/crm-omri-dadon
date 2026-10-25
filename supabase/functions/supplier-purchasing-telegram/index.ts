@@ -126,6 +126,60 @@ async function understandConversation(history:string[],key:string):Promise<Conve
  })).filter(p=>p.name);
  return {mode:parsed.mode,items,reply:String(parsed.reply||"").slice(0,300)};
 }
+
+async function resolveApprovedLids(evaluated:any[],rawRows:Product[],admin:any,telegramUser:number){
+ const lidItems=evaluated.filter(x=>/מכס/.test(x.name+" "+x.size+" "+x.kind+" "+x.notes));
+ if(!lidItems.length)return;
+ const {data:approvals,error}=await admin.from("supplier_purchasing_lid_confirmations")
+  .select("cup_quote_item_id,lid_product_key").eq("telegram_user_id",telegramUser);
+ if(error)throw error;
+ for(const item of lidItems){
+   if(!/ברד/.test(item.name+" "+item.size+" "+item.kind+" "+item.notes))continue;
+   const explicit=capacities(item.name+" "+item.size+" "+item.notes);
+   const cupItem=evaluated.find(x=>/כוס/.test(x.name)&&/ברד/.test(x.name)&&!/מכס/.test(x.name));
+   const cupCap=cupItem?capacities(cupItem.name+" "+cupItem.size+" "+cupItem.notes):[];
+   const sizes=[...new Set([...explicit,...cupCap])];
+   if(sizes.length!==1)continue;
+   const cups=rawRows.filter(p=>!/מכס/.test(p.product_name+" "+p.supplier_name_raw)
+    && /כוס/.test(p.product_name+" "+p.supplier_name_raw)
+    && /ברד/.test(p.product_name+" "+p.supplier_name_raw)
+    && capacities(p.supplier_name_raw).includes(sizes[0]));
+   const eligibleIds=new Set(cups.map(p=>p.quote_item_id));
+   const compatible=(approvals||[]).filter((x:any)=>eligibleIds.has(x.cup_quote_item_id));
+   const compatibleKeys=[...new Set(compatible.map((x:any)=>x.lid_product_key))];
+   if(compatibleKeys.length!==1)continue;
+   const productKey=compatibleKeys[0];
+   const selected=rawRows.filter(p=>p.product_key===productKey && p.comparison_status==="ready" &&
+    Number(p.price_per_pack)>=0 && Number(p.units_per_pack)>0 && Number(p.packs_per_carton)>0);
+   const skipped:string[]=[];
+   const verified=selected.filter(p=>{
+     const m=p.supplier_name_raw.match(/(\d+)\s*יח[^\n]{0,22}בקרטון/);
+     if(m&&Number(m[1])!==Number(p.units_per_pack)*Number(p.packs_per_carton)){
+       skipped.push(p.supplier_name_raw);
+       return false;
+     }
+     return true;
+   });
+   if(!verified.length){
+     item.result={status:"clarify",question:"אישרת בעבר את התאמת המכסה, אבל כמות היחידות בקרטון אינה עקבית עם החשבונית. צריך לאמת את האריזה מול הספק."};
+     continue;
+   }
+   const unit=["unit","pack","carton"].includes(item.unit)?item.unit:"unknown";
+   if(unit==="unknown"){
+     item.result={status:"clarify",question:"כמה מכסים תרצה להזמין — קרטון או חבילות?"};
+     continue;
+   }
+   const offers=verified.map(p=>{
+     const quantity=Number(item.qty)||1;
+     const each=Number(p.price_per_pack);
+     const total=(unit==="carton"?each*Number(p.packs_per_carton):unit==="pack"?each:each/Number(p.units_per_pack))*quantity;
+     return {supplier_id:p.supplier_id,quote_item_id:p.quote_item_id,
+       document_number:p.document_number,total_before_vat:Math.round(total*100)/100,
+       quantity,unit};
+   }).sort((a,b)=>a.total_before_vat-b.total_before_vat);
+   item.result={status:"matched",product:verified[0].product_name,offers};
+ }
+}
 const finishedOrder=(input:string)=>/^(?:סיימתי|סיימנו|סכם(?:\s+(?:לי\s+)?(?:את\s+)?(?:ה)?הזמנה)?|סיכום(?:\s+הזמנה)?|זהו(?:\s+תודה)?|זה\s+הכל|תן\s+לי\s+סיכום|תכין\s+(?:לי\s+)?(?:סיכום|רשימת\s+הזמנה))[\s.!]*$/i.test(input);
 function orderSummary(evaluated:any[],supplierNames:Record<string,string>){
  const bySupplier=new Map<string,{name:string;lines:string[];total:number}>();
@@ -308,6 +362,7 @@ Deno.serve(async(req:Request)=>{
    if(supplierErr)throw supplierErr;
    const names=Object.fromEntries((supplierRows||[]).map((x:any)=>[x.id,x.name]));
    const evaluated=conversation.items.map(p=>({...p,result:match(p,(priceRows||[]) as Product[])}));
+   await resolveApprovedLids(evaluated,(priceRows||[]) as Product[],admin,telegramUser);
    if(finishedOrder(input)){
      const summary=orderSummary(evaluated,names);
      await reply(summary);
