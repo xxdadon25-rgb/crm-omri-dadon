@@ -156,7 +156,7 @@ Deno.serve(async(req:Request)=>{
    // Do not call the language model for a safety-critical cup/lid compatibility
    // question: the cup volume does not establish lid diameter.
    if(/מכס/.test(input) && /כוס/.test(input) && /ברד/.test(input)
-     && !/\\b\\d{2,3}\\s*(?:ממ|mm)\\b/i.test(input)){
+     && !/[0-9]{2,3}[ ]*(?:ממ|mm)/i.test(input)){
      await respondTelegram(token,chat,"כדי להתאים מכסים לכוסות ברד, אני צריך את קוטר פתח הכוס במ״מ או את דגם הכוס והמכסה התואמים. 330 מ״ל מתאר את נפח הכוס ולא את קוטר המכסה. יש מחירי מכסים אצל הספקים, אבל לא אוכל להמליץ לפני שאאמת התאמה.");
      return output({ok:true});
    }
