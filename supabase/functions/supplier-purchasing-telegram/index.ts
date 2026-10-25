@@ -399,12 +399,14 @@ Deno.serve(async(req:Request)=>{
    if(!Number.isSafeInteger(telegramUser)||!Number.isSafeInteger(chat))return output({ok:true});
    const input=String(msg.text||"").trim();
    if(!input)return output({ok:true});
-   const {data:authorized,error:authError}=await admin.from("supplier_purchasing_bot_auth").select("telegram_user_id").eq("telegram_user_id",telegramUser).maybeSingle();
+   const {data:authorized,error:authError}=await admin.from("supplier_purchasing_bot_auth").select("telegram_user_id,approved_by").eq("telegram_user_id",telegramUser).maybeSingle();
    if(authError)throw authError;
    if(!authorized){
     await respondTelegram(token,chat,"שלום! זה בוט הרכש של QuickStock.\nכדי להפעיל גישה מאובטחת למחירי הספקים, אשר את החשבון הזה בהגדרות החיבור ל־Telegram ב־CRM.\nמזהה הטלגרם שלך: "+telegramUser+"\n\nעד לאישור לא ניתן לראות מחירים או לבצע חיפושים.");
     return output({ok:true});
    }
+   const ownerId=String(authorized.approved_by||"");
+   if(!/^[0-9a-f-]{36}$/i.test(ownerId))throw new Error("invalid_owner_context");
    if(input==="/start"||input==="/help"){
     await respondTelegram(token,chat,"שלום! 👋\nשלח לי בעברית מה אתה רוצה להזמין, לדוגמה:\nקרטון שקיות אשפה 75/90 וקרטון כוסות ברד.\n\nאם חסר פרט או שיש כמה גדלים, אשאל לפני המלצה. אני לא מוציא הזמנות לספקים.");
     return output({ok:true});
@@ -440,12 +442,12 @@ Deno.serve(async(req:Request)=>{
      if(dim && /שקיות|אשפה/.test(input+" "+String(relevant||""))){
        const {data:priceRows,error:pricesError}=await admin.from("supplier_quote_normalized_prices_v")
          .select("product_name,supplier_name_raw,supplier_id,units_per_pack,packs_per_carton,price_per_pack,comparison_status")
-         .eq("comparison_status","ready").limit(2000);
+         .eq("comparison_status","ready").eq("user_id",ownerId).limit(2000);
        if(pricesError)throw pricesError;
        const records=(priceRows||[]).filter((p:any)=>/שקיות|אשפה/.test(p.product_name)&&
           dimensions(p.product_name).includes(dim)&&dimensions(p.supplier_name_raw).includes(dim));
        if(records.length){
-         const {data:suppliers}=await admin.from("suppliers").select("id,name").limit(2000);
+         const {data:suppliers}=await admin.from("suppliers").select("id,name").eq("user_id",ownerId).limit(2000);
          const names=Object.fromEntries((suppliers||[]).map((v:any)=>[v.id,v.name]));
          const answers=records.map((p:any)=>{
            const packs=Number(p.packs_per_carton),pieces=Number(p.units_per_pack);
@@ -509,11 +511,11 @@ Deno.serve(async(req:Request)=>{
      const isCarton=/קרטון/.test(input);
      if(isCarton && target.unit==="unknown")target.unit="carton";
      const {data:rows,error:rowsError}=await admin.from("supplier_quote_normalized_prices_v")
-       .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
+       .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").eq("user_id",ownerId).limit(2000);
      if(rowsError)throw rowsError;
      const {data:verifiedRows,error:verifiedErr}=await admin.from("supplier_purchasing_verified_packaging")
        .select("supplier_name,product_label,reference_document,units_per_small_pack,small_packs_per_carton,units_per_carton,unit_price_ex_vat,small_pack_price_ex_vat,carton_price_ex_vat,needs_review")
-       .eq("needs_review",false).limit(2000);
+       .eq("needs_review",false).eq("owner_user_id",ownerId).limit(2000);
      if(verifiedErr)throw verifiedErr;
      const verified=verifiedIdentity(target,(verifiedRows||[]) as VerifiedPack[]);
      const fromInvoice=match(target,(rows||[]) as Product[]);
@@ -522,7 +524,7 @@ Deno.serve(async(req:Request)=>{
        await reply(matched.question||"חסר לי פרט כדי לזהות את המוצר במדויק.");
        return output({ok:true});
      }
-     const {data:vendors,error:vendorError}=await admin.from("suppliers").select("id,name").limit(2000);
+     const {data:vendors,error:vendorError}=await admin.from("suppliers").select("id,name").eq("user_id",ownerId).limit(2000);
      if(vendorError)throw vendorError;
      const vendorsById=Object.fromEntries((vendors||[]).map((v:any)=>[v.id,v.name]));
      const priced=matched.offers.slice(0,4).map((o:any)=>
@@ -647,14 +649,14 @@ Deno.serve(async(req:Request)=>{
      if(cartSaveErr)throw cartSaveErr;
    }
    const {data:priceRows,error:pricesErr}=await admin.from("supplier_quote_normalized_prices_v")
-     .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").limit(2000);
+     .select("product_name,supplier_name_raw,product_key,quote_item_id,quote_id,supplier_id,document_number,quote_date,price_per_pack,units_per_pack,packs_per_carton,comparison_status").eq("user_id",ownerId).limit(2000);
    if(pricesErr)throw pricesErr;
-   const {data:supplierRows,error:supplierErr}=await admin.from("suppliers").select("id,name").limit(2000);
+   const {data:supplierRows,error:supplierErr}=await admin.from("suppliers").select("id,name").eq("user_id",ownerId).limit(2000);
    if(supplierErr)throw supplierErr;
    const names=Object.fromEntries((supplierRows||[]).map((x:any)=>[x.id,x.name]));
    const {data:verifiedRows,error:verifiedError}=await admin.from("supplier_purchasing_verified_packaging")
      .select("supplier_name,product_label,reference_document,units_per_small_pack,small_packs_per_carton,units_per_carton,unit_price_ex_vat,small_pack_price_ex_vat,carton_price_ex_vat,needs_review")
-     .eq("needs_review",false).limit(2000);
+     .eq("needs_review",false).eq("owner_user_id",ownerId).limit(2000);
    if(verifiedError)throw verifiedError;
    const verified=(verifiedRows||[]) as VerifiedPack[];
    const evaluated=conversation.items.map(p=>{
