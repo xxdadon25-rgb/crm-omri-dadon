@@ -2,10 +2,33 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getQuoteForEditing, listQuoteItems, getProductsByIds, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
+import { getQuoteForEditing, listQuoteItems, getProductsByIds, listCatalogForQuoteSuggestions, updateReviewedItem, saveProductPackage, approveMatch } from "@/api/supplierQuotes";
 import QuoteProductPicker, { primaryImageUrl } from "@/components/suppliers/quotes/QuoteProductPicker";
 import QuotePackagingEditor from "@/components/suppliers/quotes/QuotePackagingEditor";
 import { priceBeforeVat } from "@/lib/quoteMath";
+
+// Suggestions are NOT associations: only an explicit user click selects a product.
+const FILLER = new Set(["יח", "יחידות", "יחידה", "יחיד", "בקרטון", "קרטון", "חבילה", "קג", "קילו", "מל", "סמק", "של", "עם", "מארז", "גדול"]);
+const cleanWords = name => String(name || "").normalize("NFKC").toLowerCase()
+  .replace(/["'״׳.,()\\[\\]\\/\\\\*+_-]/g, " ")
+  .split(/\\s+/).map(v => v.trim()).filter(v => v.length >= 2 && !FILLER.has(v));
+function quoteCandidates(invoiceName, catalog) {
+  const tokens = new Set(cleanWords(invoiceName));
+  const invoiceNumbers = new Set([...tokens].filter(t => /^\\d+$/.test(t)));
+  const words = [...tokens].filter(t => !/^\\d+$/.test(t));
+  if (!words.length) return [];
+  return catalog.map(product => {
+    const pTokens = new Set(cleanWords(product.name));
+    const pNumbers = [...pTokens].filter(t => /^\\d+$/.test(t));
+    // Never suggest a conflicting numerical size as if it were the same item.
+    if (invoiceNumbers.size && pNumbers.length && !pNumbers.some(n => invoiceNumbers.has(n))) return null;
+    const common = words.filter(t => pTokens.has(t));
+    if (!common.length) return null;
+    const score = common.length * 10 + (invoiceNumbers.size && pNumbers.some(n => invoiceNumbers.has(n)) ? 7 : 0)
+      - Math.max(0, pTokens.size - common.length) * 0.3;
+    return { product, score };
+  }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.product);
+}
 
 /**
  * Corrections belong ONLY to the independent quotation tables.
@@ -15,11 +38,13 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
   const [quote, setQuote] = useState(null);
   const [items, setItems] = useState([]);
   const [matchedProducts, setMatchedProducts] = useState({});
+  const [catalog, setCatalog] = useState([]);
   const [picker, setPicker] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
+    listCatalogForQuoteSuggestions().then(products => { if (active) setCatalog(products); }).catch(() => {});
     Promise.all([getQuoteForEditing(quoteId), listQuoteItems(quoteId)])
       .then(([q, rows]) => {
         if (!active) return;
@@ -129,6 +154,21 @@ export default function QuoteSavedItemsEditor({ quoteId, focusItemId = null, onC
               {item.product_id ? "שינוי שיוך" : "שיוך מוצר מהקטלוג"}
             </Button>
           </div>
+          {!item.product_id && catalog.length > 0 && (() => {
+            const suggestions = quoteCandidates(item.supplier_name_raw, catalog);
+            if (!suggestions.length) return null;
+            return <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#92400e" }}>מוצרים דומים — יש לבדוק לפני שיוך:</span>
+              {suggestions.map(p => <button key={p.id} type="button" disabled={busy}
+                onClick={() => { setMatchedProducts(prev => ({ ...prev, [p.id]: p })); change(idx, { product_id: p.id, sale_level: null }); }}
+                title="בחירת מוצר לקטלוג — המחיר והאריזה עדיין דורשים אישור"
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", border: "1px solid #e5e7eb",
+                  borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                {primaryImageUrl(p) && <img src={primaryImageUrl(p)} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 5 }} />}
+                {p.name}
+              </button>)}
+            </div>;
+          })()}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(135px,1fr))", gap: 8 }}>
             <label style={{ fontSize: 12 }}>מחיר לפי החשבונית
               <Input type="number" min="0" step="0.01" value={item.unit_price ?? ""}
