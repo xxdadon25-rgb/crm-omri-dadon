@@ -12,6 +12,11 @@ type Wanted={name:string;qty:number;unit:string;size:string;kind:string;color:st
 function match(item:Wanted,rows:Product[]) {
  const phrase=[item.name,item.size,item.kind,item.color,item.notes].filter(Boolean).join(" ");
  const requiredDimensions=dimensions(phrase),requiredCapacities=capacities(phrase);
+ // Lid-to-cup compatibility needs a verified rim diameter or manufacturer's
+ // compatible model. Cup volume alone does not establish lid fit.
+ if(/מכס/.test(phrase) && /כוס/.test(phrase) && /ברד/.test(phrase)
+   && !requiredDimensions.length && !/\\b\\d{2,3}\\s*(?:ממ|mm)\\b/i.test(phrase))
+   return {status:"clarify",question:"מצאתי מחירים למכסי כיפה לכוסות ברד, אבל אין בחשבוניות מידה שמאשרת שהמכסה מתאים לכוס שבחרת. מה קוטר פתח הכוס במ״מ, או מה דגם הכוס והמכסה שמתאימים זה לזה? לא אמליץ על מכסה בלי לוודא התאמה."};
  // A general cup request needs a capacity before any supplier offer.
  // The actual saved invoices contain both 330ml and 500ml "כוס ברד".
  if(/כוס/.test(phrase)&&/ברד/.test(phrase)&&!/מכס/.test(phrase)
