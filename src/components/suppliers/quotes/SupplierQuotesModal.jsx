@@ -29,7 +29,6 @@ import QuoteScanPanel from "@/components/suppliers/quotes/QuoteScanPanel";
 import QuoteExtractionReview from "@/components/suppliers/quotes/QuoteExtractionReview";
 import QuoteSavedItemsEditor from "@/components/suppliers/quotes/QuoteSavedItemsEditor";
 import SupplierPriceComparison from "@/components/suppliers/quotes/SupplierPriceComparison";
-import PurchasingAssistantTester from "@/components/suppliers/quotes/PurchasingAssistantTester";
 
 const MUTED = "var(--heillo-text-muted)";
 const DARK = "var(--heillo-text-primary)";
@@ -216,7 +215,6 @@ export default function SupplierQuotesModal() {
               </Button>
             </div>
 
-            <PurchasingAssistantTester suppliers={suppliers} />
             <SupplierPriceComparison suppliers={suppliers} onEditQuote={editQuote} />
 
             {/* ── Upload ─────────────────────────────────────────────── */}
