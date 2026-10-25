@@ -165,15 +165,9 @@ async function resolveApprovedLids(evaluated:any[],rawRows:Product[],admin:any,t
    const productKey=compatibleKeys[0];
    const selected=rawRows.filter(p=>p.product_key===productKey && p.comparison_status==="ready" &&
     Number(p.price_per_pack)>=0 && Number(p.units_per_pack)>0 && Number(p.packs_per_carton)>0);
-   const skipped:string[]=[];
-   const verified=selected.filter(p=>{
-     const m=p.supplier_name_raw.match(/(\d+)\s*יח[^\n]{0,22}בקרטון/);
-     if(m&&Number(m[1])!==Number(p.units_per_pack)*Number(p.packs_per_carton)){
-       skipped.push(p.supplier_name_raw);
-       return false;
-     }
-     return true;
-   });
+   // Pack and carton quantities are explicitly normalized in the system.
+   // Do not interpret "יח" in the supplier free text as base pieces.
+   const verified=selected;
    if(!verified.length){
      item.result={status:"clarify",question:"אישרת בעבר את התאמת המכסה, אבל כמות היחידות בקרטון אינה עקבית עם החשבונית. צריך לאמת את האריזה מול הספק."};
      continue;
@@ -226,11 +220,8 @@ async function offerLidChoices(
  const choices=[...grouped.entries()].slice(0,7).map(([key,offers])=>({product_key:key,name:offers[0].product_name,offers}));
  const text=choices.map((choice,i)=>{
   const details=choice.offers.map(p=>{
-   const carton=Number(p.units_per_pack)*Number(p.packs_per_carton);
-   const m=p.supplier_name_raw.match(/(\d+)\s*יח[^\n]{0,22}בקרטון/);
-   const discrepancy=m&&Number(m[1])!==carton;
    return (supplierNames[p.supplier_id]||"ספק")+" — "+
-    (discrepancy?"מחיר הקרטון דורש בדיקת כמויות":currency(Number(p.price_per_pack)*Number(p.packs_per_carton))+" ₪ לקרטון לפני מע״מ")+
+    currency(Number(p.price_per_pack)*Number(p.packs_per_carton))+" ₪ לקרטון לפני מע״מ"+
     "\nתיאור בחשבונית: "+p.supplier_name_raw;
   }).join("\n");
   return String(i+1)+". "+choice.name+"\n"+details;
@@ -379,11 +370,7 @@ Deno.serve(async(req:Request)=>{
            const packs=Number(p.packs_per_carton),pieces=Number(p.units_per_pack);
            const text=(names[p.supplier_id]||"ספק")+": ברישום המערכת "+
              packs+" חבילות בקרטון, "+pieces+" שקיות בחבילה ("+(packs*pieces)+" שקיות לפי החישוב).";
-           const raw=norm(p.supplier_name_raw);
-           const cartonText=raw.match(/(\d+)\s*יח[^\n]{0,25}בקרטון/);
-           return text+(cartonText && Number(cartonText[1])!==packs*pieces
-             ? "\nבתיאור הספק כתוב "+cartonText[1]+" יחידות בקרטון, אך לא ברור אם הכוונה לחבילות או לשקיות בודדות. כדאי לאמת את יחידת האריזה מול הספק."
-             : "");
+           return text;
          });
          await reply("לשקיות אשפה "+dim+":\n"+answers.join("\n\n"));
          return output({ok:true});
