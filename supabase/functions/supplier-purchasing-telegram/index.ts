@@ -151,13 +151,110 @@ Deno.serve(async(req:Request)=>{
     await respondTelegram(token,chat,"ניקיתי את בקשת הרכש הקודמת. כתוב מה תרצה להזמין.");
     return output({ok:true});
    }
+
+   const {data:pending}=await admin.from("supplier_purchasing_pending_lids")
+     .select("cup_quote_item_id,candidates,created_at").eq("telegram_user_id",telegramUser).maybeSingle();
+   const chosen=/^(?:אפשרות\s*)?([1-9])$/.exec(input);
+   if(pending && chosen){
+     if(Date.now()-new Date(pending.created_at).getTime()>30*60*1000){
+       await admin.from("supplier_purchasing_pending_lids").delete().eq("telegram_user_id",telegramUser);
+       await respondTelegram(token,chat,"האפשרויות הקודמות פגו. בקש שוב מכסים לכוס כדי לראות מחירים מעודכנים.");
+       return output({ok:true});
+     }
+     const opt=Array.isArray(pending.candidates)?pending.candidates[Number(chosen[1])-1]:null;
+     if(!opt){
+       await respondTelegram(token,chat,"אין אפשרות במספר הזה. שלח את מספר האפשרות שהצגתי.");
+       return output({ok:true});
+     }
+     const {error:confirmErr}=await admin.from("supplier_purchasing_lid_confirmations").upsert({
+       telegram_user_id:telegramUser,cup_quote_item_id:pending.cup_quote_item_id,
+       lid_product_key:opt.product_key,confirmed_at:new Date().toISOString()
+     },{onConflict:"telegram_user_id,cup_quote_item_id"});
+     if(confirmErr)throw confirmErr;
+     await admin.from("supplier_purchasing_pending_lids").delete().eq("telegram_user_id",telegramUser);
+     await respondTelegram(token,chat,"✅ שמרתי את האישור שלך: "+opt.name+
+       "\nההתאמה נשמרה לכוס שבחרת בלבד, ולא לכוסות דומות במידות אחרות."+
+       "\nמעכשיו אפשר לבקש ממני להשוות את מחירי המכסה הזה אצל הספקים.");
+     return output({ok:true});
+   }
    const {data:prior}=await admin.from("supplier_purchasing_bot_chat_state").select("initial_request,last_question,updated_at").eq("telegram_user_id",telegramUser).maybeSingle();
    const recent=prior&&Date.now()-new Date(prior.updated_at).getTime()<30*60*1000;
-   // Do not call the language model for a safety-critical cup/lid compatibility
-   // question: the cup volume does not establish lid diameter.
-   if(/מכס/.test(input) && /כוס/.test(input) && /ברד/.test(input)
-     && !/[0-9]{2,3}[ ]*(?:ממ|mm)/i.test(input)){
-     await respondTelegram(token,chat,"כדי להתאים מכסים לכוסות ברד, אני צריך את קוטר פתח הכוס במ״מ או את דגם הכוס והמכסה התואמים. 330 מ״ל מתאר את נפח הכוס ולא את קוטר המכסה. יש מחירי מכסים אצל הספקים, אבל לא אוכל להמליץ לפני שאאמת התאמה.");
+
+   if(/מכס/.test(input) && /כוס/.test(input) && /ברד/.test(input)){
+     const {data:rawRows,error:rowErr}=await admin.from("supplier_quote_normalized_prices_v")
+      .select("product_name,supplier_name_raw,product_key,quote_item_id,supplier_id,document_number,price_per_pack,units_per_pack,packs_per_carton,comparison_status")
+      .eq("comparison_status","ready").limit(2000);
+     if(rowErr)throw rowErr;
+     const list=(rawRows||[]) as Product[];
+     const requestedCapacity=capacities(input);
+     if(requestedCapacity.length!==1){
+       await respondTelegram(token,chat,"איזה נפח כוסות ברד אתה צריך — 330 או 500 מ״ל? אחרי הבחירה אציג לך מכסים שקיימים אצל הספקים.");
+       return output({ok:true});
+     }
+     const size=requestedCapacity[0];
+     const cups=list.filter(p=>/כוס/.test(p.product_name+" "+p.supplier_name_raw)
+       && !/מכס/.test(p.product_name+" "+p.supplier_name_raw)
+       && capacities(p.supplier_name_raw).includes(size)
+       && /ברד/.test(p.product_name+" "+p.supplier_name_raw));
+     if(!cups.length){
+       await respondTelegram(token,chat,"לא מצאתי בחשבוניות כוס ברד בנפח "+size+" מ״ל. כתוב את דגם הכוס כדי שאוכל לזהות אותה.");
+       return output({ok:true});
+     }
+     const distinctCups=new Map<string,Product>();
+     for(const p of cups)if(!distinctCups.has(p.product_key))distinctCups.set(p.product_key,p);
+     if(distinctCups.size!==1){
+       await respondTelegram(token,chat,"מצאתי כמה דגמי כוסות בנפח "+size+" מ״ל: "+
+         [...distinctCups.values()].map(p=>p.supplier_name_raw).join(" / ")+
+         "\nכתוב את הדגם המדויק לפני שנשייך מכסה.");
+       return output({ok:true});
+     }
+     const cup=[...distinctCups.values()][0];
+     const lids=list.filter(p=>
+       /מכס/.test(p.product_name+" "+p.supplier_name_raw)
+       && (/כוס/.test(p.product_name+" "+p.supplier_name_raw)||/כיפה/.test(p.product_name+" "+p.supplier_name_raw))
+     );
+     const byKey=new Map<string,Product[]>();
+     for(const p of lids){if(!byKey.has(p.product_key))byKey.set(p.product_key,[]);byKey.get(p.product_key)!.push(p);}
+     if(!byKey.size){
+       await respondTelegram(token,chat,"לא נמצאו כרגע מכסים בחשבוניות. לא אוכל להמליץ בלי מוצר תואם.");
+       return output({ok:true});
+     }
+     const {data:existing}=await admin.from("supplier_purchasing_lid_confirmations")
+       .select("lid_product_key").eq("telegram_user_id",telegramUser).eq("cup_quote_item_id",cup.quote_item_id).maybeSingle();
+     const {data:vendors}=await admin.from("suppliers").select("id,name").limit(2000);
+     const vendorNames=Object.fromEntries((vendors||[]).map((v:any)=>[v.id,v.name]));
+     const choices=[...byKey.entries()].slice(0,8).map(([product_key,offers])=>({
+       product_key,name:offers[0].product_name,
+       offers:offers.map(p=>({
+         supplier:vendorNames[p.supplier_id]||"ספק",
+         supplier_description:p.supplier_name_raw,
+         carton_price:Number(p.price_per_pack)*Number(p.packs_per_carton),
+         packs_per_carton:p.packs_per_carton,
+         units_per_pack:p.units_per_pack,
+         document_number:p.document_number
+       }))
+     }));
+     const described=choices.map((c,i)=>String(i+1)+". "+c.name+"\n"+
+       c.offers.map(o=>"• "+o.supplier+" — "+currency(o.carton_price)+" ₪ לקרטון לפני מע״מ"+
+         " ("+o.units_per_pack+" יח׳ בחבילה, "+o.packs_per_carton+" חבילות בקרטון)"+
+         "\n  תיאור הספק: "+o.supplier_description).join("\n")).join("\n\n");
+     if(existing){
+       const selected=choices.find(c=>c.product_key===existing.lid_product_key);
+       if(selected){
+         await respondTelegram(token,chat,"✅ כבר אישרת בעבר את התאמת המכסה הבא לכוס הזאת:\n"+
+           selected.name+"\n\n"+selected.offers.map(o=>o.supplier+" — "+currency(o.carton_price)+" ₪ לקרטון לפני מע״מ").join("\n")+
+           "\n\nאם ברצונך להחליף את ההתאמה, כתוב 'הצג אפשרויות מכסים'.");
+         return output({ok:true});
+       }
+     }
+     const {error:pendingErr}=await admin.from("supplier_purchasing_pending_lids").upsert({
+       telegram_user_id:telegramUser,cup_quote_item_id:cup.quote_item_id,
+       candidates:choices.map(c=>({product_key:c.product_key,name:c.name})),created_at:new Date().toISOString()
+     });
+     if(pendingErr)throw pendingErr;
+     await respondTelegram(token,chat,"מצאתי בחשבוניות את האפשרויות הבאות למכסים:\n\n"+
+       described+"\n\n⚠️ עדיין לא אומתה התאמה לכוס ברד "+size+" מ״ל ("+cup.supplier_name_raw+")."+
+       "\nאם אתה יודע בוודאות איזה מכסה מתאים, שלח רק את מספר האפשרות (למשל 1). אשמור את הבחירה לפעמים הבאות. אם אינך בטוח, אל תאשר.");
      return output({ok:true});
    }
    const requestText=recent ? "בקשת הרכש המקורית: "+prior.initial_request+"\nשאלת ההבהרה שלי: "+prior.last_question+"\nתשובת המשתמש: "+input+"\nפענח את כל בקשת הרכש עם התשובה האחרונה ואל תחליף מידות מקוריות." : input;
