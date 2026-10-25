@@ -495,8 +495,8 @@ Deno.serve(async(req:Request)=>{
      if(!selected){
        // Direct supplier-price questions must also work without an open cart.
        const product=String(input)
-         .replace(/^(?:מה\\s+(?:ה)?מחיר\\s+(?:של|ל)?|כמה\\s+עולה|כמה\\s+יעלה|בכמה\\s+(?:ה)?קרטון|מחיר\\s+(?:ל)?קרטון)\\s*/,"")
-         .replace(/^(?:של|ל)\\s+/,"").trim();
+         .replace(/^(?:מה\s+(?:ה)?מחיר\s+(?:של|ל)?|כמה\s+עולה|כמה\s+יעלה|בכמה\s+(?:ה)?קרטון|מחיר\s+(?:ל)?קרטון)\s*/,"")
+         .replace(/^(?:של|ל)\s+/,"").trim();
        if(product.length>3 && /כפפות|כפפה|מכל|מיכל|מטליות|מטלית|מגב|שקיות|שקית|תבנית|נייר|יעה|מכסה/.test(product)){
          selected={name:product,qty:1,unit:/קרטון/.test(input)?"carton":/חביל/.test(input)?"pack":/יחיד/.test(input)?"unit":"unknown",
            size:"",kind:"",color:"",notes:""};
