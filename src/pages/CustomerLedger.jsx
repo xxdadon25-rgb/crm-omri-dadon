@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookUser, Search, Users, Plus, Trash2, CheckCircle2, Circle, ChevronRight } from "lucide-react";
+import { BookUser, Search, Users, Plus, Trash2, CheckCircle2, Circle, ChevronRight, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 const currentYear = new Date().getFullYear();
@@ -335,6 +335,39 @@ export default function CustomerLedger() {
     setStatusFilter(ALL_STATUSES);
   };
 
+  /**
+   * Open the printable account statement for the selected customer.
+   *
+   * The explicit from/to inputs win when present. Otherwise the month/year
+   * pickers are converted into a concrete range here, so the statement page
+   * receives plain dates and never has to reproduce filterByDate(). "all"
+   * month with a chosen year becomes that whole year; "all" for both means no
+   * range at all, i.e. the entire history.
+   */
+  const openStatement = () => {
+    if (!selectedCustomerId) return;
+    let from = dateFrom;
+    let to = dateTo;
+    if (!from && !to) {
+      const y = selectedYear !== "all" ? parseInt(selectedYear, 10) : null;
+      const m = selectedMonth !== "all" ? parseInt(selectedMonth, 10) : null;
+      if (y && m) {
+        const last = new Date(y, m, 0).getDate();           // day 0 of next month
+        const mm = String(m).padStart(2, "0");
+        from = `${y}-${mm}-01`;
+        to = `${y}-${mm}-${String(last).padStart(2, "0")}`;
+      } else if (y) {
+        from = `${y}-01-01`;
+        to = `${y}-12-31`;
+      }
+    }
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const query = qs.toString();
+    window.open(`/customer-statement/${selectedCustomerId}${query ? `?${query}` : ""}`, "_blank", "noopener");
+  };
+
   // ── Heillo design tokens ──
   const ACCENT = "#F5885E";
   const DARK   = "#120F1C";
@@ -504,6 +537,29 @@ export default function CustomerLedger() {
                         {allStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Printable account statement. Opens a separate, read-only
+                      page in a new tab, carrying whichever range is selected
+                      here — the month/year pickers are translated into explicit
+                      from/to dates so the statement never has to re-implement
+                      this page's filter logic. Nothing on this page changes. */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "flex-end" }}>
+                    <label style={{ fontSize: 11, color: "transparent", fontFamily: "'Heebo', sans-serif" }}>&nbsp;</label>
+                    <button
+                      type="button"
+                      onClick={openStatement}
+                      style={{
+                        background: "#FFFFFF", border: `1px solid ${ACCENT}55`, borderRadius: 10,
+                        color: ACCENT, fontSize: 13, fontWeight: 600, padding: "0 16px", height: 38,
+                        cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                        fontFamily: "'Heebo', sans-serif", whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = `${ACCENT}0f`}
+                      onMouseLeave={e => e.currentTarget.style.background = "#FFFFFF"}
+                    >
+                      <Printer style={{ width: 15, height: 15 }} /> הדפס כרטסת
+                    </button>
                   </div>
                 </div>
               </div>

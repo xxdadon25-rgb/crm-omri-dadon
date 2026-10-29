@@ -66,6 +66,7 @@ const ImageMigration = lazy(() => import("@/pages/ImageMigration"));
 const DebtSummary = lazy(() => import("@/pages/DebtSummary"));
 const CreditNotePDFPreview = lazy(() => import("@/pages/CreditNotePDFPreview"));
 const DocumentCenter = lazy(() => import("@/pages/DocumentCenter"));
+const CustomerStatement = lazy(() => import("@/pages/CustomerStatement"));
 const QualityControl = lazy(() => import("@/pages/QualityControl"));
 const PortalCustomerAccess = lazy(() => import("@/pages/PortalCustomerAccess"));
 const RevachAdmin = lazy(() => import("@/pages/RevachAdmin"));
@@ -152,6 +153,14 @@ const AuthenticatedApp = () => {
           <Route path="/portal-access" element={<PortalCustomerAccess />} />
           <Route path="/revach-admin" element={<RevachAdmin />} />
           </Route>
+        </Route>
+        {/* Printable customer statement. Inside ProtectedRoute — it shows a
+            full financial ledger — but deliberately OUTSIDE AppLayout, so
+            window.print() produces the A4 sheet alone without the app's
+            sidebar and header. Same reasoning as the existing *-pdf previews,
+            which sit outside AppLayout for exactly this reason. */}
+        <Route element={<SuspendedOutlet />}>
+          <Route path="/customer-statement/:customerId" element={<CustomerStatement />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />
