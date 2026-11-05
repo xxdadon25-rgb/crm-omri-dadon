@@ -24,7 +24,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowRight } from "lucide-react";
-import { buildStatement, toShekels, balanceSide, KIND, STATUS } from "@/lib/customerStatement";
+import { buildStatement, toShekels, balanceSide, formatCheck, KIND, STATUS } from "@/lib/customerStatement";
 
 /** The sheet is a fixed A4 page — 210 mm wide. A CSS millimetre is always
  *  96/25.4 px, so this is 793.7 px on every device and the printed layout
@@ -340,9 +340,50 @@ export default function CustomerStatement() {
                         a verified issued document. */}
                     <td style={{ padding: "4px 6px", whiteSpace: "nowrap",
                       color: r.unidentified ? "#b45309" : undefined }}>
-                      {r.docNumber || (r.unidentified ? "ללא מספר" : "—")}
+                      {/* For a payment the document IS the receipt, and a bank
+                          reference is only the operator's note. Collapsing the
+                          two into one cell could print a reference where the
+                          reader expects a receipt number, so each is labelled
+                          and both are shown. */}
+                      {r.kind === KIND.PAYMENT ? (
+                        <>
+                          {r.receiptNumber
+                            ? <span>קבלה {r.receiptNumber}</span>
+                            : <span style={{ color: "#b45309" }}>
+                                {r.receiptStatus === "uncertain" ? "קבלה לא ודאית"
+                                  : r.receiptStatus ? "ללא קבלה" : "—"}
+                              </span>}
+                          {r.reference && (
+                            <span style={{ display: "block", color: "#6b7280", fontSize: 9 }}>
+                              אסמכתא {r.reference}
+                            </span>
+                          )}
+                        </>
+                      ) : (r.docNumber || (r.unidentified ? "ללא מספר" : "—"))}
                     </td>
-                    <td style={{ padding: "4px 6px" }}>{r.description}</td>
+                    {/* Everything a reader needs to reconcile this line is
+                        printed here, on the page, with nothing to expand or
+                        click: which invoice the money was applied to, the
+                        check's own identity, and — for a payment split across
+                        invoices — the single real payment it is part of. */}
+                    <td style={{ padding: "4px 6px" }}>
+                      {r.description}
+                      {r.kind === KIND.PAYMENT && r.allocatedToLabel && (
+                        <span style={{ display: "block", color: "#374151", fontSize: 9 }}>
+                          כנגד חשבונית {r.allocatedToLabel}
+                        </span>
+                      )}
+                      {r.kind === KIND.PAYMENT && formatCheck(r.check) && (
+                        <span style={{ display: "block", color: "#374151", fontSize: 9 }}>
+                          {formatCheck(r.check)}
+                        </span>
+                      )}
+                      {r.kind === KIND.PAYMENT && r.isGrouped && (
+                        <span style={{ display: "block", color: "#1d4ed8", fontSize: 9 }}>
+                          חלק מתשלום אחד של {money(r.groupTotal)} ₪ שפוצל בין {r.groupSize} חשבוניות
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap" }}>
                       {r.debit ? money(r.debit) : ""}
                     </td>
@@ -365,7 +406,18 @@ export default function CustomerStatement() {
               {statement.rows.length > 0 && (
                 <tfoot>
                   <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                    <td colSpan={4} style={{ padding: "5px 6px" }}>סה״כ בתקופה</td>
+                    <td colSpan={4} style={{ padding: "5px 6px" }}>
+                      סה״כ בתקופה
+                      {/* Stated so a split payment cannot be read as several
+                          payments: the rows and the real payments are both
+                          named. */}
+                      {statement.totals.paymentRowCount !== statement.totals.distinctPaymentsInPeriod && (
+                        <span style={{ fontWeight: 400, fontSize: 9, color: "#374151" }}>
+                          {" "}· {statement.totals.distinctPaymentsInPeriod} תשלומים
+                          ב-{statement.totals.paymentRowCount} שורות הקצאה
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.debit)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.credit)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.closing)}</td>

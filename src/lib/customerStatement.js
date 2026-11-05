@@ -190,14 +190,58 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     });
   }
 
+  // A payment split across invoices is stored as N rows sharing one
+  // payment_group_id. Counted FIRST, so each row can state the real payment it
+  // belongs to. The money itself is never doubled — the rows sum to the
+  // payment, and only one of them is ever added per row — but a reader shown
+  // three ₪1,000-looking lines would still read three payments, so the
+  // relationship is printed on the row rather than left to be inferred.
+  const groupSize = new Map();
+  const groupTotal = new Map();
   for (const p of payments) {
+    const g = p.payment_group_id;
+    if (!g) continue;
+    groupSize.set(g, (groupSize.get(g) || 0) + 1);
+    groupTotal.set(g, (groupTotal.get(g) || 0) + toAgorot(p.amount));
+  }
+
+  // Document numbers of the invoices, so a payment row can name the invoice it
+  // was allocated to by its number instead of an opaque id.
+  const invoiceLabelById = new Map();
+  for (const inv of invoices) {
+    invoiceLabelById.set(inv.id, inv.external_invoice_number || inv.invoice_number || null);
+  }
+
+  for (const p of payments) {
+    const g = p.payment_group_id || null;
+    const size = g ? (groupSize.get(g) || 1) : 1;
     all.push({
       kind: KIND.PAYMENT,
       id: p.id,
       date: dateKey(p.payment_date) || dateKey(p.created_date),
       dateFallback: !dateKey(p?.payment_date),
+      // The receipt number is the document; a reference is the operator's own
+      // note. They were previously collapsed into one field, so a statement
+      // could print a bank reference where a reader expects a receipt number.
+      // They are now separate and both shown.
+      receiptNumber: p.external_receipt_number || null,
+      reference: p.reference || null,
       docNumber: p.external_receipt_number || p.reference || null,
       description: describePayment(p),
+      method: p.payment_method ?? null,
+      // Which invoice this payment settled, named for printing.
+      allocatedToInvoiceId: p.invoice_id ?? null,
+      allocatedToLabel: p.invoice_id ? (invoiceLabelById.get(p.invoice_id) ?? null) : null,
+      // Check accounting detail, printed in full: a statement a customer
+      // queries is answered by the check's own identity, not by "שיק".
+      check: checkDetails(p),
+      // One real payment, several rows.
+      paymentGroupId: g,
+      groupSize: size,
+      groupTotal: g ? (groupTotal.get(g) || 0) : toAgorot(p.amount),
+      isGrouped: size > 1,
+      // Whether a receipt is known to exist for this money.
+      receiptStatus: p.receipt_status ?? null,
       debit: 0,
       credit: toAgorot(p.amount),
       status: null,
@@ -389,6 +433,52 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     });
   }
 
+  // ── Is every payment counted exactly once? ───────────────────────────────
+  //
+  // The credit side sums payment ROWS, and a split payment legitimately
+  // contributes several. What must never happen is the SAME row counted twice:
+  // the reads that feed this statement are paged, and a page that overlaps its
+  // predecessor would deliver one payment twice, understating the balance by
+  // its full value on business letterhead. Asserted, not assumed.
+  const paymentRows = all.filter(r => r.kind === KIND.PAYMENT);
+  const seenPaymentIds = new Set();
+  const duplicatePaymentIds = [];
+  for (const r of paymentRows) {
+    if (r.id === null || r.id === undefined) continue;
+    if (seenPaymentIds.has(r.id)) duplicatePaymentIds.push(r.id);
+    else seenPaymentIds.add(r.id);
+  }
+  if (duplicatePaymentIds.length > 0) {
+    warnings.push({
+      code: "duplicate_payment_rows",
+      count: duplicatePaymentIds.length,
+      message: `${duplicatePaymentIds.length} שורות תשלום כפולות — היתרה עלולה להיות שגויה`,
+      details: duplicatePaymentIds,
+    });
+  }
+
+  // How many REAL payments those rows represent: a group counts once.
+  const distinctPayments = new Set(
+    paymentRows.map(r => r.paymentGroupId || `row:${r.id}`)).size;
+
+  // Payments whose receipt is not known to exist. 'uncertain' is called out
+  // separately because it must not be resolved by issuing another receipt.
+  const receiptsUnconfirmed = paymentRows.filter(
+    r => r.receiptStatus && r.receiptStatus !== "confirmed");
+  const receiptsUncertain = receiptsUnconfirmed.filter(r => r.receiptStatus === "uncertain");
+  if (receiptsUnconfirmed.length > 0) {
+    warnings.push({
+      code: "receipts_unconfirmed",
+      count: receiptsUnconfirmed.length,
+      message: receiptsUncertain.length > 0
+        ? `${receiptsUnconfirmed.length} תשלומים ללא קבלה מאומתת, מהם ${receiptsUncertain.length} במצב לא ודאי — אין להפיק קבלה נוספת לפני בדיקה ב-Finbot`
+        : `${receiptsUnconfirmed.length} תשלומים ללא קבלה מאומתת`,
+      details: receiptsUnconfirmed.map(r => ({
+        paymentId: r.id, date: r.date, amount: r.credit, receiptStatus: r.receiptStatus,
+      })),
+    });
+  }
+
   // The nesting assumption, re-checked rather than trusted.
   const nestedInvoiceIds = invoices.filter(i =>
     Array.isArray(i.included_invoice_ids) && i.included_invoice_ids.length > 0);
@@ -403,10 +493,23 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
   return {
     opening,
     rows,
-    totals: { debit: totalDebit, credit: totalCredit, count: rows.length },
+    totals: {
+      debit: totalDebit, credit: totalCredit, count: rows.length,
+      // Rows in the period that are payments, and the number of REAL payments
+      // they represent (a split payment counts once).
+      paymentRowCount: rows.filter(r => r.kind === KIND.PAYMENT).length,
+      distinctPaymentsInPeriod: new Set(
+        rows.filter(r => r.kind === KIND.PAYMENT)
+            .map(r => r.paymentGroupId || `row:${r.id}`)).size,
+    },
     closing,
     allTime: { debit: allTimeDebit, credit: allTimeCredit, closing: allTimeClosing },
-    reconciliation: { crmOutstanding, delta: allTimeClosing - crmOutstanding, causes, mismatches },
+    reconciliation: {
+      crmOutstanding, delta: allTimeClosing - crmOutstanding, causes, mismatches,
+      distinctPayments, duplicatePaymentIds,
+      receiptsUnconfirmed: receiptsUnconfirmed.length,
+      receiptsUncertain: receiptsUncertain.length,
+    },
     warnings,
     undated,
     derived,
@@ -424,6 +527,19 @@ export function compareRows(a, b) {
   const ka = KIND_ORDER[a.kind] ?? 9;
   const kb = KIND_ORDER[b.kind] ?? 9;
   if (ka !== kb) return ka - kb;
+  // The allocations of ONE payment stay together.
+  //
+  // Each allocation now carries its own receipt number, so ordering by
+  // document number alone could interleave two payments made on the same day
+  // and a reader could no longer see which lines belong to which payment.
+  //
+  // This cannot reorder anything that existed before: a row with no group —
+  // every invoice, every credit note and every payment recorded until now —
+  // keys as "", so identical keys fall straight through to the document number
+  // exactly as they did.
+  const ga = String(a.paymentGroupId ?? "");
+  const gb = String(b.paymentGroupId ?? "");
+  if (ga !== gb) return ga < gb ? -1 : 1;
   const na = String(a.docNumber ?? "");
   const nb = String(b.docNumber ?? "");
   if (na !== nb) return na < nb ? -1 : 1;
@@ -442,6 +558,36 @@ function describeInvoice(inv) {
 function describePayment(p) {
   const method = p.payment_method ? ` · ${p.payment_method}` : "";
   return `תשלום${method}`;
+}
+
+/**
+ * The four check fields, or null for any other payment method.
+ *
+ * Kept as the TEXT the operator entered. An Israeli branch or account number
+ * can begin with a zero, and a statement that prints 12345 where the check says
+ * 012345 cannot be reconciled against the bank.
+ */
+function checkDetails(p) {
+  const has = p.bank_name || p.bank_branch || p.bank_account || p.check_number;
+  if (!has) return null;
+  const s = (v) => (v === null || v === undefined || v === "" ? null : String(v));
+  return {
+    bankName: s(p.bank_name),
+    bankBranch: s(p.bank_branch),
+    bankAccount: s(p.bank_account),
+    checkNumber: s(p.check_number),
+  };
+}
+
+/** One line of check identity for printing, e.g. "שיק 012345 · בנק 12 · סניף 345 · חשבון 00123". */
+export function formatCheck(check) {
+  if (!check) return null;
+  const parts = [];
+  if (check.checkNumber) parts.push(`שיק ${check.checkNumber}`);
+  if (check.bankName) parts.push(`בנק ${check.bankName}`);
+  if (check.bankBranch) parts.push(`סניף ${check.bankBranch}`);
+  if (check.bankAccount) parts.push(`חשבון ${check.bankAccount}`);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 /** Is the closing balance money the customer owes, or money owed to them? */

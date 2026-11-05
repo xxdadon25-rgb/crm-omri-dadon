@@ -15,6 +15,7 @@ import MonthlyInvoicesTab from "@/components/ledger/MonthlyInvoicesTab";
 import LedgerPaymentsTab from "@/components/ledger/LedgerPaymentsTab";
 import LedgerCreditNotesTab from "@/components/ledger/LedgerCreditNotesTab";
 import PaymentDialog from "@/components/payments/PaymentDialog";
+import PaymentAllocationDialog from "@/components/payments/PaymentAllocationDialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ export default function CustomerLedger() {
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [previewMonthlyInvoice, setPreviewMonthlyInvoice] = useState(null);
   const [recordPaymentInvoice, setRecordPaymentInvoice] = useState(null);
+  const [splitPaymentOpen, setSplitPaymentOpen] = useState(false);
 
   // Tasks
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -604,7 +606,7 @@ export default function CustomerLedger() {
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-4">
-                  <LedgerPaymentsTab payments={customerPayments} loading={loadingPayments} invoices={invoices.filter(i => i.customer_id === selectedCustomerId)} onRecordPayment={setRecordPaymentInvoice} selectedCustomer={selectedCustomer} businessSettings={businessSettings} />
+                  <LedgerPaymentsTab payments={customerPayments} loading={loadingPayments} invoices={invoices.filter(i => i.customer_id === selectedCustomerId)} onRecordPayment={setRecordPaymentInvoice} onSplitPayment={() => setSplitPaymentOpen(true)} selectedCustomer={selectedCustomer} businessSettings={businessSettings} />
                 </TabsContent>
 
                 <TabsContent value="credit_notes" className="mt-4">
@@ -709,6 +711,19 @@ export default function CustomerLedger() {
         open={!!recordPaymentInvoice}
         onOpenChange={(v) => { if (!v) setRecordPaymentInvoice(null); }}
         invoice={recordPaymentInvoice}
+        customer={selectedCustomer}
+        onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ["payments"] });
+          queryClient.invalidateQueries({ queryKey: ["invoices"] });
+        }}
+      />
+
+      {/* One payment split manually across several invoices. Separate from
+          PaymentDialog above, which keeps the single-invoice flow unchanged. */}
+      <PaymentAllocationDialog
+        open={splitPaymentOpen}
+        onOpenChange={setSplitPaymentOpen}
+        invoices={invoices.filter(i => i.customer_id === selectedCustomerId)}
         customer={selectedCustomer}
         onSaved={() => {
           queryClient.invalidateQueries({ queryKey: ["payments"] });

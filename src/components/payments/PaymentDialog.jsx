@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Paperclip, Camera, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
+import { classifyReceiptOutcome, receiptMessage, receiptPatch, RECEIPT } from "@/lib/receiptLifecycle";
 
 const BUCKET = "payment-attachments";
 
@@ -251,8 +252,22 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
         }
       }
 
+      // ---- the receipt, and what we actually know about it ---------------
+      //
+      // This used to be `catch (e) { /* silently */ }` with no else branch on
+      // `ok`, so a Finbot refusal and a lost connection both ended in total
+      // silence: the payment was recorded, no receipt existed, and nothing —
+      // not a toast, not a column — said so. A missing tax receipt that nobody
+      // is told about is worse than a visible failure.
+      //
+      // The outcome is now classified. The distinction that matters is
+      // "refused, so no document was created" versus "unknown, so a document
+      // MAY exist": the second must never be retried, because a blind retry
+      // against a provider that did create the document issues a SECOND
+      // receipt for one payment.
+      let outcome = null;
       try {
-        const { data: receiptData } = await supabase.functions.invoke("payment-webhook-", {
+        const { data: receiptData, error: receiptError } = await supabase.functions.invoke("payment-webhook-", {
           body: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
@@ -272,18 +287,42 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, o
             ...(isCheck ? checkDetails : {}),
           },
         });
-        if (receiptData?.ok && newPayment?.id) {
-          const patch = {};
-          if (receiptData.receiptNumber) patch.external_receipt_number = receiptData.receiptNumber;
-          if (receiptData.pdfUrl) patch.external_receipt_url = receiptData.pdfUrl;
-          if (Object.keys(patch).length) {
-            await supabase.from("payments").update(patch).eq("id", newPayment.id);
+        outcome = classifyReceiptOutcome({ data: receiptData, error: receiptError });
+      } catch (e) {
+        // The call did not complete. The function may have run and Finbot may
+        // already hold the document, so this is UNCERTAIN, not failed.
+        outcome = classifyReceiptOutcome({ thrown: e });
+      }
+
+      if (newPayment?.id) {
+        // Written in its own isolated step. The payment is already committed,
+        // so a failure here is a warning at most.
+        //
+        // The full patch carries receipt_status, which exists only once
+        // 20261105110000_add_receipt_lifecycle_status.sql has been applied. If
+        // it has not, that write is refused and we fall back to the number and
+        // url alone — so a frontend deployed ahead of the migration still
+        // records the receipt exactly as it does today, instead of breaking
+        // the single-invoice flow that works in production.
+        const full = receiptPatch(outcome);
+        const { error: patchErr } = await supabase.from("payments").update(full).eq("id", newPayment.id);
+        if (patchErr) {
+          const legacy = { ...full };
+          delete legacy.receipt_status;
+          if (Object.keys(legacy).length) {
+            await supabase.from("payments").update(legacy).eq("id", newPayment.id);
           }
+          console.warn("receipt_status not stored:", patchErr.message);
         }
-      } catch (e) { /* receipt creation failed silently */ }
+      }
 
       toast.success("התשלום נרשם בהצלחה");
       if (orderWarning) toast.warning(orderWarning);
+
+      // Never silent, whatever happened.
+      const receiptMsg = receiptMessage(outcome);
+      if (outcome.state === RECEIPT.CONFIRMED) toast.success(receiptMsg.text);
+      else toast.warning(receiptMsg.text);
       onOpenChange(false);
       if (onSaved) onSaved();
     } catch (err) {

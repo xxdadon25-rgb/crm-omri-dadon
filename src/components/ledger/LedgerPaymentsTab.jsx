@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import EmptyState from "@/components/shared/EmptyState";
-import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt } from "lucide-react";
+import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt, Layers } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
@@ -31,9 +31,25 @@ function fmt(n) {
   return (parseFloat(n) || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
 }
 
-export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, invoices, selectedCustomer, businessSettings }) {
+export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, onSplitPayment, invoices, selectedCustomer, businessSettings }) {
   const unpaidInvoices = invoices.filter(i => i.payment_status !== "שולם");
   const invoiceMap = new Map(invoices.map(i => [i.id, i]));
+
+  // A payment split across invoices is stored as several payment rows sharing
+  // one payment_group_id. Counting the rows per group lets each line say it is
+  // part of one real payment, so the same ₪1,000 is never read as three
+  // separate receipts of ₪1,000.
+  const groupSizes = new Map();
+  for (const p of payments) {
+    if (!p.payment_group_id) continue;
+    groupSizes.set(p.payment_group_id, (groupSizes.get(p.payment_group_id) || 0) + 1);
+  }
+  const groupTotals = new Map();
+  for (const p of payments) {
+    if (!p.payment_group_id) continue;
+    groupTotals.set(p.payment_group_id,
+      (groupTotals.get(p.payment_group_id) || 0) + (parseFloat(p.amount) || 0));
+  }
   const handlePaymentWhatsApp = (p, receiptUrl) => {
     const customerName = selectedCustomer?.name || p.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
@@ -79,8 +95,16 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     <div className="space-y-4">
       {unpaidInvoices.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <h3 className="font-semibold text-sm">חשבוניות לתשלום ({unpaidInvoices.length})</h3>
+            {/* One payment, split manually across several invoices. The
+                per-invoice buttons below remain the normal single-invoice
+                path and are unchanged. */}
+            {onSplitPayment && unpaidInvoices.length > 1 && (
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={onSplitPayment}>
+                <Layers className="w-3.5 h-3.5" /> תשלום מפוצל בין חשבוניות
+              </Button>
+            )}
           </div>
           <div className="grid gap-2">
             {unpaidInvoices.map(inv => {
@@ -141,9 +165,26 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                     return (
                       <TableRow key={p.id} className="hover:bg-muted/30">
                         <TableCell className="text-right">{formatDate(p.payment_date)}</TableCell>
-                        <TableCell className="font-medium text-right text-green-700">₪{(p.amount || 0).toLocaleString()}</TableCell>
+                        <TableCell className="font-medium text-right text-green-700">
+                          ₪{(p.amount || 0).toLocaleString()}
+                          {/* This row is one slice of a larger payment. Saying
+                              so, with the real total, prevents the group from
+                              being read as several separate payments. */}
+                          {p.payment_group_id && groupSizes.get(p.payment_group_id) > 1 && (
+                            <span className="block text-[10px] font-normal text-muted-foreground">
+                              מתוך תשלום של ₪{(groupTotals.get(p.payment_group_id) || 0).toLocaleString()}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">{methodIcons[p.payment_method] || ""} {p.payment_method}</TableCell>
-                        <TableCell className="text-right">#{displayInvoiceNumber(invoiceMap.get(p.invoice_id)) !== "—" ? displayInvoiceNumber(invoiceMap.get(p.invoice_id)) : (p.invoice_number || "—")}</TableCell>
+                        <TableCell className="text-right">
+                          #{displayInvoiceNumber(invoiceMap.get(p.invoice_id)) !== "—" ? displayInvoiceNumber(invoiceMap.get(p.invoice_id)) : (p.invoice_number || "—")}
+                          {p.payment_group_id && groupSizes.get(p.payment_group_id) > 1 && (
+                            <Badge className="bg-blue-100 text-blue-700 mr-1 text-[10px] font-normal">
+                              תשלום מפוצל · {groupSizes.get(p.payment_group_id)} חשבוניות
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right text-muted-foreground text-sm">{p.reference || "—"}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={statusColors[p.status] || "bg-gray-100 text-gray-700"}>
