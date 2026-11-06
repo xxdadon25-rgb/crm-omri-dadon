@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import EmptyState from "@/components/shared/EmptyState";
-import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt, Layers } from "lucide-react";
+import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
@@ -31,7 +31,7 @@ function fmt(n) {
   return (parseFloat(n) || 0).toLocaleString("he-IL", { minimumFractionDigits: 2 });
 }
 
-export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, onSplitPayment, invoices, selectedCustomer, businessSettings }) {
+export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, invoices, selectedCustomer, businessSettings }) {
   const unpaidInvoices = invoices.filter(i => i.payment_status !== "שולם");
   const invoiceMap = new Map(invoices.map(i => [i.id, i]));
 
@@ -95,16 +95,12 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     <div className="space-y-4">
       {unpaidInvoices.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4">
+          {/* There is ONE payment entry point: the per-invoice button below,
+              which opens the payment dialog. A payment split across invoices
+              is that same dialog with more than one line filled in, so no
+              separate action belongs here. */}
           <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <h3 className="font-semibold text-sm">חשבוניות לתשלום ({unpaidInvoices.length})</h3>
-            {/* One payment, split manually across several invoices. The
-                per-invoice buttons below remain the normal single-invoice
-                path and are unchanged. */}
-            {onSplitPayment && unpaidInvoices.length > 1 && (
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={onSplitPayment}>
-                <Layers className="w-3.5 h-3.5" /> תשלום מפוצל בין חשבוניות
-              </Button>
-            )}
           </div>
           <div className="grid gap-2">
             {unpaidInvoices.map(inv => {
