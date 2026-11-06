@@ -93,6 +93,16 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // image is stored once and these are the rows to point at it from every
   // invoice the payment settles.
   const sessionUploadsRef = useRef([]);
+  // True once the operator has typed in any of the three bank fields. The
+  // remembered details are never written over something a person entered.
+  const bankTouchedRef = useRef(false);
+  // Whether the lookup has already run for this opening, so switching the
+  // method back and forth does not re-query or re-fill.
+  const bankLookupRef = useRef(false);
+  const [bankSuggested, setBankSuggested] = useState(false);
+
+  const isCheck = method === "שיק";
+  const open_ = !!open;
 
   const remaining = invoice ? (invoice.total || 0) - (invoice.paid_amount || 0) : 0;
 
@@ -107,7 +117,12 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
       groupIdRef.current = globalThis.crypto?.randomUUID?.()
         ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
-    if (open) sessionUploadsRef.current = [];
+    if (open) {
+      sessionUploadsRef.current = [];
+      bankTouchedRef.current = false;
+      bankLookupRef.current = false;
+      setBankSuggested(false);
+    }
     if (!open) {
       setAttachments([]);
       setBankName("");
@@ -187,6 +202,80 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // handleSave decides the path from the same shape: exactly one line, for the
   // invoice this dialog was opened on, is the original single-invoice flow.
   const effectiveLines = autoActive ? auto.lines : validation.lines;
+
+  /**
+   * THIS CUSTOMER'S LAST CHEQUE, REMEMBERED FROM THE PAYMENTS THEMSELVES
+   *
+   * A customer pays by cheque from the same account month after month, and the
+   * bank, branch and account were retyped every time — four fields, and Finbot
+   * refuses a receipt if any of them is wrong.
+   *
+   * There is nothing new to store. A payment row is only written when a
+   * payment is actually recorded, so the most recent cheque payment of this
+   * customer IS the last known-good set of details. That answers "update the
+   * remembered values only after a successful payment" for free: they update
+   * exactly when a payment row appears, never while typing and never while an
+   * attachment is uploaded. No column and no migration.
+   *
+   * THE RULES
+   *   * scoped by customer_id, so details can never cross customers
+   *   * read as the TEXT they were stored as — an Israeli branch or account
+   *     number can begin with a zero, and any numeric coercion destroys it
+   *   * the CHEQUE NUMBER is never suggested: it is different on every cheque,
+   *     and a prefilled one is a wrong one waiting to be accepted
+   *   * nothing the operator typed is ever written over
+   *   * every field stays editable
+   */
+  const suggestBankDetails = async () => {
+    if (bankLookupRef.current) return;         // once per opening
+    bankLookupRef.current = true;
+    if (!invoice?.customer_id) return;
+    try {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("bank_name,bank_branch,bank_account")
+        .eq("customer_id", invoice.customer_id)
+        .eq("payment_method", "שיק")
+        .eq("status", "אושר")
+        .not("bank_name", "is", null)
+        .order("created_date", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      const last = (data ?? [])[0];
+      if (!last) return;
+
+      // Re-checked at the moment of writing, not only when the lookup started:
+      // the operator may have typed while the query was in flight.
+      if (bankTouchedRef.current) return;
+      const asText = (v) => (v === null || v === undefined ? "" : String(v));
+      const offered = {
+        bank: asText(last.bank_name),
+        branch: asText(last.bank_branch),
+        account: asText(last.bank_account),
+      };
+      // `prev ? prev : …` inside the updater, so a value already in the field
+      // wins even if it was entered while the query was in flight.
+      setBankName(prev => prev || offered.bank);
+      setBankBranch(prev => prev || offered.branch);
+      setBankAccount(prev => prev || offered.account);
+      // The cheque number is deliberately left alone.
+      //
+      // Decided here rather than inside the updaters above: a state updater
+      // runs during the NEXT render, so a flag set inside one is still false
+      // by the time this line is reached.
+      if (offered.bank || offered.branch || offered.account) setBankSuggested(true);
+    } catch (e) {
+      // A suggestion that cannot be made is not a problem worth a toast: the
+      // fields are simply filled by hand, as before.
+      console.warn("bank details lookup failed:", e?.message);
+    }
+  };
+
+  // Runs when the method becomes שיק, not when the dialog opens: a cash or
+  // transfer payment has no reason to query anything.
+  useEffect(() => {
+    if (open_ && isCheck) suggestBankDetails();
+  }, [open_, isCheck]);
 
   const fetchAttachments = async () => {
     const { data } = await supabase
@@ -584,7 +673,6 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
 
     // Trimmed once, then used for validation, the payment row and the receipt
     // request, so all three always carry exactly the same values.
-    const isCheck = method === "שיק";
     const checkDetails = {
       bank_name: bankName.trim(),
       bank_branch: bankBranch.trim(),
@@ -993,21 +1081,36 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
           {method === "שיק" && (
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "מספר בנק", value: bankName, set: setBankName },
-                { label: "מספר סניף", value: bankBranch, set: setBankBranch },
-                { label: "מספר חשבון", value: bankAccount, set: setBankAccount },
-                { label: "מספר צ'ק", value: checkNumber, set: setCheckNumber },
-              ].map(({ label, value, set }) => (
+                // `remembered` marks the three fields that may be suggested
+                // from this customer's last cheque. The cheque number is not
+                // one of them: it differs on every cheque, so a prefilled one
+                // would be a wrong one waiting to be accepted.
+                { label: "מספר בנק", value: bankName, set: setBankName, remembered: true },
+                { label: "מספר סניף", value: bankBranch, set: setBankBranch, remembered: true },
+                { label: "מספר חשבון", value: bankAccount, set: setBankAccount, remembered: true },
+                { label: "מספר צ'ק", value: checkNumber, set: setCheckNumber, remembered: false },
+              ].map(({ label, value, set, remembered }) => (
                 <div key={label} className="space-y-1.5">
                   <Label>{label}</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
                     value={value}
-                    onChange={(e) => set(e.target.value)}
+                    onChange={(e) => {
+                      // Typing in any remembered field makes this payment's
+                      // details the operator's, so a suggestion arriving late
+                      // or on a later switch to שיק must not overwrite them.
+                      if (remembered) bankTouchedRef.current = true;
+                      set(e.target.value);
+                    }}
                   />
                 </div>
               ))}
+              {bankSuggested && (
+                <p className="col-span-2 text-[10px] text-muted-foreground">
+                  פרטי הבנק הושלמו מהשיק האחרון של לקוח זה. מספר הצ'ק תמיד נותר ריק. ניתן לערוך הכול.
+                </p>
+              )}
             </div>
           )}
 
