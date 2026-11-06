@@ -24,7 +24,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowRight } from "lucide-react";
-import { buildStatement, toShekels, balanceSide, formatCheck, KIND, STATUS } from "@/lib/customerStatement";
+import { buildStatement, toShekels, balanceSide, paymentLabel, receiptLabel, KIND, STATUS } from "@/lib/customerStatement";
 
 /** The sheet is a fixed A4 page — 210 mm wide. A CSS millimetre is always
  *  96/25.4 px, so this is 793.7 px on every device and the printed layout
@@ -278,20 +278,37 @@ export default function CustomerStatement() {
               </div>
             </div>
 
-            {/* ── Financial summary ──────────────────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 10 }}>
+            {/* ── The three headline figures ─────────────────────────────
+                Invoiced, received, outstanding. Payments and credit notes are
+                NOT added together: a credit note is not money received, and a
+                figure that mixes the two cannot be reconciled against a bank
+                statement. A credit note total appears only when there is one.*/}
+            <div style={{ display: "grid",
+              gridTemplateColumns: `repeat(${statement.totals.creditNotes ? 4 : 3}, 1fr)`,
+              gap: 8, marginTop: 10 }}>
               {[
-                { label: "יתרת פתיחה", value: money(statement.opening) },
-                { label: "סה״כ חיובים בתקופה", value: money(statement.totals.debit) },
-                { label: "סה״כ תשלומים וזיכויים", value: money(statement.totals.credit) },
-                { label: "יתרת סגירה", value: money(statement.closing), strong: true },
+                { label: "סה״כ חיובים", value: money(statement.totals.invoiced) },
+                { label: "סה״כ תשלומים שהתקבלו", value: money(statement.totals.paymentsReceived) },
+                ...(statement.totals.creditNotes
+                  ? [{ label: "סה״כ זיכויים", value: money(statement.totals.creditNotes) }]
+                  : []),
+                { label: "יתרת הלקוח", value: money(statement.closing), strong: true },
               ].map((c) => (
-                <div key={c.label} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: "6px 8px" }}>
+                <div key={c.label} style={{
+                  border: `1px solid ${c.strong ? "#111827" : "#e5e7eb"}`,
+                  borderRadius: 6, padding: "7px 9px",
+                  background: c.strong ? "#f9fafb" : "#fff",
+                }}>
                   <div style={{ fontSize: 9, color: "#6b7280" }}>{c.label}</div>
-                  <div style={{ fontSize: c.strong ? 14 : 12, fontWeight: 700 }}>{c.value} ₪</div>
+                  <div style={{ fontSize: c.strong ? 15 : 12, fontWeight: 700 }}>{c.value} ₪</div>
                 </div>
               ))}
             </div>
+            {statement.opening !== 0 && (
+              <div style={{ marginTop: 6, fontSize: 9, color: "#6b7280" }}>
+                יתרת פתיחה לתקופה: {money(statement.opening)} ₪
+              </div>
+            )}
 
             {/* The headline figure, stated in words so a credit cannot be
                 misread as a debt. */}
@@ -311,9 +328,9 @@ export default function CustomerStatement() {
                   it, so a multi-page statement stays readable. */}
               <thead style={{ display: "table-header-group" }}>
                 <tr style={{ background: "#111827", color: "#fff" }}>
-                  {["תאריך", "סוג מסמך", "אסמכתא", "תיאור", "חובה", "זכות", "יתרה", "סטטוס"].map((h, i) => (
+                  {["תאריך", "סוג", "תיאור / מסמך", "חובה", "זכות", "יתרה", "סטטוס"].map((h, i) => (
                     <th key={h} style={{
-                      padding: "5px 6px", textAlign: i >= 4 && i <= 6 ? "left" : "right",
+                      padding: "5px 6px", textAlign: i >= 3 && i <= 5 ? "left" : "right",
                       whiteSpace: "nowrap", fontWeight: 600,
                     }}>{h}</th>
                   ))}
@@ -321,79 +338,105 @@ export default function CustomerStatement() {
               </thead>
               <tbody>
                 {statement.rows.length === 0 && (
-                  <tr><td colSpan={8} style={{ padding: 16, textAlign: "center", color: "#6b7280" }}>
+                  <tr><td colSpan={7} style={{ padding: 16, textAlign: "center", color: "#6b7280" }}>
                     אין תנועות בתקופה המבוקשת
                   </td></tr>
                 )}
-                {statement.rows.map((r) => (
-                  /* break-inside: avoid keeps a row whole across a page break. */
+                {statement.rows.map((r) => {
+                  const isPayment = r.kind === KIND.PAYMENT;
+                  return (
+                  /* break-inside: avoid keeps an entry and its breakdown whole
+                     across a page break. */
                   <tr key={`${r.kind}-${r.id}`} style={{ borderBottom: "1px solid #e5e7eb", breakInside: "avoid", pageBreakInside: "avoid" }}>
-                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap", verticalAlign: "top" }}>
                       {dateHe(r.date)}
                       {r.dateFallback && <span style={{ color: "#b45309" }}> *</span>}
                     </td>
-                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>
-                      {r.kind === KIND.INVOICE ? "חשבונית" : r.kind === KIND.PAYMENT ? "תשלום" : "זיכוי"}
+                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap", verticalAlign: "top" }}>
+                      {r.kind === KIND.INVOICE ? "חשבונית" : isPayment ? "תשלום" : "זיכוי"}
                     </td>
-                    {/* An invoice with no document number is marked here too,
-                        not only in the internal notes, so it is never read as
-                        a verified issued document. */}
-                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap",
-                      color: r.unidentified ? "#b45309" : undefined }}>
-                      {/* For a payment the document IS the receipt, and a bank
-                          reference is only the operator's note. Collapsing the
-                          two into one cell could print a reference where the
-                          reader expects a receipt number, so each is labelled
-                          and both are shown. */}
-                      {r.kind === KIND.PAYMENT ? (
+                    {/* ── Description and document number ──────────────────
+                        An invoice is named by its own number. A payment is
+                        named by HOW it was paid — for a cheque, its number and
+                        nothing else about the bank — and its receipts are
+                        listed in the breakdown below, per allocation, because
+                        one payment can hold several. */}
+                    <td style={{ padding: "4px 6px", verticalAlign: "top" }}>
+                      {r.kind === KIND.INVOICE ? (
                         <>
-                          {r.receiptNumber
-                            ? <span>קבלה {r.receiptNumber}</span>
-                            : <span style={{ color: "#b45309" }}>
-                                {r.receiptStatus === "uncertain" ? "קבלה לא ודאית"
-                                  : r.receiptStatus ? "ללא קבלה" : "—"}
-                              </span>}
+                          <span style={{ color: r.unidentified ? "#b45309" : undefined }}>
+                            חשבונית {r.docNumber || (r.unidentified ? "ללא מספר" : "—")}
+                          </span>
+                          <span style={{ display: "block", fontSize: 9, color: "#6b7280" }}>
+                            {r.description}
+                          </span>
+                        </>
+                      ) : isPayment ? (
+                        <>
+                          <span style={{ fontWeight: 600 }}>{paymentLabel(r)}</span>
+                          {r.isGrouped && (
+                            <span style={{ fontSize: 9, color: "#1d4ed8", marginInlineStart: 4 }}>
+                              מפוצל בין {r.allocationCount} חשבוניות
+                            </span>
+                          )}
                           {r.reference && (
-                            <span style={{ display: "block", color: "#6b7280", fontSize: 9 }}>
+                            <span style={{ display: "block", fontSize: 9, color: "#6b7280" }}>
                               אסמכתא {r.reference}
                             </span>
                           )}
+                          {/* The breakdown: one line per allocation. Compact,
+                              inline, nothing to expand. */}
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 3 }}>
+                            <tbody>
+                              {r.allocations.map((a) => {
+                                const rc = receiptLabel(a.receiptState, a.receiptNumber);
+                                return (
+                                  <tr key={a.paymentId} style={{ fontSize: 9, color: "#374151" }}>
+                                    <td style={{ padding: "1px 0", whiteSpace: "nowrap" }}>
+                                      ◦ חשבונית {a.invoiceLabel ?? "—"}
+                                    </td>
+                                    <td style={{ padding: "1px 6px", whiteSpace: "nowrap", textAlign: "left" }}>
+                                      {money(a.amount)} ₪
+                                    </td>
+                                    <td style={{ padding: "1px 6px", whiteSpace: "nowrap",
+                                      color: rc.confirmed ? "#065f46" : "#b45309",
+                                      fontWeight: rc.confirmed ? 400 : 600 }}>
+                                      {rc.text}
+                                    </td>
+                                    <td style={{ padding: "1px 0", whiteSpace: "nowrap", color: "#6b7280" }}>
+                                      {a.invoiceRemaining === null
+                                        ? ""
+                                        : a.invoiceRemaining === 0
+                                          ? "נסגרה"
+                                          : `נותר ${money(a.invoiceRemaining)} ₪`}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </>
-                      ) : (r.docNumber || (r.unidentified ? "ללא מספר" : "—"))}
-                    </td>
-                    {/* Everything a reader needs to reconcile this line is
-                        printed here, on the page, with nothing to expand or
-                        click: which invoice the money was applied to, the
-                        check's own identity, and — for a payment split across
-                        invoices — the single real payment it is part of. */}
-                    <td style={{ padding: "4px 6px" }}>
-                      {r.description}
-                      {r.kind === KIND.PAYMENT && r.allocatedToLabel && (
-                        <span style={{ display: "block", color: "#374151", fontSize: 9 }}>
-                          כנגד חשבונית {r.allocatedToLabel}
-                        </span>
-                      )}
-                      {r.kind === KIND.PAYMENT && formatCheck(r.check) && (
-                        <span style={{ display: "block", color: "#374151", fontSize: 9 }}>
-                          {formatCheck(r.check)}
-                        </span>
-                      )}
-                      {r.kind === KIND.PAYMENT && r.isGrouped && (
-                        <span style={{ display: "block", color: "#1d4ed8", fontSize: 9 }}>
-                          חלק מתשלום אחד של {money(r.groupTotal)} ₪ שפוצל בין {r.groupSize} חשבוניות
-                        </span>
+                      ) : (
+                        <>
+                          <span>{r.description}</span>
+                          {r.docNumber && (
+                            <span style={{ display: "block", fontSize: 9, color: "#6b7280" }}>
+                              אסמכתא {r.docNumber}
+                            </span>
+                          )}
+                        </>
                       )}
                     </td>
-                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap", verticalAlign: "top" }}>
                       {r.debit ? money(r.debit) : ""}
                     </td>
-                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap", verticalAlign: "top" }}>
                       {r.credit ? money(r.credit) : ""}
                     </td>
-                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap", fontWeight: 600 }}>
+                    <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap", fontWeight: 600, verticalAlign: "top" }}>
                       {money(r.balance)}
                     </td>
-                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "4px 6px", whiteSpace: "nowrap", verticalAlign: "top" }}>
                       {r.status ? (
                         <span style={{ ...STATUS_STYLE[r.status], borderRadius: 99, padding: "1px 6px", fontSize: 9 }}>
                           {r.status}
@@ -401,20 +444,22 @@ export default function CustomerStatement() {
                       ) : ""}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
               {statement.rows.length > 0 && (
                 <tfoot>
                   <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                    <td colSpan={4} style={{ padding: "5px 6px" }}>
+                    <td colSpan={3} style={{ padding: "5px 6px" }}>
                       סה״כ בתקופה
                       {/* Stated so a split payment cannot be read as several
                           payments: the rows and the real payments are both
                           named. */}
-                      {statement.totals.paymentRowCount !== statement.totals.distinctPaymentsInPeriod && (
+                      {statement.totals.paymentCount > 0 && (
                         <span style={{ fontWeight: 400, fontSize: 9, color: "#374151" }}>
-                          {" "}· {statement.totals.distinctPaymentsInPeriod} תשלומים
-                          ב-{statement.totals.paymentRowCount} שורות הקצאה
+                          {" "}· {statement.totals.paymentCount} תשלומים
+                          {statement.totals.allocationCount !== statement.totals.paymentCount
+                            && ` (${statement.totals.allocationCount} הקצאות)`}
                         </span>
                       )}
                     </td>

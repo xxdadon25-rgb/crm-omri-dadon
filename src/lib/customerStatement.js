@@ -94,6 +94,52 @@ export function dateKey(value) {
 export const KIND = { INVOICE: "invoice", PAYMENT: "payment", CREDIT_NOTE: "credit_note" };
 const KIND_ORDER = { [KIND.INVOICE]: 0, [KIND.PAYMENT]: 1, [KIND.CREDIT_NOTE]: 2 };
 
+/** The payment method whose instrument has a number worth naming. */
+export const CHECK_METHOD = "שיק";
+
+/**
+ * How a receipt is presented for one allocation.
+ *
+ * CONFIRMED is the only state that claims a document exists, and it is only
+ * reached by HAVING its number. The rest say, precisely, what is not known.
+ */
+export const RECEIPT_VIEW = {
+  CONFIRMED: "confirmed",   // a document number is on record
+  UNCERTAIN: "uncertain",   // an attempt whose outcome was never established
+  FAILED: "failed",         // the provider refused; no document was created
+  PENDING: "pending",       // recorded, the receipt attempt never resolved
+  NONE: "none",             // nothing on record either way
+};
+
+/** What the statement prints for a receipt in each state. */
+export function receiptLabel(state, number) {
+  switch (state) {
+    case RECEIPT_VIEW.CONFIRMED: return { text: `קבלה ${number}`, confirmed: true };
+    case RECEIPT_VIEW.UNCERTAIN: return { text: "קבלה לא ודאית", confirmed: false };
+    case RECEIPT_VIEW.FAILED:    return { text: "הקבלה נדחתה", confirmed: false };
+    case RECEIPT_VIEW.PENDING:   return { text: "קבלה בהמתנה", confirmed: false };
+    default:                     return { text: "ללא קבלה", confirmed: false };
+  }
+}
+
+/**
+ * How a payment is described on the statement.
+ *
+ * A CHEQUE NAMES ITS OWN NUMBER AND NOTHING MORE. The bank, branch and
+ * account are the drawer's banking details: they are needed to issue the
+ * receipt and are kept on the payment row, but a statement handed to the
+ * customer has no business restating them, and this is the only place that
+ * decides what a cheque looks like.
+ */
+export function paymentLabel(row) {
+  if (row?.method === CHECK_METHOD) {
+    return row?.checkNumber
+      ? `שולם בצ'ק · מס' ${row.checkNumber}`
+      : "שולם בצ'ק";
+  }
+  return row?.method ? `שולם ב${row.method}` : "תשלום";
+}
+
 /** Statuses the statement prints for an invoice row. */
 export const STATUS = {
   CREDITED: "זוכה",
@@ -190,63 +236,135 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     });
   }
 
+  // ── Payments: ONE ENTRY PER REAL PAYMENT ─────────────────────────────────
+  //
   // A payment split across invoices is stored as N rows sharing one
-  // payment_group_id. Counted FIRST, so each row can state the real payment it
-  // belongs to. The money itself is never doubled — the rows sum to the
-  // payment, and only one of them is ever added per row — but a reader shown
-  // three ₪1,000-looking lines would still read three payments, so the
-  // relationship is printed on the row rather than left to be inferred.
-  const groupSize = new Map();
-  const groupTotal = new Map();
+  // payment_group_id. Printing those rows as N lines is arithmetically correct
+  // — they sum to the payment — but it READS as N payments: three lines that
+  // each look like a payment of their own, for a customer who wrote one
+  // cheque. On a statement a customer may dispute, that is the difference
+  // between a document they can follow and one they cannot.
+  //
+  // So a group becomes ONE credit entry for the whole amount, with the
+  // allocations as a breakdown underneath. The money is counted exactly once,
+  // because the entry's credit IS the sum of its allocations and the
+  // allocations themselves are no longer rows.
+  const invoiceById = new Map(invoices.map(i => [i.id, i]));
+  const invoiceLabelById = new Map(
+    invoices.map(i => [i.id, i.external_invoice_number || i.invoice_number || null]));
+
+  /** What is still owed on an invoice, as it stands now. */
+  const remainingOf = (inv) => {
+    if (!inv) return null;
+    const left = toAgorot(inv.total) - toAgorot(inv.paid_amount);
+    return left > 0 ? left : 0;
+  };
+
+  /**
+   * One allocation, as the breakdown under a payment shows it.
+   *
+   * THE RECEIPT IS NEVER CLAIMED AS CONFIRMED ON AN ASSUMPTION.
+   *   A stored receipt number is evidence in itself: it is written only after
+   *   the provider returned that document number. So a number present means a
+   *   receipt exists, including for payments recorded before receipt_status
+   *   existed (NULL, not "unconfirmed").
+   *
+   *   What must never be inferred is the other direction. No number means no
+   *   confirmed receipt, whatever the status says, and 'uncertain' and
+   *   'failed' are reported as what they are rather than flattened into
+   *   "missing" — they mean different things to whoever has to fix them.
+   */
+  const allocationOf = (p) => {
+    const inv = invoiceById.get(p.invoice_id);
+    const receiptNumber = p.external_receipt_number || null;
+    const status = p.receipt_status ?? null;
+    let receiptState;
+    if (receiptNumber) receiptState = RECEIPT_VIEW.CONFIRMED;
+    else if (status === "uncertain") receiptState = RECEIPT_VIEW.UNCERTAIN;
+    else if (status === "failed") receiptState = RECEIPT_VIEW.FAILED;
+    else if (status === "pending") receiptState = RECEIPT_VIEW.PENDING;
+    else receiptState = RECEIPT_VIEW.NONE;
+
+    return {
+      paymentId: p.id,
+      invoiceId: p.invoice_id ?? null,
+      invoiceLabel: p.invoice_id ? (invoiceLabelById.get(p.invoice_id) ?? null) : null,
+      amount: toAgorot(p.amount),
+      receiptNumber,
+      receiptState,
+      // What the invoice still owes, as it stands now.
+      invoiceRemaining: remainingOf(inv),
+      invoiceTotal: inv ? toAgorot(inv.total) : null,
+    };
+  };
+
+  // Group the rows: one bucket per payment_group_id, and a bucket of its own
+  // for every ungrouped payment, so both kinds take the same path from here.
+  const buckets = new Map();
   for (const p of payments) {
-    const g = p.payment_group_id;
-    if (!g) continue;
-    groupSize.set(g, (groupSize.get(g) || 0) + 1);
-    groupTotal.set(g, (groupTotal.get(g) || 0) + toAgorot(p.amount));
+    const key = p.payment_group_id ? `g:${p.payment_group_id}` : `p:${p.id}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p);
   }
 
-  // Document numbers of the invoices, so a payment row can name the invoice it
-  // was allocated to by its number instead of an opaque id.
-  const invoiceLabelById = new Map();
-  for (const inv of invoices) {
-    invoiceLabelById.set(inv.id, inv.external_invoice_number || inv.invoice_number || null);
-  }
+  for (const [key, rows] of buckets) {
+    const head = rows[0];
+    const groupId = head.payment_group_id || null;
+    // All rows of a group are written by one call and share one payment_date.
+    // The earliest is used anyway, so a group can never be placed later than
+    // its own money, and a disagreement is reported rather than hidden.
+    const dates = rows.map(r => dateKey(r.payment_date) || dateKey(r.created_date));
+    const distinctDates = new Set(dates.filter(Boolean));
+    if (distinctDates.size > 1) {
+      warnings.push({
+        code: "group_date_mismatch",
+        count: distinctDates.size,
+        message: `תשלום מפוצל אחד נושא ${distinctDates.size} תאריכים שונים — נעשה שימוש במוקדם שבהם`,
+      });
+    }
+    const date = [...distinctDates].sort()[0] || null;
 
-  for (const p of payments) {
-    const g = p.payment_group_id || null;
-    const size = g ? (groupSize.get(g) || 1) : 1;
+    const allocations = rows.map(allocationOf);
+    const credit = allocations.reduce((s, a) => s + a.amount, 0);
+    const receiptNumbers = [...new Set(
+      allocations.map(a => a.receiptNumber).filter(Boolean))];
+
     all.push({
       kind: KIND.PAYMENT,
-      id: p.id,
-      date: dateKey(p.payment_date) || dateKey(p.created_date),
-      dateFallback: !dateKey(p?.payment_date),
-      // The receipt number is the document; a reference is the operator's own
-      // note. They were previously collapsed into one field, so a statement
-      // could print a bank reference where a reader expects a receipt number.
-      // They are now separate and both shown.
-      receiptNumber: p.external_receipt_number || null,
-      reference: p.reference || null,
-      docNumber: p.external_receipt_number || p.reference || null,
-      description: describePayment(p),
-      method: p.payment_method ?? null,
-      // Which invoice this payment settled, named for printing.
-      allocatedToInvoiceId: p.invoice_id ?? null,
-      allocatedToLabel: p.invoice_id ? (invoiceLabelById.get(p.invoice_id) ?? null) : null,
-      // Check accounting detail, printed in full: a statement a customer
-      // queries is answered by the check's own identity, not by "שיק".
-      check: checkDetails(p),
-      // One real payment, several rows.
-      paymentGroupId: g,
-      groupSize: size,
-      groupTotal: g ? (groupTotal.get(g) || 0) : toAgorot(p.amount),
-      isGrouped: size > 1,
-      // Whether a receipt is known to exist for this money.
-      receiptStatus: p.receipt_status ?? null,
+      // Stable and unique across both kinds, for a React key and for the
+      // comparator's final tiebreak.
+      id: key,
+      date,
+      dateFallback: !dateKey(head?.payment_date),
+      method: head.payment_method ?? null,
+      description: describePayment(head),
+      // The cheque's own number, and NOTHING else about the bank. A customer
+      // statement identifies a cheque; it does not restate the drawer's bank,
+      // branch and account back at them.
+      checkNumber: head.payment_method === CHECK_METHOD
+        ? (head.check_number ? String(head.check_number) : null)
+        : null,
+      reference: head.reference || null,
+      // Every receipt issued under this one payment.
+      receiptNumbers,
+      // For a single-allocation payment this is the document number, as
+      // before. For a group there may be several, so the breakdown carries
+      // them per allocation and this stays empty rather than naming one.
+      docNumber: receiptNumbers.length === 1 ? receiptNumbers[0] : null,
+      paymentGroupId: groupId,
+      allocations,
+      allocationCount: allocations.length,
+      isGrouped: allocations.length > 1,
       debit: 0,
-      credit: toAgorot(p.amount),
+      // ONE credit for the whole payment. Equal to the sum of its allocations
+      // by construction, which is what keeps the money counted once and the
+      // running balance correct.
+      credit,
       status: null,
-      rawStatus: p.status ?? null,
-      invoiceId: p.invoice_id ?? null,
+      rawStatus: head.status ?? null,
+      invoiceId: allocations.length === 1 ? (head.invoice_id ?? null) : null,
+      // Kept for reconciliation: the raw rows this entry stands for.
+      paymentIds: rows.map(r => r.id),
     });
   }
 
@@ -435,18 +553,26 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
 
   // ── Is every payment counted exactly once? ───────────────────────────────
   //
-  // The credit side sums payment ROWS, and a split payment legitimately
-  // contributes several. What must never happen is the SAME row counted twice:
-  // the reads that feed this statement are paged, and a page that overlaps its
-  // predecessor would deliver one payment twice, understating the balance by
-  // its full value on business letterhead. Asserted, not assumed.
-  const paymentRows = all.filter(r => r.kind === KIND.PAYMENT);
-  const seenPaymentIds = new Set();
+  // Each real payment is now ONE entry whose credit is the sum of its
+  // allocations, so the two things that could go wrong are both checked here
+  // against the RAW rows rather than against the entries built from them.
+  //
+  //   1. the same raw row delivered twice. The reads that feed this statement
+  //      are paged, and a page that overlaps its predecessor would deliver one
+  //      payment twice, understating the balance by its full value on business
+  //      letterhead.
+  //   2. an entry whose credit does not equal its allocations. That cannot
+  //      happen by construction — the credit IS their sum — which is exactly
+  //      why it is worth asserting: if it ever stops being true, the running
+  //      balance is wrong and nothing else would say so.
+  const paymentEntries = all.filter(r => r.kind === KIND.PAYMENT);
+
+  const seenRawIds = new Set();
   const duplicatePaymentIds = [];
-  for (const r of paymentRows) {
-    if (r.id === null || r.id === undefined) continue;
-    if (seenPaymentIds.has(r.id)) duplicatePaymentIds.push(r.id);
-    else seenPaymentIds.add(r.id);
+  for (const p of payments) {
+    if (p.id === null || p.id === undefined) continue;
+    if (seenRawIds.has(p.id)) duplicatePaymentIds.push(p.id);
+    else seenRawIds.add(p.id);
   }
   if (duplicatePaymentIds.length > 0) {
     warnings.push({
@@ -457,24 +583,38 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     });
   }
 
-  // How many REAL payments those rows represent: a group counts once.
-  const distinctPayments = new Set(
-    paymentRows.map(r => r.paymentGroupId || `row:${r.id}`)).size;
+  const unbalanced = paymentEntries.filter(
+    r => r.credit !== (r.allocations || []).reduce((s2, a) => s2 + a.amount, 0));
+  if (unbalanced.length > 0) {
+    warnings.push({
+      code: "payment_entry_unbalanced",
+      count: unbalanced.length,
+      message: `${unbalanced.length} תשלומים שסכומם אינו תואם לפירוט ההקצאות שלהם`,
+      details: unbalanced.map(r => r.id),
+    });
+  }
 
-  // Payments whose receipt is not known to exist. 'uncertain' is called out
-  // separately because it must not be resolved by issuing another receipt.
-  const receiptsUnconfirmed = paymentRows.filter(
-    r => r.receiptStatus && r.receiptStatus !== "confirmed");
-  const receiptsUncertain = receiptsUnconfirmed.filter(r => r.receiptStatus === "uncertain");
+  // One entry IS one real payment now, so this is simply how many there are.
+  const distinctPayments = paymentEntries.length;
+
+  // Allocations whose receipt is not on record as a document. Counted over
+  // ALLOCATIONS, because that is the level a receipt belongs to: one payment
+  // can have one confirmed receipt and one that failed.
+  const allAllocations = paymentEntries.flatMap(r => r.allocations || []);
+  const receiptsUnconfirmed = allAllocations.filter(
+    a => a.receiptState !== RECEIPT_VIEW.CONFIRMED);
+  const receiptsUncertain = allAllocations.filter(
+    a => a.receiptState === RECEIPT_VIEW.UNCERTAIN);
   if (receiptsUnconfirmed.length > 0) {
     warnings.push({
       code: "receipts_unconfirmed",
       count: receiptsUnconfirmed.length,
       message: receiptsUncertain.length > 0
-        ? `${receiptsUnconfirmed.length} תשלומים ללא קבלה מאומתת, מהם ${receiptsUncertain.length} במצב לא ודאי — אין להפיק קבלה נוספת לפני בדיקה ב-Finbot`
-        : `${receiptsUnconfirmed.length} תשלומים ללא קבלה מאומתת`,
-      details: receiptsUnconfirmed.map(r => ({
-        paymentId: r.id, date: r.date, amount: r.credit, receiptStatus: r.receiptStatus,
+        ? `${receiptsUnconfirmed.length} הקצאות ללא קבלה מאומתת, מהן ${receiptsUncertain.length} במצב לא ודאי — אין להפיק קבלה נוספת לפני בדיקה ב-Finbot`
+        : `${receiptsUnconfirmed.length} הקצאות ללא קבלה מאומתת`,
+      details: receiptsUnconfirmed.map(a => ({
+        paymentId: a.paymentId, invoiceLabel: a.invoiceLabel,
+        amount: a.amount, receiptState: a.receiptState,
       })),
     });
   }
@@ -495,18 +635,26 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     rows,
     totals: {
       debit: totalDebit, credit: totalCredit, count: rows.length,
-      // Rows in the period that are payments, and the number of REAL payments
-      // they represent (a split payment counts once).
-      paymentRowCount: rows.filter(r => r.kind === KIND.PAYMENT).length,
-      distinctPaymentsInPeriod: new Set(
-        rows.filter(r => r.kind === KIND.PAYMENT)
-            .map(r => r.paymentGroupId || `row:${r.id}`)).size,
+      // The three headline figures, separated because they answer different
+      // questions: a credit note is not a payment received, and a statement
+      // that adds the two into one "credit" figure cannot be reconciled
+      // against a bank statement.
+      invoiced: totalDebit,
+      paymentsReceived: rows.filter(r => r.kind === KIND.PAYMENT)
+        .reduce((s2, r) => s2 + r.credit, 0),
+      creditNotes: rows.filter(r => r.kind === KIND.CREDIT_NOTE)
+        .reduce((s2, r) => s2 + r.credit, 0),
+      // One entry per real payment, and how many allocations they cover.
+      paymentCount: rows.filter(r => r.kind === KIND.PAYMENT).length,
+      allocationCount: rows.filter(r => r.kind === KIND.PAYMENT)
+        .reduce((s2, r) => s2 + (r.allocationCount || 1), 0),
     },
     closing,
     allTime: { debit: allTimeDebit, credit: allTimeCredit, closing: allTimeClosing },
     reconciliation: {
       crmOutstanding, delta: allTimeClosing - crmOutstanding, causes, mismatches,
       distinctPayments, duplicatePaymentIds,
+      unbalancedPayments: unbalanced.length,
       receiptsUnconfirmed: receiptsUnconfirmed.length,
       receiptsUncertain: receiptsUncertain.length,
     },
@@ -556,38 +704,10 @@ function describeInvoice(inv) {
 }
 
 function describePayment(p) {
-  const method = p.payment_method ? ` · ${p.payment_method}` : "";
-  return `תשלום${method}`;
-}
-
-/**
- * The four check fields, or null for any other payment method.
- *
- * Kept as the TEXT the operator entered. An Israeli branch or account number
- * can begin with a zero, and a statement that prints 12345 where the check says
- * 012345 cannot be reconciled against the bank.
- */
-function checkDetails(p) {
-  const has = p.bank_name || p.bank_branch || p.bank_account || p.check_number;
-  if (!has) return null;
-  const s = (v) => (v === null || v === undefined || v === "" ? null : String(v));
-  return {
-    bankName: s(p.bank_name),
-    bankBranch: s(p.bank_branch),
-    bankAccount: s(p.bank_account),
-    checkNumber: s(p.check_number),
-  };
-}
-
-/** One line of check identity for printing, e.g. "שיק 012345 · בנק 12 · סניף 345 · חשבון 00123". */
-export function formatCheck(check) {
-  if (!check) return null;
-  const parts = [];
-  if (check.checkNumber) parts.push(`שיק ${check.checkNumber}`);
-  if (check.bankName) parts.push(`בנק ${check.bankName}`);
-  if (check.bankBranch) parts.push(`סניף ${check.bankBranch}`);
-  if (check.bankAccount) parts.push(`חשבון ${check.bankAccount}`);
-  return parts.length ? parts.join(" · ") : null;
+  return paymentLabel({
+    method: p.payment_method ?? null,
+    checkNumber: p.check_number ? String(p.check_number) : null,
+  });
 }
 
 /** Is the closing balance money the customer owes, or money owed to them? */
