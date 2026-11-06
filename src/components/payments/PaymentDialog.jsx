@@ -725,15 +725,53 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" dir="rtl">
-        <DialogHeader>
+      {/* ── Height, and why the layout is a column ───────────────────────
+          With automatic allocation expanded and the four cheque fields shown,
+          the form is taller than a short laptop screen. The shared
+          DialogContent is a `grid` with no max height and does not scroll, so
+          it simply grew past the viewport and took "שמור תשלום" and "ביטול"
+          with it — off screen, with nothing to scroll.
+
+          Three local changes, all on this dialog so no other dialog in the app
+          is affected:
+            * a height ceiling, so the dialog can never exceed the viewport
+            * a flex COLUMN instead of the inherited grid, so the header and
+              the footer size to their content and the body takes the rest
+            * overflow-hidden here, so the only thing that scrolls is the body
+
+          maxHeight is declared TWICE on purpose. The inline value uses dvh,
+          which excludes the mobile browser's collapsing toolbars; where dvh is
+          not supported that declaration is dropped and the vh class below
+          applies instead. */}
+      <DialogContent
+        className="max-w-md max-h-[90vh] flex flex-col overflow-hidden"
+        style={{ maxHeight: "90dvh" }}
+        dir="rtl">
+        {/* Stays put while the body scrolls, so the dialog is always titled —
+            which is also what Radix points aria-labelledby at. */}
+        <DialogHeader className="shrink-0">
           <DialogTitle>רישום תשלום</DialogTitle>
           <DialogDescription>
             חשבונית #{displayInvoiceNumber(invoice)} — {invoice.customer_name}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
+        {/* THE ONLY SCROLLING REGION.
+            min-h-0 is what makes it work: a flex child's default minimum size
+            is its content, so without it the body refuses to shrink and
+            pushes the footer out of the dialog again — the bug, with extra
+            steps.
+
+            overscroll-contain keeps a wheel or a swipe that reaches the end of
+            this list from scrolling the page behind the dialog.
+
+            tabIndex makes the region focusable, so arrow keys, Page Up/Down
+            and Home/End scroll it. Radix still moves initial focus to the
+            first field, and Tab through the fields scrolls them into view on
+            its own; this is for someone who wants to read rather than type. */}
+        <div
+          className="space-y-4 mt-2 flex-1 min-h-0 overflow-y-auto overscroll-contain px-1 -mx-1"
+          tabIndex={0}>
           <div className="grid grid-cols-2 gap-3 text-sm bg-muted/40 rounded-lg p-3">
             <div>
               <span className="text-muted-foreground">סה״כ חשבונית:</span>
@@ -1026,7 +1064,10 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2 border-t border-border">
+        {/* Never scrolls away. shrink-0 keeps it at its natural height even
+            when the body is far taller than the dialog, and the background is
+            explicit so the scrolling content cannot show through it. */}
+        <div className="flex gap-2 pt-3 border-t border-border shrink-0 bg-background">
           {/* Disabled for an allocation that cannot be written: a total above
               what the customer owes, or a manual line above its invoice's
               balance. A plain single-invoice payment with no other invoices to
