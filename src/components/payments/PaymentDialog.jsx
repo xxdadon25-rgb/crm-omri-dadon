@@ -36,6 +36,7 @@ import { Loader2, Paperclip, Camera, ExternalLink, Trash2, Layers, ChevronDown, 
 import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { classifyReceiptOutcome, receiptMessage, receiptPatch, RECEIPT } from "@/lib/receiptLifecycle";
+import { deleteAttachmentLink } from "@/lib/attachmentLinks";
 import {
   validateAllocation, buildAllocationPayload, isAllocatable, autoAllocate,
   compareForAllocation, remainingAgorot, toAgorot, toShekels,
@@ -88,6 +89,10 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // reused by every retry, so a double click or a lost response cannot record
   // the money twice.
   const groupIdRef = useRef(null);
+  // Files uploaded in THIS dialog session: { file_url, file_name }. The check
+  // image is stored once and these are the rows to point at it from every
+  // invoice the payment settles.
+  const sessionUploadsRef = useRef([]);
 
   const remaining = invoice ? (invoice.total || 0) - (invoice.paid_amount || 0) : 0;
 
@@ -102,6 +107,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
       groupIdRef.current = globalThis.crypto?.randomUUID?.()
         ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
+    if (open) sessionUploadsRef.current = [];
     if (!open) {
       setAttachments([]);
       setBankName("");
@@ -203,6 +209,17 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
       const { error: dbError } = await supabase.from("invoice_attachments")
         .insert({ invoice_id: invoice.id, file_url: publicUrl, file_name: file.name });
       if (dbError) { toast.error("שגיאה בשמירה: " + dbError.message); return; }
+      // Remembered so the SAME stored object can be linked to the other
+      // invoices this payment settles, once it is actually recorded.
+      //
+      // Only files uploaded in THIS dialog session are remembered. The invoice
+      // may already carry attachments from earlier payments, and those belong
+      // to those payments — copying them onto other invoices would attach the
+      // wrong evidence to the wrong debt.
+      sessionUploadsRef.current = [
+        ...sessionUploadsRef.current,
+        { file_url: publicUrl, file_name: file.name },
+      ];
       toast.success("הקובץ צורף");
       fetchAttachments();
     } finally {
@@ -217,15 +234,20 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   };
 
   const handleDeleteAttachment = async (att) => {
-    try {
-      const url = new URL(att.file_url);
-      const pathParts = url.pathname.split(`/${BUCKET}/`);
-      if (pathParts[1]) await supabase.storage.from(BUCKET).remove([pathParts[1]]);
-      await supabase.from("invoice_attachments").delete().eq("id", att.id);
-      setAttachments(prev => prev.filter(a => a.id !== att.id));
-    } catch {
-      toast.error("שגיאה במחיקת הצרופה");
+    // One cheque's image can be shared by several invoices, so this removes
+    // THIS invoice's link and deletes the stored file only if it was the last
+    // one pointing at it. See src/lib/attachmentLinks.js.
+    const res = await deleteAttachmentLink({ supabase, bucket: BUCKET, attachment: att });
+    if (!res.ok) {
+      toast.error(res.error || "שגיאה במחיקת הצרופה");
+      return;
     }
+    setAttachments(prev => prev.filter(a => a.id !== att.id));
+    // Not offered to the other invoices of this payment any more. The file
+    // itself may still exist for invoices that already link to it.
+    sessionUploadsRef.current =
+      sessionUploadsRef.current.filter(u => u.file_url !== att.file_url);
+    if (res.warning) toast.warning(res.warning);
   };
 
   /**
@@ -310,6 +332,74 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   };
 
   /**
+   * Point the files uploaded here at every OTHER invoice this payment settled.
+   *
+   * THE PROBLEM THIS SOLVES
+   *   An attachment is uploaded while the dialog is open, so it can only be
+   *   filed under the invoice the dialog was opened on. For one check paying
+   *   three invoices that is wrong by two: open either of the others and the
+   *   image of the cheque that paid it is nowhere to be seen.
+   *
+   * ONE FILE, SEVERAL LINKS
+   *   The object in storage is NOT copied. Every row carries the same
+   *   file_url, so the three invoices share one stored image. Deleting the
+   *   object from any one of them removes the file for all of them, which is
+   *   the honest consequence of there being one cheque.
+   *
+   * ONLY AFTER THE MONEY IS RECORDED
+   *   Called after the write has succeeded, never before. A payment that was
+   *   refused leaves the image attached to the invoice it was uploaded under
+   *   and to nothing else — the state it was in before, with no claim about
+   *   invoices that were never paid.
+   *
+   * SAFE TO REPEAT
+   *   The pairs that already exist are read first and skipped, so a retry — or
+   *   the already_recorded path finishing what a lost response started — adds
+   *   no duplicate link.
+   *
+   * @returns {Promise<string|null>} a Hebrew warning, or null.
+   */
+  const linkAttachmentsTo = async (invoiceIds) => {
+    const uploads = sessionUploadsRef.current;
+    // The opened invoice already has its row from the upload itself, which is
+    // why the single-invoice flow reaches this and does nothing at all.
+    const targets = [...new Set((invoiceIds || []).filter(id => id && id !== invoice.id))];
+    if (uploads.length === 0 || targets.length === 0) return null;
+
+    try {
+      const urls = uploads.map(u => u.file_url);
+      const { data: existing, error: readErr } = await supabase
+        .from("invoice_attachments")
+        .select("invoice_id,file_url")
+        .in("invoice_id", targets)
+        .in("file_url", urls);
+      if (readErr) throw readErr;
+
+      // A NUL separator, so an id or a url containing the separator cannot
+      // make two different pairs collide into one key.
+      const have = new Set((existing ?? []).map(r => `${r.invoice_id}\u0000${r.file_url}`));
+      const rows = [];
+      for (const id of targets) {
+        for (const u of uploads) {
+          if (have.has(`${id}\u0000${u.file_url}`)) continue;
+          rows.push({ invoice_id: id, file_url: u.file_url, file_name: u.file_name });
+        }
+      }
+      if (rows.length === 0) return null;
+
+      const { error: insErr } = await supabase.from("invoice_attachments").insert(rows);
+      if (insErr) throw insErr;
+      return null;
+    } catch (e) {
+      // Isolated like the order update: the payment is committed and really
+      // happened, and a missing attachment link must never be reported as a
+      // failed payment.
+      console.warn("attachment linking failed:", e?.message);
+      return "התשלום נרשם, אך לא הצלחנו לשייך את הצרופה לכל החשבוניות. יש לצרף אותה ידנית לחשבוניות הנוספות.";
+    }
+  };
+
+  /**
    * Ask the webhook for ONE receipt, classify what came back, and record the
    * result on the payment row(s) it belongs to.
    *
@@ -364,6 +454,12 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
         toast.success("התשלום כבר נרשם קודם לכן — לא בוצע רישום כפול");
         const retryWarning = await completeOrdersFor(data.settled_invoice_ids);
         if (retryWarning) toast.warning(retryWarning);
+        // The money is recorded, so the links belong on those invoices. The
+        // first attempt may have died before writing them, and the pairs that
+        // already exist are skipped, so this adds nothing twice.
+        const retryAttachWarning = await linkAttachmentsTo(
+          (Array.isArray(data.lines) ? data.lines : []).map(l => l.invoice_id));
+        if (retryAttachWarning) toast.warning(retryAttachWarning);
         const pending = (Array.isArray(data.lines) ? data.lines : [])
           .filter(l => l.receipt_status !== "confirmed");
         toast.warning(pending.length === 0
@@ -384,6 +480,11 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
       // inserted. Matching by array position would break silently if either
       // order ever changed, so the pairing comes from the server.
       const serverLines = Array.isArray(data.lines) ? data.lines : [];
+
+      // The invoices that actually received money, as the SERVER reports them —
+      // not as the client hoped. Only these get a link to the cheque image.
+      const attachWarning = await linkAttachmentsTo(serverLines.map(l => l.invoice_id));
+
       const states = [];
       for (const line of serverLines) {
         const inv = allInvoices.find(i => i.id === line.invoice_id);
@@ -432,6 +533,7 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
       }
 
       if (orderWarning) toast.warning(orderWarning);
+      if (attachWarning) toast.warning(attachWarning);
       onOpenChange(false);
       onSaved?.();
     } catch (err) {

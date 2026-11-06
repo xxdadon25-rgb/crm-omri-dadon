@@ -5,6 +5,7 @@ import { Download, MessageCircle, X, Wallet, Paperclip, Camera, ExternalLink, Lo
 import { formatDate } from "@/lib/dateUtils";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
+import { deleteAttachmentLink } from "@/lib/attachmentLinks";
 import { toast } from "sonner";
 
 // const paymentColors = {
@@ -128,18 +129,19 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   };
 
   const handleDelete = async (attachment) => {
-    try {
-      const url = new URL(attachment.file_url);
-      const pathParts = url.pathname.split(`/${BUCKET}/`);
-      if (pathParts[1]) {
-        await supabase.storage.from(BUCKET).remove([pathParts[1]]);
-      }
-      await supabase.from("invoice_attachments").delete().eq("id", attachment.id);
-      setAttachments(prev => prev.filter(a => a.id !== attachment.id));
-      toast.success("הצרופה נמחקה");
-    } catch {
-      toast.error("שגיאה במחיקת הצרופה");
+    // The same file can be attached to several invoices — one cheque paying
+    // several of them is stored once and linked from each. Removing the
+    // storage object here would blank the attachment on all of them, so this
+    // removes only THIS invoice's link and deletes the file when it was the
+    // last reference. See src/lib/attachmentLinks.js.
+    const res = await deleteAttachmentLink({ supabase, bucket: BUCKET, attachment });
+    if (!res.ok) {
+      toast.error(res.error || "שגיאה במחיקת הצרופה");
+      return;
     }
+    setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+    toast.success("הצרופה נמחקה");
+    if (res.warning) toast.warning(res.warning);
   };
 
   if (!invoice) return null;
