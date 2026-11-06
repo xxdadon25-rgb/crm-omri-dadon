@@ -37,8 +37,8 @@ import { supabase } from "@/api/supabaseClient";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { classifyReceiptOutcome, receiptMessage, receiptPatch, RECEIPT } from "@/lib/receiptLifecycle";
 import {
-  validateAllocation, buildAllocationPayload, isAllocatable,
-  remainingAgorot, toAgorot, toShekels,
+  validateAllocation, buildAllocationPayload, isAllocatable, autoAllocate,
+  compareForAllocation, remainingAgorot, toAgorot, toShekels,
 } from "@/lib/paymentAllocation";
 
 const BUCKET = "payment-attachments";
@@ -76,6 +76,14 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // Amounts allocated to the customer's OTHER open invoices: { id: shekels }.
   const [extra, setExtra] = useState({});
   const [allocOpen, setAllocOpen] = useState(false);
+  // Automatic allocation is the default. Manual stays available for the cases
+  // the rule cannot know about — a customer who says which invoice a payment is
+  // for, a disputed invoice to skip.
+  const [autoMode, setAutoMode] = useState(true);
+  // In automatic mode this is the TOTAL received, not the amount for this
+  // invoice. Kept in its own state so the two modes can never reinterpret each
+  // other's number.
+  const [totalAmount, setTotalAmount] = useState("");
   // The idempotency key for a grouped payment. Generated once per opening and
   // reused by every retry, so a double click or a lost response cannot record
   // the money twice.
@@ -89,6 +97,8 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
     if (open) {
       setExtra({});
       setAllocOpen(false);
+      setAutoMode(true);
+      setTotalAmount(remaining > 0 ? String(remaining) : "");
       groupIdRef.current = globalThis.crypto?.randomUUID?.()
         ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
@@ -141,6 +151,36 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
     [allInvoices, amounts, totalAgorot]);
 
   const extraErrorFor = (id) => validation.errors.find(e => e.invoiceId === id)?.message || null;
+
+  // ---- automatic allocation -------------------------------------------
+  // Every open invoice of this customer, INCLUDING the one the dialog was
+  // opened on, in the order the money is applied. The invoice clicked is not
+  // privileged: the oldest debt is settled first, which is the rule a customer
+  // paying "on account" expects, and the preview below shows exactly where the
+  // money lands so it is never a surprise.
+  const eligible = useMemo(() => {
+    const pool = invoice
+      ? [invoice, ...otherInvoices]
+      : otherInvoices;
+    return pool.filter(isAllocatable).slice().sort(compareForAllocation);
+  }, [invoice, otherInvoices]);
+
+  // Automatic allocation only means anything when there is more than one
+  // invoice to allocate across. With a single open invoice the dialog shows,
+  // and uses, the original per-invoice amount field — otherwise handleSave
+  // would read a total the operator never saw.
+  const canAuto = otherInvoices.length > 0;
+  const autoActive = autoMode && canAuto;
+
+  const autoTotalAgorot = toAgorot(totalAmount);
+  const auto = useMemo(
+    () => autoAllocate({ invoices: eligible, totalAgorot: autoTotalAgorot }),
+    [eligible, autoTotalAgorot]);
+
+  // The lines this payment will actually write, whichever mode produced them.
+  // handleSave decides the path from the same shape: exactly one line, for the
+  // invoice this dialog was opened on, is the original single-invoice flow.
+  const effectiveLines = autoActive ? auto.lines : validation.lines;
 
   const fetchAttachments = async () => {
     const { data } = await supabase
@@ -304,12 +344,12 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
    * idempotency on the group id. Then one LINKED receipt per invoice, for its
    * own allocated amount.
    */
-  const saveSplit = async ({ isCheck, checkDetails }) => {
+  const saveSplit = async ({ isCheck, checkDetails, lines }) => {
     try {
       const payload = buildAllocationPayload({
         groupId: groupIdRef.current,
         customerId: invoice.customer_id,
-        lines: validation.lines,
+        lines,
         method, date, reference, notes,
         checkDetails: isCheck ? checkDetails : null,
       });
@@ -410,14 +450,34 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   };
 
   const handleSave = async () => {
-    const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0) {
-      toast.error("יש להזין סכום תקין");
-      return;
-    }
-    if (numAmount > remaining) {
-      toast.error(`הסכום המקסימלי לתשלום הוא ₪${remaining.toLocaleString()}`);
-      return;
+    // ---- which lines is this payment made of? --------------------------
+    // Resolved once, here, for both modes. Everything after this point cares
+    // only about the lines, not about how they were chosen.
+    let lines;
+    if (autoActive) {
+      // The surplus refusal lives in autoAllocate, so a total above what the
+      // customer owes is rejected with the exact amount that does not fit
+      // rather than quietly becoming unallocated credit.
+      if (!auto.ok) {
+        toast.error(auto.message || "לא ניתן להקצות את הסכום");
+        return;
+      }
+      lines = auto.lines;
+    } else {
+      const numAmount = parseFloat(amount);
+      if (!numAmount || numAmount <= 0) {
+        toast.error("יש להזין סכום תקין");
+        return;
+      }
+      if (numAmount > remaining) {
+        toast.error(`הסכום המקסימלי לתשלום הוא ₪${remaining.toLocaleString()}`);
+        return;
+      }
+      if (!validation.ok) {
+        toast.error(validation.errors[0]?.message || "ההקצאה אינה תקינה");
+        return;
+      }
+      lines = validation.lines;
     }
 
     // Trimmed once, then used for validation, the payment row and the receipt
@@ -438,21 +498,23 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
     }
 
     // ---- the split path -------------------------------------------------
-    // Taken only when another invoice was actually given an amount. Everything
-    // below this branch is the original single-invoice flow, untouched.
-    if (isSplit) {
-      if (!validation.ok) {
-        toast.error(validation.errors[0]?.message || "ההקצאה אינה תקינה");
-        return;
-      }
+    // Taken whenever the payment is not simply "this invoice, this amount":
+    // more than one line, or a single line that belongs to a DIFFERENT invoice
+    // than the one the dialog was opened on. The branch below it is the
+    // original single-invoice flow, untouched.
+    if (!(lines.length === 1 && lines[0].invoice_id === invoice.id)) {
       setSaving(true);
       try {
-        await saveSplit({ isCheck, checkDetails });
+        await saveSplit({ isCheck, checkDetails, lines });
       } finally {
         setSaving(false);
       }
       return;
     }
+
+    // One line, for this invoice: the amount that line allocates is the amount
+    // this payment records, whichever mode produced it.
+    const numAmount = toShekels(lines[0].amountAgorot);
 
     setSaving(true);
     try {
@@ -585,22 +647,106 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>סכום תשלום{otherInvoices.length > 0 ? " — לחשבונית זו" : ""}</Label>
-            <Input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="הזן סכום"
-            />
-          </div>
+          {/* ── How the payment is applied ─────────────────────────────
+              Automatic is the default. Manual stays available for what a rule
+              cannot know: a customer who names the invoice they are paying, or
+              a disputed invoice to leave alone. */}
+          {canAuto && (
+            <div className="flex gap-2">
+              {[
+                { on: true, label: "הקצאה אוטומטית", hint: "מהחשבונית הישנה ביותר" },
+                { on: false, label: "הקצאה ידנית", hint: "סכום לכל חשבונית" },
+              ].map(({ on, label, hint }) => (
+                <button key={label} type="button" onClick={() => setAutoMode(on)}
+                  className={`flex-1 rounded-lg border p-2 text-right ${
+                    autoMode === on
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/40"}`}>
+                  <span className="block text-sm font-medium">{label}</span>
+                  <span className="block text-[10px] text-muted-foreground">{hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {autoActive ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>סכום התשלום שהתקבל</Label>
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  placeholder="הזן סכום"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  סך היתרות הפתוחות של הלקוח: {fmtAg(auto.eligibleAgorot)} ₪
+                </p>
+              </div>
+
+              {/* ── Live preview ─────────────────────────────────────────
+                  What will be written, before it is written: which invoice,
+                  how much it receives, and what it will still owe. The order
+                  is the order the money is applied in. */}
+              {autoTotalAgorot > 0 && (
+                auto.ok ? (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/40 text-xs font-semibold flex justify-between">
+                      <span>הקצאה אוטומטית — {auto.lines.length} חשבוניות</span>
+                      <span>סה״כ {fmtAg(auto.allocatedAgorot)} ₪</span>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {auto.lines.map((l, i) => {
+                        const left = l.remainingAgorot - l.amountAgorot;
+                        return (
+                          <div key={l.invoice_id} className="px-3 py-2 flex items-center gap-2 text-xs">
+                            <span className="w-4 text-muted-foreground">{i + 1}</span>
+                            <span className="flex-1 min-w-0">
+                              חשבונית #{displayInvoiceNumber(l.invoice)}
+                              {l.invoice?.id === invoice.id && (
+                                <span className="bg-green-100 text-green-700 rounded-full px-1.5 py-0.5 mr-1 text-[9px]">
+                                  זו שנבחרה
+                                </span>
+                              )}
+                              <span className="block text-[10px] text-muted-foreground">
+                                {l.invoice?.date || "—"} · יתרה לפני: {fmtAg(l.remainingAgorot)} ₪
+                              </span>
+                            </span>
+                            <span className="font-bold whitespace-nowrap">{fmtAg(l.amountAgorot)} ₪</span>
+                            <span className={`w-24 text-left whitespace-nowrap ${
+                              left === 0 ? "text-green-700" : "text-amber-700"}`}>
+                              {left === 0 ? "נסגרת" : `נותר ${fmtAg(left)} ₪`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-destructive border border-destructive/40 rounded-lg p-3 bg-destructive/5 leading-relaxed">
+                    {auto.message}
+                  </p>
+                )
+              )}
+            </>
+          ) : (
+            <div className="space-y-1.5">
+                <Label>סכום תשלום{canAuto ? " — לחשבונית זו" : ""}</Label>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="הזן סכום"
+              />
+            </div>
+          )}
 
           {/* ── The same payment, across more of this customer's invoices ──
               Collapsed by default, so a plain single-invoice payment looks and
               behaves exactly as it did. Opening it does nothing on its own:
               the split path is taken only once another invoice is given an
               amount. */}
-          {otherInvoices.length > 0 && (
+          {!autoActive && canAuto && (
             <div className="border border-border rounded-lg">
               <button type="button"
                 onClick={() => setAllocOpen(o => !o)}
@@ -680,9 +826,9 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
             </div>
           )}
 
-          {isSplit && (
+          {effectiveLines.length > 1 && (
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              התשלום יירשם כ<strong>תשלום אחד</strong> המפוצל בין {extraLineCount + 1} חשבוניות,
+              התשלום יירשם כ<strong>תשלום אחד</strong> המפוצל בין {effectiveLines.length} חשבוניות,
               ותופק <strong>קבלה מקושרת אחת לכל חשבונית</strong> בסכום שהוקצה לה.
               בכרטסת ובחישוב היתרה זה נשאר תשלום אחד.
             </p>
@@ -779,9 +925,14 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
         </div>
 
         <div className="flex gap-2 pt-2 border-t border-border">
-          {/* Disabled only for an INVALID split. A plain single-invoice
-              payment keeps exactly the enablement it had. */}
-          <Button onClick={handleSave} disabled={saving || (isSplit && !validation.ok)} className="flex-1">
+          {/* Disabled for an allocation that cannot be written: a total above
+              what the customer owes, or a manual line above its invoice's
+              balance. A plain single-invoice payment with no other invoices to
+              allocate to keeps exactly the enablement it had. */}
+          <Button onClick={handleSave} className="flex-1"
+            disabled={saving
+              || (autoActive && autoTotalAgorot > 0 && !auto.ok)
+              || (!autoActive && isSplit && !validation.ok)}>
             {saving && <Loader2 className="w-4 h-4 ml-1 animate-spin" />}
             שמור תשלום
           </Button>

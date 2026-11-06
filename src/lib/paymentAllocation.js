@@ -174,6 +174,108 @@ export const CHECK_METHOD = "שיק";
  * can never total more — or less — than the check is worth.
  */
 
+/**
+ * Deterministic order for automatic allocation: OLDEST INVOICE FIRST.
+ *
+ * The tie-breaker is the invoice id, and it is not decoration. Two invoices
+ * issued on the same day are extremely common — a day's orders invoiced
+ * together — and without a total order the two could swap between renders.
+ * The preview the owner approves would then not be the allocation that gets
+ * written. An invoice with no date at all sorts last rather than first, so a
+ * missing date can never quietly consume a payment ahead of a real debt.
+ */
+export function compareForAllocation(a, b) {
+  const da = a?.date ? String(a.date) : null;
+  const db = b?.date ? String(b.date) : null;
+  if (da === null && db !== null) return 1;
+  if (da !== null && db === null) return -1;
+  if (da !== null && db !== null && da !== db) return da < db ? -1 : 1;
+  const ia = String(a?.id ?? "");
+  const ib = String(b?.id ?? "");
+  if (ia === ib) return 0;
+  return ia < ib ? -1 : 1;
+}
+
+/**
+ * Spread ONE total across a customer's open invoices, oldest first.
+ *
+ * Each invoice is settled IN FULL before the next is touched, so only the last
+ * invoice reached can be left partially paid. That is the whole point of
+ * oldest-first: the debt that has been outstanding longest is cleared first,
+ * and the remainder lands on the newest invoice rather than being smeared
+ * across several.
+ *
+ * MORE THAN THE CUSTOMER OWES IS REFUSED, NOT ABSORBED.
+ * A total above the eligible outstanding balance cannot be allocated, and
+ * recording it anyway would leave money credited to nothing — an unallocated
+ * credit that no invoice accounts for and no balance explains. The surplus is
+ * named so the operator can see exactly how much does not fit.
+ *
+ * @param {object} input
+ * @param {Array}  input.invoices  the customer's invoices (full rows)
+ * @param {number} input.totalAgorot  the payment received, in whole agorot
+ * @returns {{
+ *   ok: boolean, code: string|null, message: string|null,
+ *   lines: Array<{invoice_id, amountAgorot, remainingAgorot, invoice}>,
+ *   allocatedAgorot: number, eligibleAgorot: number, surplusAgorot: number
+ * }}
+ */
+export function autoAllocate({ invoices = [], totalAgorot = 0 } = {}) {
+  const eligible = invoices.filter(isAllocatable).slice().sort(compareForAllocation);
+  const eligibleAgorot = eligible.reduce((s, i) => s + remainingAgorot(i), 0);
+
+  const empty = {
+    lines: [], allocatedAgorot: 0, eligibleAgorot, surplusAgorot: 0,
+  };
+
+  if (!Number.isFinite(totalAgorot) || totalAgorot <= 0) {
+    return { ok: false, code: "invalid_amount", message: "יש להזין סכום תשלום תקין", ...empty };
+  }
+  if (eligible.length === 0) {
+    return {
+      ok: false, code: "nothing_outstanding",
+      message: "אין ללקוח חשבוניות פתוחות להקצאה", ...empty,
+    };
+  }
+  if (totalAgorot > eligibleAgorot) {
+    return {
+      ok: false, code: "exceeds_outstanding",
+      message: `הסכום עולה ב-${toShekels(totalAgorot - eligibleAgorot).toFixed(2)} ₪ על סך היתרות הפתוחות (${toShekels(eligibleAgorot).toFixed(2)} ₪). לא ניתן לרשום יתרת זכות לא משויכת.`,
+      ...empty, surplusAgorot: totalAgorot - eligibleAgorot,
+    };
+  }
+
+  const lines = [];
+  let left = totalAgorot;
+  for (const invoice of eligible) {
+    if (left <= 0) break;
+    const rem = remainingAgorot(invoice);
+    if (rem <= 0) continue;
+    // Settle this one in full if the money reaches; otherwise it takes what is
+    // left and the loop ends. Only the LAST line can be a partial payment.
+    const take = Math.min(rem, left);
+    lines.push({
+      invoice_id: invoice.id, amountAgorot: take, remainingAgorot: rem, invoice,
+    });
+    left -= take;
+  }
+
+  // Integer agorot throughout, so this cannot be off by a fraction.
+  const allocatedAgorot = lines.reduce((s, l) => s + l.amountAgorot, 0);
+  if (allocatedAgorot !== totalAgorot) {
+    return {
+      ok: false, code: "allocation_mismatch",
+      message: "שגיאה בחישוב ההקצאה — יש לרענן ולנסות שוב",
+      lines, allocatedAgorot, eligibleAgorot, surplusAgorot: totalAgorot - allocatedAgorot,
+    };
+  }
+
+  return {
+    ok: true, code: null, message: null,
+    lines, allocatedAgorot, eligibleAgorot, surplusAgorot: 0,
+  };
+}
+
 export function buildAllocationPayload({ groupId, customerId, lines, method, date, reference, notes, checkDetails }) {
   return {
     p_group_id: groupId,
