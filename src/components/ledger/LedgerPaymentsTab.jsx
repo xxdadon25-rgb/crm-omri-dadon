@@ -5,6 +5,10 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Banknote, Plus, FileText, CalendarDays, MessageCircle, Receipt } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { supabase } from "@/api/supabaseClient";
+import { toast } from "sonner";
+import {
+  resolveReceiptHref, hasReceipt, SHARE_TTL_SECONDS,
+} from "@/lib/receiptStorage";
 import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 
 const methodIcons = {
@@ -50,7 +54,45 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
     groupTotals.set(p.payment_group_id,
       (groupTotals.get(p.payment_group_id) || 0) + (parseFloat(p.amount) || 0));
   }
-  const handlePaymentWhatsApp = (p, receiptUrl) => {
+  /**
+   * Open a receipt.
+   *
+   * A privately stored receipt has to be signed first, and the await would cost
+   * us the click gesture — a popup blocker refuses a window opened after one.
+   * So the tab is opened SYNCHRONOUSLY, while the gesture is still ours, and
+   * navigated once the address is known. A public url needs none of this, but
+   * takes the same path so there is only one code path to be right about.
+   */
+  const handleShowReceipt = async (p) => {
+    const tab = window.open("", "_blank");
+    const res = await resolveReceiptHref({ supabase, value: p.external_receipt_url });
+    if (!res.ok || !res.href) {
+      if (tab) tab.close();
+      toast.error(res.error || "לא ניתן לפתוח את הקבלה");
+      return;
+    }
+    if (tab) tab.location.href = res.href;
+    else window.open(res.href, "_blank");   // the browser blocked the tab
+  };
+
+  /**
+   * Send the payment confirmation, with a link to the receipt when there can
+   * be one.
+   *
+   * A private receipt is signed for longer here than for a click: the customer
+   * has to be able to open it after reading the message. If it cannot be
+   * signed the line is LEFT OUT — a message carrying `payment-receipts/...`
+   * would be worse than one with no link at all.
+   */
+  const handlePaymentWhatsApp = async (p) => {
+    let receiptUrl = null;
+    if (hasReceipt(p.external_receipt_url)) {
+      const res = await resolveReceiptHref({
+        supabase, value: p.external_receipt_url, expiresIn: SHARE_TTL_SECONDS,
+      });
+      if (res.ok) receiptUrl = res.href;
+      else toast.warning("ההודעה נשלחת ללא קישור לקבלה — לא ניתן להפיק קישור כרגע.");
+    }
     const customerName = selectedCustomer?.name || p.customer_name || "";
     const companyName = businessSettings?.business_name || "העסק שלי";
     const msg = [
@@ -191,11 +233,11 @@ export default function LedgerPaymentsTab({ payments, loading, onRecordPayment, 
                         <TableCell className="text-right">
                           {p.status === "אושר" && (
                             <div className="flex flex-col gap-1 items-end">
-                              <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 h-7 text-xs px-2 gap-1" onClick={() => handlePaymentWhatsApp(p, p.external_receipt_url)}>
+                              <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 h-7 text-xs px-2 gap-1" onClick={() => handlePaymentWhatsApp(p)}>
                                 <MessageCircle className="w-3 h-3" /> WhatsApp
                               </Button>
-                              {p.external_receipt_url && (
-                                <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 text-xs px-2 gap-1" onClick={() => window.open(p.external_receipt_url, "_blank")}>
+                              {hasReceipt(p.external_receipt_url) && (
+                                <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 text-xs px-2 gap-1" onClick={() => handleShowReceipt(p)}>
                                   <Receipt className="w-3 h-3" /> הצג קבלה
                                 </Button>
                               )}
