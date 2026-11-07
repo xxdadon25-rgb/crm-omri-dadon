@@ -171,6 +171,16 @@ export default function CustomerStatement() {
     [data, from, to],
   );
 
+  // The customer sees the amount still owed on EACH invoice today, not the
+  // historical running account balance at the moment of that row. The ledger's
+  // closing/reconciliation maths remain unchanged and are shown above.
+  const remainingByInvoice = useMemo(() => new Map(data.invoices.map(inv => {
+    const credited = inv.payment_status === "זוכה" || !!inv.credited_at || !!inv.credit_note_id;
+    const amount = credited ? 0 : Math.max(0,
+      Math.round(Number(inv.total || 0) * 100) - Math.round(Number(inv.paid_amount || 0) * 100));
+    return [inv.id, amount];
+  })), [data.invoices]);
+
   // ── Fit-to-width, copied in spirit from the existing previews ────────────
   // The sheet is never reflowed: it keeps its A4 proportions and is scaled as
   // a single unit when the screen is narrower, the way a PDF viewer does
@@ -322,13 +332,20 @@ export default function CustomerStatement() {
               <span style={{ fontSize: 16, fontWeight: 700 }}>{money(Math.abs(statement.closing))} ₪</span>
             </div>
 
+            {/* The per-invoice column is today's unpaid portion of each
+                invoice, not a historical balance and not a sum of transaction
+                rows. The overall customer balance remains in the summary. */}
+            <div style={{ marginTop: 10, fontSize: 9, color: "#4b5563" }}>
+              בעמודה "נותר לתשלום" מוצג החוב הנוכחי בכל חשבונית. בשורות תשלום וזיכוי לא מוצגת יתרה.
+            </div>
+
             {/* ── Transactions ───────────────────────────────────────── */}
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, fontSize: 10 }}>
               {/* thead repeats on every printed page in browsers that support
                   it, so a multi-page statement stays readable. */}
               <thead style={{ display: "table-header-group" }}>
                 <tr style={{ background: "#111827", color: "#fff" }}>
-                  {["תאריך", "סוג", "תיאור / מסמך", "חובה", "זכות", "יתרה", "סטטוס"].map((h, i) => (
+                  {["תאריך", "סוג", "תיאור / מסמך", "חובה", "זכות", "נותר לתשלום", "סטטוס"].map((h, i) => (
                     <th key={h} style={{
                       padding: "5px 6px", textAlign: i >= 3 && i <= 5 ? "left" : "right",
                       whiteSpace: "nowrap", fontWeight: 600,
@@ -434,7 +451,7 @@ export default function CustomerStatement() {
                       {r.credit ? money(r.credit) : ""}
                     </td>
                     <td style={{ padding: "4px 6px", textAlign: "left", whiteSpace: "nowrap", fontWeight: 600, verticalAlign: "top" }}>
-                      {money(r.balance)}
+                      {r.kind === KIND.INVOICE ? money(remainingByInvoice.get(r.invoiceId) ?? 0) : "—"}
                     </td>
                     <td style={{ padding: "4px 6px", whiteSpace: "nowrap", verticalAlign: "top" }}>
                       {r.status ? (
@@ -465,7 +482,7 @@ export default function CustomerStatement() {
                     </td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.debit)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.credit)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.closing)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "left" }}>—</td>
                     <td />
                   </tr>
                 </tfoot>
