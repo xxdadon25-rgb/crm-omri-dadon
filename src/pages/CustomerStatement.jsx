@@ -482,7 +482,7 @@ export default function CustomerStatement() {
                     </td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.debit)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.totals.credit)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "left" }}>—</td>
+                    <td style={{ padding: "5px 6px", textAlign: "left" }}>{money(statement.closing)}</td>
                     <td />
                   </tr>
                 </tfoot>
