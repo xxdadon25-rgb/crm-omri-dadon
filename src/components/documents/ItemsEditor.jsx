@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
 import PackagingClarifyDialog from "@/components/sales/PackagingClarifyDialog";
 import { resolveCostBasis } from "@/api/productPackaging";
-import { clarificationFor } from "@/lib/packagingMath";
+import { clarificationFor, unitsPerLevel, SALE_LEVELS, LEVEL_LABEL } from "@/lib/packagingMath";
 
 /**
  * ItemsEditor — NET-FIRST pricing model.
@@ -31,6 +31,38 @@ import { clarificationFor } from "@/lib/packagingMath";
  * Asking from here covers all three, and the workflow is unchanged: lines are
  * added exactly as before and the question follows, one product at a time.
  */
+/**
+ * What one unit of a line's quantity is.
+ *
+ * A plain select rather than anything cleverer: the level is a fact the
+ * operator states, and an empty value is a real state — "not stated" — which
+ * is why it is offered and shown rather than defaulted to "unit". Defaulting
+ * is precisely how order #1197 came to cost one unit of a 350-unit carton.
+ *
+ * Levels whose packaging is unknown are still offered: choosing one makes the
+ * line pending for that packaging, which the clarification dialog then asks
+ * for, instead of hiding the option.
+ */
+function LevelSelect({ value, packaging, onChange }) {
+  const units = (lvl) => unitsPerLevel(packaging, lvl);
+  return (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value || null)}
+      className={`text-[11px] rounded border px-1 py-0.5 bg-background ${
+        value ? "border-border text-muted-foreground" : "border-amber-400 text-amber-700"}`}
+      title="מה נמכר בשורה הזו — משפיע על חישוב העלות"
+    >
+      <option value="">רמת מכירה לא נקבעה</option>
+      {SALE_LEVELS.map((lvl) => (
+        <option key={lvl} value={lvl}>
+          {LEVEL_LABEL[lvl]}{units(lvl) ? ` (${units(lvl)} יח׳)` : ""}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false, lastPriceByProduct = null }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
   // At most one outstanding packaging question, and a queue behind it so a
@@ -105,9 +137,41 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
     setQueue(q => q.slice(1));
   };
 
+  /**
+   * Edit one field of one line.
+   *
+   * ============================================================================
+   * EDITING THE QUANTITY OR THE PRICE INVALIDATES THE SALE LEVEL
+   * ============================================================================
+   * sale_level says what ONE unit of `quantity` is: a unit, a pack or a
+   * carton. It is answered when the product is added, and it was then kept
+   * through every later edit.
+   *
+   * Order #1197 shows why that is wrong. The line was 350 units at ₪0.53 and
+   * was edited to 1 carton at ₪186 — the same goods, described differently.
+   * Nothing about the line says a level changed, so sale_level stayed "unit",
+   * and the popup costed ONE unit of a 350-unit carton: ₪0.29, a 99.8%
+   * margin.
+   *
+   * There is no safe way to tell from the numbers whether the operator
+   * rescaled the line or merely corrected a price, and guessing from quantity
+   * or price is exactly what must not happen. So an edit to either CLEARS the
+   * level: the line reads "ממתין להבהרה" until it is stated again, and the
+   * selector on the row is right there to state it.
+   *
+   * The PRODUCT facts — packaging and the purchase level — are untouched:
+   * nothing about an edited quantity changes how many units are in a carton.
+   */
   const updateItem = (index, field, value) => {
     const updated = [...items];
-    updated[index] = { ...updated[index], [field]: value };
+    const before = updated[index];
+    updated[index] = { ...before, [field]: value };
+
+    const rescaled = (field === "quantity" || field === "unit_price")
+      && String(before?.[field] ?? "") !== String(value ?? "");
+    if (rescaled && before?.sale_level) {
+      updated[index].sale_level = null;
+    }
     const qty = parseFloat(updated[index].quantity) || 0;
     const price = parseFloat(updated[index].unit_price) || 0;
     const disc = parseFloat(updated[index].discount) || 0;
@@ -155,7 +219,22 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
               <tbody>
                 {items.map((item, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2 font-medium">{item.name}</td>
+                    <td className="px-3 py-2 font-medium">
+                      {item.name}
+                      {/* What ONE unit of the quantity is. Shown on the line
+                          because it drives the cost, and because a line whose
+                          level is unknown must say so rather than look
+                          complete. */}
+                      {item.product_id && (
+                        <span className="block mt-1">
+                          <LevelSelect
+                            value={item.sale_level}
+                            packaging={item.packaging}
+                            onChange={(v) => updateItem(i, "sale_level", v)}
+                          />
+                        </span>
+                      )}
+                    </td>
                     {showPurchasePrice && (
                       <td className="px-3 py-2 text-muted-foreground">
                         {item.buy_price === 0 || item.buy_price ? formatCurrency(item.buy_price) : "—"}
@@ -217,6 +296,15 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                     <label className="text-xs text-muted-foreground block mb-1">כמות</label>
                     <Input type="number" inputMode="numeric" min="1" value={item.quantity}
                       onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} className="h-10" />
+                    {item.product_id && (
+                      <span className="block mt-1">
+                        <LevelSelect
+                          value={item.sale_level}
+                          packaging={item.packaging}
+                          onChange={(v) => updateItem(i, "sale_level", v)}
+                        />
+                      </span>
+                    )}
                   </div>
                   {lastPriceByProduct && (
                     <div>
