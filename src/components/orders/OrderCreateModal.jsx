@@ -11,7 +11,7 @@ import ItemsEditor from "@/components/documents/ItemsEditor";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 import { toast } from "sonner";
 
-export default function OrderCreateModal({ open, onOpenChange, onCreated, getLastCustomerPrices }) {
+export default function OrderCreateModal({ open, onOpenChange, onCreated, getLastCustomerPrices, getSalePatterns }) {
   const queryClient = useQueryClient();
 
   const { data: customers = [] } = useQuery({
@@ -74,6 +74,13 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
   const lastPriceByProduct = useMemo(
     () => (getLastCustomerPrices ? getLastCustomerPrices(form.customer_id, null) : {}),
     [getLastCustomerPrices, form.customer_id],
+  );
+  // What each product's prices have meant on earlier orders. Not customer
+  // scoped: the level a price refers to is a product fact. A new order has no
+  // self to exclude.
+  const salePatterns = useMemo(
+    () => (getSalePatterns ? getSalePatterns(null) : null),
+    [getSalePatterns],
   );
   const subtotal = useMemo(() => form.items.reduce((s, i) => s + (i.total || 0), 0), [form.items]);
   const grossTotal = useMemo(() => form.items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0), [form.items]);
@@ -266,6 +273,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
               categories={categories}
               vatRate={vatRate}
               lastPriceByProduct={lastPriceByProduct}
+              salePatterns={salePatterns}
             />
             <div className="mt-4">
               <DocumentTotals

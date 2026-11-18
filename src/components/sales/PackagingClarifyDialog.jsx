@@ -172,6 +172,19 @@ export default function PackagingClarifyDialog({
                 );
               })}
             </div>
+            {/* WHAT THE OLD RECORD SAYS — shown, deliberately NOT selected.
+                These labels have no provenance: one of them is order #1197's
+                ₪186 = "unit", which is wrong. Pre-selecting it would let a
+                click past the dialog promote that error into verified
+                evidence, so the owner is informed and still chooses. */}
+            {request.suggestion && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                ברשומות הקודמות, מחיר דומה (₪{Number(request.suggestion.price).toFixed(2)})
+                סומן כ{LEVEL_LABEL[request.suggestion.level]}
+                {request.suggestion.n > 1 ? ` (${request.suggestion.n} פעמים)` : ""} —
+                לא אושר על ידך, ולכן לא נבחר אוטומטית. בדוק ואשר.
+              </p>
+            )}
             <p className="text-[10px] text-muted-foreground">
               נשמר לשורה הזו בלבד — מכירות עתידיות של אותו מוצר יכולות להיות ברמה אחרת.
             </p>

@@ -14,7 +14,7 @@ import DocumentTotals from "@/components/documents/DocumentTotals";
 const STATUSES = ["טיוטה", "ממתין לאישור", "אושר", "בהכנה", "הושלם", "בוטל"];
 const EDITABLE_STATUSES = ["טיוטה", "ממתין לאישור", "בהכנה"];
 
-export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [], getLastCustomerPrices }) {
+export default function OrderEditModal({ open, onOpenChange, order, onSave, isSaving, products = [], categories = [], invoices = [], getLastCustomerPrices, getSalePatterns }) {
   const [form, setForm] = useState({ status: "", notes: "", items: [], fulfilled: false });
   // True once a unit price was edited in the read-only items table. Totals are
   // only rewritten from the items when this is set (or when the items are fully
@@ -63,6 +63,14 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
   const lastPriceByProduct = useMemo(
     () => (getLastCustomerPrices && order ? getLastCustomerPrices(order.customer_id, order.id) : {}),
     [getLastCustomerPrices, order],
+  );
+  // THIS order is excluded from its own history: a line saved with a stale
+  // level must not teach the system that the level is right. Order #1197 is
+  // saved with 186 against sale_level "unit", and re-reading that as evidence
+  // is exactly how the wrong level would survive being edited.
+  const salePatterns = useMemo(
+    () => (getSalePatterns ? getSalePatterns(order?.id ?? null) : null),
+    [getSalePatterns, order?.id],
   );
 
   const netSubtotal = useMemo(
@@ -263,6 +271,7 @@ export default function OrderEditModal({ open, onOpenChange, order, onSave, isSa
                 categories={categories}
                 vatRate={vatRate}
                 lastPriceByProduct={lastPriceByProduct}
+                salePatterns={salePatterns}
               />
               <DocumentTotals
                 grossTotal={grossTotal}

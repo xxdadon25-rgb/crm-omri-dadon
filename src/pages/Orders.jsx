@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { learnPatterns } from "@/lib/saleLevelPattern";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useNavigate } from "react-router-dom";
 
@@ -407,6 +408,26 @@ export default function Orders() {
       }
       return map;
     };
+  }, [orders]);
+
+  /**
+   * WHAT EACH PRODUCT'S PRICES HAVE MEANT, learned from the same already-cached
+   * orders list (no extra query).
+   *
+   * Deliberately NOT per customer, unlike the last-price map above. The level a
+   * price refers to is a property of the PRODUCT and its packaging — ₪186 is a
+   * carton of this product whoever buys it — so restricting the evidence to one
+   * customer would only mean asking the same question again for the next one.
+   * The customer's own price is a different fact, and it is what the band around
+   * each learned price exists to absorb.
+   *
+   * The order being edited is excluded so it cannot teach the system its own
+   * stale level, which is exactly what order #1197 would otherwise do: it is
+   * saved with ₪186 against sale_level "unit".
+   */
+  const getSalePatterns = useMemo(() => {
+    return (excludeOrderId = null) =>
+      learnPatterns(orders.filter(o => o.id !== excludeOrderId));
   }, [orders]);
 
   const handleEditSave = async (updates) => {
@@ -818,6 +839,7 @@ export default function Orders() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           getLastCustomerPrices={getLastCustomerPrices}
+          getSalePatterns={getSalePatterns}
           onCreated={async (created) => {
             if (created.fulfilled && !created.inventory_deducted) {
               await deductInventory(created.items || []);
@@ -839,6 +861,7 @@ export default function Orders() {
          categories={categories}
          invoices={invoices}
          getLastCustomerPrices={getLastCustomerPrices}
+          getSalePatterns={getSalePatterns}
         />
 
         {/* Restore stock dialog — shown when cancelling a fulfilled order */}
