@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
+import PackagingClarifyDialog from "@/components/sales/PackagingClarifyDialog";
+import { resolveCostBasis } from "@/api/productPackaging";
+import { clarificationFor } from "@/lib/packagingMath";
 
 /**
  * ItemsEditor — NET-FIRST pricing model.
@@ -14,12 +17,92 @@ import ProductCatalogModal from "@/components/products/ProductCatalogModal";
  * For business customers: show net subtotal + VAT breakdown in DocumentTotals.
  * For private customers: show only gross total in DocumentTotals.
  * The line items themselves are always net — the distinction is only in the summary.
+ *
+ * ============================================================================
+ * PACKAGING CLARIFICATION LIVES HERE, NOT ONLY IN THE SALES CATALOGUE
+ * ============================================================================
+ * The clarification dialog was first wired into SalesCatalog, which is one way
+ * to build an order. It is not the way most orders are built: OrderCreateModal,
+ * OrderEditModal and QuoteEditor all add their lines through THIS editor, and
+ * none of them went anywhere near that dialog. So adding a product to a new
+ * order asked nothing, the line kept no sale level, and its margin stayed
+ * pending for ever.
+ *
+ * Asking from here covers all three, and the workflow is unchanged: lines are
+ * added exactly as before and the question follows, one product at a time.
  */
 export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false, lastPriceByProduct = null }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
+  // At most one outstanding packaging question, and a queue behind it so a
+  // multi-product selection asks once per product rather than all at once.
+  const [clarify, setClarify] = useState(null);
+  const [queue, setQueue] = useState([]);
+
+  // setItems is NOT a React state setter here. Every caller —
+  // OrderCreateModal, OrderEditModal, QuoteEditor — passes a plain function
+  // that takes the NEXT ARRAY and folds it into its own form state:
+  //
+  //   setItems={(items) => setForm({ ...form, items })}
+  //
+  // Handing it an updater function would store the FUNCTION as form.items,
+  // and the next render dies on `form.items.reduce is not a function`. So the
+  // current lines are read from a ref and a plain array is always passed.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const patchLine = useCallback((productId, patch) => {
+    setItems(itemsRef.current.map(i => i.product_id === productId ? { ...i, ...patch } : i));
+  // setItems comes from the parent and is not memoised there.
+  }, []);
+
+  /**
+   * Attach what is known about a product's packaging to its line, and queue a
+   * question when the line's profit cannot be computed without one.
+   *
+   * Runs AFTER the lines are added, so adding products is never blocked by a
+   * question about profitability. A failed read asks nothing: a question
+   * answered from a failed read would overwrite a real row.
+   */
+  const resolveFor = useCallback(async (added) => {
+    const pending = [];
+    for (const line of added) {
+      if (!line?.product_id) continue;
+      const { ok, packaging, buyLevel } = await resolveCostBasis(line.product_id);
+      if (!ok) continue;
+
+      patchLine(line.product_id, {
+        packaging: packaging ?? null, buy_level: buyLevel ?? null,
+      });
+
+      const need = clarificationFor({
+        unitPrice: line.unit_price, buyPrice: line.buy_price,
+        packaging, saleLevel: line.sale_level ?? null, buyLevel,
+      });
+      if (!need.ask) continue;
+      pending.push({
+        productId: line.product_id, productName: line.name || line.description || "המוצר",
+        packaging: packaging ?? {}, kind: need.kind,
+        level: need.kind === "packaging" ? need.level : null,
+        buyLevel: buyLevel ?? null, missing: need.missing,
+      });
+    }
+    if (pending.length === 0) return;
+    setClarify(pending[0]);
+    setQueue(pending.slice(1));
+  }, [patchLine]);
 
   const addProductsFromCatalog = (selectedItems) => {
-    setItems([...items, ...selectedItems]);
+    const next = [...items, ...selectedItems];
+    setItems(next);
+    // The ref is updated here as well as on render, because resolveFor runs
+    // before the parent has re-rendered with the new lines.
+    itemsRef.current = next;
+    resolveFor(selectedItems);
+  };
+
+  /** Move to the next queued question, if any. */
+  const advance = () => {
+    setClarify(queue[0] ?? null);
+    setQueue(q => q.slice(1));
   };
 
   const updateItem = (index, field, value) => {
@@ -168,6 +251,21 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
           אין פריטים. לחץ "הוסף מוצרים" להתחיל
         </div>
       )}
+      {/* One question at a time. A packaging answer is saved permanently
+          inside the dialog; the sale level comes back here and is written to
+          this line only. Skipping leaves the line pending — never guessed. */}
+      <PackagingClarifyDialog
+        open={!!clarify}
+        onOpenChange={(v) => { if (!v) advance(); }}
+        request={clarify}
+        onResolved={(res) => {
+          if (!res) return;
+          patchLine(res.productId, {
+            sale_level: res.saleLevel, buy_level: res.buyLevel,
+            packaging: res.packaging,
+          });
+        }}
+      />
     </div>
   );
 }

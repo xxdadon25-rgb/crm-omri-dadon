@@ -1,4 +1,8 @@
 import { useState, useMemo } from "react";
+// Internal profitability. These were written for this cart but never wired in,
+// so the normalised margin existed and was shown nowhere.
+import ProfitPanel from "@/components/sales/ProfitPanel";
+import ProfitabilityBadge from "@/components/sales/ProfitabilityBadge";
 import {
   Trash2, Minus, Plus, ShoppingCart, FileText, Package, Save,
   ClipboardList, ChevronDown, ChevronUp, MessageCircle, Loader2
@@ -158,6 +162,13 @@ export default function QuoteCart({
                 </div>
               </>
             )}
+
+            {/* Internal only, never shown to a customer. It renders nothing
+                when no line has a purchase price, which is exactly how this
+                area behaved before. */}
+            <div style={{ margin: "8px -12px -12px" }}>
+              <ProfitPanel items={items} />
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -295,8 +306,12 @@ function CartItem({ item, onUpdate, onRemove }) {
           </div>
         </div>
 
-        {/* Line total */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        {/* Line total, with the line's own margin beside it. The badge shows
+            "ממתין" rather than a percentage whenever the cost cannot be
+            normalised to what this line sold. */}
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center",
+          gap: 6, marginTop: 4 }}>
+          <ProfitabilityBadge item={item} />
           {/* OLD: <span className="text-sm font-semibold"> */}
           <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>
             ₪{(item.total || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
