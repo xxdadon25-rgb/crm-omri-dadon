@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -7,6 +7,9 @@ import { useNavigate } from "react-router-dom";
 import CustomerSelector from "@/components/sales/CustomerSelector";
 import ProductGrid from "@/components/sales/ProductGrid";
 import QuoteCart from "@/components/sales/QuoteCart";
+import PackagingClarifyDialog from "@/components/sales/PackagingClarifyDialog";
+import { resolveCostBasis } from "@/api/productPackaging";
+import { clarificationFor } from "@/lib/packagingMath";
 import CatalogFilters from "@/components/sales/CatalogFilters";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShoppingCart, Maximize2, Minimize2, Star } from "lucide-react";
@@ -44,6 +47,13 @@ export default function SalesCatalog() {
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The one outstanding packaging question, if any. Only ever one at a time:
+  // the owner is asked about the line they just added, not handed a queue.
+  const [clarify, setClarify] = useState(null);
+  // Products the owner declined to clarify for the CURRENT cart. Cleared with
+  // the cart, so the next order asks again — the level belongs to the line,
+  // never to the product.
+  const declinedRef = useRef(new Set());
 
   // Load recently viewed products after products are fetched
   const { data: products = [], isLoading: loadingProducts } = useQuery({
@@ -112,9 +122,59 @@ export default function SalesCatalog() {
     });
   }, []);
 
+  /**
+   * Attach the product's VERIFIED packaging to its cart line, and ask for the
+   * sale level if the line does not have one.
+   *
+   * Nothing is inferred. The level is a fact about this sale, so it is asked
+   * for rather than derived from the price — see the note in packagingMath.js
+   * about why guessing it from a margin band was removed.
+   *
+   * Runs after the line is in the cart, so adding a product is never blocked.
+   * The permanent packaging is read first, and a FAILED read asks nothing: a
+   * question answered from a failed read would overwrite the real row.
+   */
+  const resolvePackagingFor = useCallback(async (product) => {
+    if (!product?.id) return;
+    // Reads the recorded packaging and the CONFIRMED purchase-price level.
+    // There is no fallback: supplier data describes a supplier's price, not
+    // this one.
+    const { ok, packaging, buyLevel } = await resolveCostBasis(product.id);
+    if (!ok) return;
+
+    // Verified packaging goes onto the line. The level is left exactly as it
+    // is — unset on a new line, and untouched if this line already has one.
+    setCartItems(prev => prev.map(i => i.product_id === product.id
+      ? { ...i, packaging: packaging ?? null, buy_level: buyLevel ?? null }
+      : i));
+
+    // Declining is respected until the cart is cleared, so a quantity change
+    // does not re-ask. It is NOT remembered across orders: a later order may
+    // well sell a different level, and assuming otherwise is exactly what
+    // point 7 forbids.
+    if (declinedRef.current.has(product.id)) return;
+
+    const need = clarificationFor({
+      unitPrice: product.sell_price, buyPrice: product.buy_price,
+      packaging, saleLevel: null, buyLevel,
+    });
+    if (!need.ask) return;
+
+    setClarify({
+      productId: product.id, productName: product.name,
+      packaging: packaging ?? {}, kind: need.kind,
+      level: need.kind === "packaging" ? need.level : null,
+      buyLevel: buyLevel ?? null,
+      missing: need.missing,
+    });
+  }, []);
+
   // Cart ops
   const addToCart = useCallback((product, qty = 1) => {
     handleProductView(product);
+    // Deliberately not awaited: the line appears at once and the packaging
+    // fills in behind it.
+    resolvePackagingFor(product);
     setCartItems((prev) => {
       const exists = prev.find((i) => i.product_id === product.id);
       if (exists) {
@@ -141,7 +201,7 @@ export default function SalesCatalog() {
         },
       ];
     });
-  }, [selectedCustomer, handleProductView]);
+  }, [selectedCustomer, handleProductView, resolvePackagingFor]);
 
   const updateCartItem = useCallback((productId, field, value) => {
     setCartItems((prev) =>
@@ -158,7 +218,13 @@ export default function SalesCatalog() {
   }, []);
 
   const removeFromCart = useCallback((productId) => {
-    setCartItems((prev) => prev.filter((i) => i.product_id !== productId));
+    setCartItems((prev) => {
+      const next = prev.filter((i) => i.product_id !== productId);
+      // A product removed from the cart is a clean slate: if it is added again
+      // it is a new line, and a new line has no level.
+      declinedRef.current.delete(productId);
+      return next;
+    });
   }, []);
 
   const cartCount = cartItems.reduce((s, i) => s + (i.quantity || 0), 0);
@@ -474,6 +540,27 @@ export default function SalesCatalog() {
           </div>
         </div>
       )}
+
+      {/* The one question, asked at most once per product per session. An
+          answer about PACKAGING is saved permanently inside the dialog; the
+          sale LEVEL comes back here and is written to this line only. */}
+      <PackagingClarifyDialog
+        open={!!clarify}
+        onOpenChange={(v) => { if (!v) setClarify(null); }}
+        request={clarify}
+        onResolved={(res) => {
+          if (!res) {
+            // Skipped: respected for this cart only, and the line stays
+            // pending rather than being assigned a level.
+            if (clarify?.productId) declinedRef.current.add(clarify.productId);
+            return;
+          }
+          setCartItems(prev => prev.map(i => i.product_id === res.productId
+            ? { ...i, sale_level: res.saleLevel, buy_level: res.buyLevel,
+                packaging: res.packaging }
+            : i));
+        }}
+      />
     </div>
   );
 }

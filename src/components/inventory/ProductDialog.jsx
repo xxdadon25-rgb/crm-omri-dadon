@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Image as ImageIcon, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPackagingFor, savePackaging } from "@/api/productPackaging";
 
 const UNITS = ["יחידה", "ק״ג", "ליטר", "מטר", "קרטון", "אריזה"];
 
@@ -27,6 +28,14 @@ function extFromType(type) {
 const emptyProduct = {
   name: "", sku: "", barcode: "", category: "", supplier: "",
   buy_price: "", sell_price: "", quantity: "", min_quantity: "",
+  // Packaging. Optional, and NOT columns of `products`: they live in the
+  // product-packaging table the supplier price comparison already uses, so one
+  // answer serves both features. Empty means "not known", which is a real and
+  // permitted state for any product.
+  units_per_pack: "", packs_per_carton: "",
+  // Which packaging level products.buy_price is quoted in. Empty = not known,
+  // which is permitted; the margin then reads "pending" rather than guessing.
+  buy_price_level: "",
   unit: "יחידה", image_url: "", notes: "", meters_per_roll: ""
 };
 
@@ -45,6 +54,17 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
     if (product) {
       const mpr = product.meters_per_roll ?? "";
       const bp = product.buy_price ?? "";
+      // Read, so an answer given earlier — here or while comparing supplier
+      // prices — is shown rather than asked for again.
+      fetchPackagingFor(product.id).then(({ packaging }) => {
+        if (!packaging) return;
+        setForm(f => ({
+          ...f,
+          units_per_pack: packaging.units_per_pack ?? "",
+          packs_per_carton: packaging.packs_per_carton ?? "",
+          buy_price_level: packaging.buy_price_level ?? "",
+        }));
+      });
       setForm({
         ...emptyProduct,
         ...product,
@@ -149,20 +169,45 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
 
     setSaving(true);
     try {
+      // Packaging is stored separately, so it must not travel into the
+      // products row as stray columns.
+      const { units_per_pack, packs_per_carton, buy_price_level, ...productFields } = form;
       const data = {
-        ...form,
+        ...productFields,
         buy_price: parseFloat(form.buy_price) || 0,
         sell_price: parseFloat(form.sell_price) || 0,
         quantity: parseInt(form.quantity) || 0,
         min_quantity: parseInt(form.min_quantity) || 0,
         meters_per_roll: form.meters_per_roll ? parseFloat(form.meters_per_roll) : null,
       };
+      // The packaging write is isolated and happens AFTER the product is
+      // saved: a product must never fail to save because a packaging field was
+      // refused, and a new product has no id to attach packaging to until it
+      // exists. Both fields are sent only when the operator touched them, so
+      // an untouched field never clears a value recorded earlier.
+      const packagingPatch = {};
+      if (units_per_pack !== "") packagingPatch.units_per_pack = units_per_pack;
+      if (packs_per_carton !== "") packagingPatch.packs_per_carton = packs_per_carton;
+      if (buy_price_level !== "") packagingPatch.buy_price_level = buy_price_level;
+
+      // Nothing entered means nothing to save: no request is made at all, so
+      // a product with no packaging costs no round trip and cannot fail on one.
+      const hasPackaging = Object.keys(packagingPatch).length > 0;
+
       if (product?.id) {
         const updated = await base44.entities.Product.update(product.id, data);
+        if (hasPackaging) {
+          const pk = await savePackaging(product.id, packagingPatch);
+          if (!pk.ok) toast.warning(`המוצר נשמר, אך ${pk.error}`);
+        }
         onOpenChange(false);
         onSaved(updated);
       } else {
         const created = await base44.entities.Product.create(data);
+        if (created?.id && hasPackaging) {
+          const pk = await savePackaging(created.id, packagingPatch);
+          if (!pk.ok) toast.warning(`המוצר נשמר, אך ${pk.error}`);
+        }
         onOpenChange(false);
         onSaved(created);
       }
@@ -190,6 +235,55 @@ export default function ProductDialog({ open, onOpenChange, product, onSaved, ca
           <div className="space-y-1.5">
             <Label>ברקוד</Label>
             <Input value={form.barcode} onChange={(e) => handleChange("barcode", e.target.value)} />
+          </div>
+
+          {/* ── Packaging ───────────────────────────────────────────────────
+              BOTH FIELDS ARE OPTIONAL and nothing here is ever required. A
+              product may have a pack size and no carton, or neither; an old or
+              discontinued product can be left exactly as it is forever.
+
+              They are not columns of `products`: they are saved to the
+              product-packaging table the supplier price comparison already
+              uses, so an answer given here is also the answer there, and one
+              given there shows up here. That is what stops the same question
+              being asked twice.
+
+              What they are FOR: turning a purchase price per unit into the
+              cost of what a line actually sold. Without them a carton sale
+              costed at a unit price reads as an enormous margin. */}
+          <div className="space-y-1.5">
+            <Label>יחידות במארז</Label>
+            <Input type="number" step="any" min="0" placeholder="לא ידוע"
+              value={form.units_per_pack}
+              onChange={(e) => handleChange("units_per_pack", e.target.value)} />
+            <p className="text-[10px] text-muted-foreground">אופציונלי — כמה יחידות יש במארז אחד</p>
+          </div>
+          {/* What the purchase price above is quoted per. Not an assumption:
+              a supplier invoice may price per unit, per pack or per carton,
+              and multiplying a per-carton price by a carton's worth of units
+              would overstate the cost many times over. Optional like
+              everything else here — left empty, the margin simply reads as
+              pending. */}
+          <div className="space-y-1.5">
+            <Label>מחיר הקנייה מתייחס ל…</Label>
+            <Select value={form.buy_price_level || "unknown"}
+              onValueChange={(v) => handleChange("buy_price_level", v === "unknown" ? "" : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">לא ידוע</SelectItem>
+                <SelectItem value="unit">ליחידה</SelectItem>
+                <SelectItem value="pack">למארז</SelectItem>
+                <SelectItem value="carton">לקרטון</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">אופציונלי — נדרש לחישוב רווח אמין</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>מארזים בקרטון</Label>
+            <Input type="number" step="any" min="0" placeholder="לא ידוע"
+              value={form.packs_per_carton}
+              onChange={(e) => handleChange("packs_per_carton", e.target.value)} />
+            <p className="text-[10px] text-muted-foreground">אופציונלי — נדרש רק למכירה בקרטונים</p>
           </div>
           <div className="space-y-1.5">
             <Label>קטגוריה</Label>
