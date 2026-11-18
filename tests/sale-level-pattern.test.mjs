@@ -32,6 +32,7 @@ const entry = join(dirname(out), "entry.mjs");
 writeFileSync(entry, `
   export * from "${resolve(REPO, "src/lib/saleLevelPattern.js")}";
   export { lineProfit } from "${resolve(REPO, "src/lib/packagingMath.js")}";
+  export { cartLineForProfit } from "${resolve(REPO, "src/lib/cartProfit.js")}";
   export { documentProfit } from "${resolve(REPO, "src/lib/documentProfit.js")}";
 `);
 await build({
@@ -598,9 +599,10 @@ console.log("\n13. AUDIT — an explicit confirmation is never overwritten in si
     currentLevel: "carton", currentSource: "confirmed",
     oldPrice: 186, newPrice: 0.53, pattern: pat, packaging: PK,
   });
-  check("a confirmed level is not silently replaced", confirmed.action === "ask",
+  check("a confirmed level is not silently replaced", confirmed.action === "review",
     confirmed.action);
-  check("and no level is assumed in the meantime", confirmed.level === null);
+  check("the owner's answer is PRESERVED, not discarded", confirmed.level === "carton",
+    `${confirmed.level}`);
   check("the reason names the contradiction",
     confirmed.reason === "contradicts_confirmed", confirmed.reason);
 
@@ -627,7 +629,9 @@ console.log("\n13. AUDIT — an explicit confirmation is never overwritten in si
     currentLevel: "unit", currentSource: "confirmed",
     oldPrice: 0.53, newPrice: 186, pattern: M.emptyPattern(), packaging: PK,
   });
-  check("a rescale of a confirmed level asks", rescaled.action === "ask", rescaled.action);
+  check("a rescale of a confirmed level flags it for review",
+    rescaled.action === "review" && rescaled.level === "unit",
+    `${rescaled.action}/${rescaled.level}`);
   check("a rescale of a default just clears",
     M.levelForPriceEdit({
       currentLevel: "unit", currentSource: "pattern",
@@ -854,9 +858,37 @@ console.log("\n17. PRE-COMMIT GATE — the five claims, each proved or denied");
     && !/quantity/.test(M.levelForNewLine.toString())
     && !/quantity/.test(M.matchLevel.toString()));
   const src2 = readFileSync(resolve(REPO, "src/components/documents/ItemsEditor.jsx"), "utf8");
-  check("the editor re-decides only on a unit_price edit",
-    /field === "unit_price" && String\(before\?\.unit_price/.test(src2));
-  check("and nothing in it clears a level on a quantity edit",
+  // TYPING DECIDES NOTHING. The per-keystroke handler must not reach the
+  // decision at all — that is what reopened the dialog on every digit — and
+  // the decision must be committed from blur/Enter instead.
+  const onChangeBody = src2.slice(src2.indexOf("const updateItem ="),
+                                  src2.indexOf("const priceEditRef"));
+  check("the per-keystroke handler never decides a level",
+    !/levelForPriceEdit/.test(onChangeBody));
+  check("and never clears one", !/sale_level = null/.test(onChangeBody));
+  check("the decision is committed once, outside typing",
+    /const commitPriceEdit = \(index\)[\s\S]{0,1200}levelForPriceEdit\(/.test(src2));
+  check("it compares against the price the edit STARTED from",
+    /oldPrice: started\.price/.test(src2) && /newPrice: line\.unit_price/.test(src2));
+  check("an edit that ends where it began decides nothing",
+    /String\(started\.price \?\? ""\) === String\(line\.unit_price \?\? ""\)\) return;/.test(src2));
+  check("both price inputs commit on blur and on Enter",
+    (src2.match(/onBlur=\{\(\) => commitPriceEdit\(i\)\}/g) || []).length === 2
+    && (src2.match(/onKeyDown=\{priceKeyDown\(i\)\}/g) || []).length === 2);
+  // The dialog is now opt-in: nothing in the component opens it on its own.
+  const resolveBody = src2.slice(src2.indexOf("const resolveFor"),
+                                 src2.indexOf("const addProductsFromCatalog"));
+  check("the add path cannot open the dialog", !/setClarify/.test(resolveBody));
+  check("the commit path cannot either",
+    !/setClarify/.test(src2.slice(src2.indexOf("const commitPriceEdit"),
+                                  src2.indexOf("const priceKeyDown"))));
+  check("and there is no queue of questions left", !/setQueue/.test(src2));
+  check("the only opener is the per-line request",
+    /const clarifyLine = \(line\)/.test(src2)
+    && /clarify\?\.productId === line\.product_id\) return;/.test(src2));
+  check("which the row's indicator calls",
+    (src2.match(/onClarify=\{\(\) => clarifyLine\(item\)\}/g) || []).length === 2);
+  check("nothing clears a level on a quantity edit",
     !/field === "quantity"[\s\S]{0,200}sale_level = null/.test(src2));
 
   // ---- 4. CONFIRMED LEVELS ARE NEVER SILENTLY OVERRIDDEN ---------------
@@ -865,8 +897,10 @@ console.log("\n17. PRE-COMMIT GATE — the five claims, each proved or denied");
     currentLevel: "carton", currentSource: "confirmed",
     oldPrice: 100, newPrice: 4, pattern: pat4, packaging: pk,
   });
-  check("a confirmed level is never replaced silently", over.action === "ask", over.action);
-  check("and no level is assumed while it is asked", over.level === null);
+  check("a confirmed level is never replaced silently", over.action === "review",
+    over.action);
+  check("and the answer is preserved while the margin is withheld",
+    over.level === "carton", `${over.level}`);
   // Exhaustive: no price, and no pattern, can make a confirmed level change
   // without asking.
   let silentOverrides = 0;
@@ -875,10 +909,12 @@ console.log("\n17. PRE-COMMIT GATE — the five claims, each proved or denied");
       currentLevel: "carton", currentSource: "confirmed",
       oldPrice: 100, newPrice: p, pattern: pat4, packaging: pk,
     });
-    if (d.action === "set" || (d.action === "clear")) silentOverrides += 1;
-    if (d.action === "keep" && d.level !== "carton") silentOverrides += 1;
+    // "review" keeps the level and withholds the margin; nothing else is
+    // allowed to touch an answer the owner gave.
+    if (d.action === "set" || d.action === "clear") silentOverrides += 1;
+    if (d.level !== "carton") silentOverrides += 1;
   }
-  check("across every price, a confirmed level is kept or asked about — never set",
+  check("across every price, a confirmed level is kept or flagged — never changed",
     silentOverrides === 0, `${silentOverrides}`);
 
   // ---- 5. NEW CONFIRMATIONS PERSIST AND ARE REUSABLE -------------------
@@ -906,6 +942,46 @@ console.log("\n17. PRE-COMMIT GATE — the five claims, each proved or denied");
     /insert\(\{ \.\.\.payload/.test(readFileSync(resolve(REPO, "src/api/entities.js"), "utf8")));
   check("and orders.items is JSONB",
     /items\s+JSONB/.test(readFileSync(resolve(REPO, "supabase/schema.sql"), "utf8")));
+}
+
+
+console.log("\n18. A FLAGGED LINE WITHHOLDS ITS MARGIN, EVERYWHERE");
+{
+  const good = line({ quantity: 1, unit_price: 186, total: 186, sale_level: "carton" });
+  const flagged = { ...good, sale_level_review: true };
+
+  const ok = M.documentProfit([good]);
+  check("unflagged, the line is costed", ok.ok && near(ok.profitMargin, 46.24, 0.01));
+
+  const r = M.documentProfit([flagged]);
+  check("flagged, no margin is shown", r.profitMargin === null);
+  check("the level is NOT treated as missing — it is a review",
+    r.reviewLines === 1 && r.pendingLines === 1, `${r.reviewLines}/${r.pendingLines}`);
+  check("and the wording says review, not clarification",
+    /ממתין לבדיקה/.test(r.message || ""), `${r.message}`);
+  check("the revenue is still reported", near(r.totalSalesNet, 186));
+  check("and nothing is costed as zero", r.totalCostNet === 0 && !r.ok);
+
+  // The line-level maths agrees, so the cart panel behaves identically.
+  const lp = M.lineProfit({ ...M.cartLineForProfit(flagged) });
+  check("lineProfit refuses it with its own reason",
+    !lp.ok && lp.pending === "level_uncertain", `${lp.pending}`);
+  check("and the message is specific", /לבדיקה/.test(lp.message || ""), `${lp.message}`);
+
+  // A mixed document: one good line, one flagged, one with no level.
+  const mixed = M.documentProfit([
+    good,
+    flagged,
+    line({ quantity: 1, unit_price: 50, total: 50, sale_level: null }),
+  ]);
+  check("one costed, two pending, one of them a review",
+    mixed.costedLines === 1 && mixed.pendingLines === 2 && mixed.reviewLines === 1,
+    `${mixed.costedLines}/${mixed.pendingLines}/${mixed.reviewLines}`);
+  check("the margin is withheld for the whole document", mixed.profitMargin === null);
+  check("and the wording mentions both", /להבהרה/.test(mixed.message || "")
+    && /לבדיקה/.test(mixed.message || ""), `${mixed.message}`);
+  check("the revenue covers every line", near(mixed.totalSalesNet, 422),
+    `${mixed.totalSalesNet}`);
 }
 
 console.log(`\n==== ${pass} passed, ${fail} failed ====`);

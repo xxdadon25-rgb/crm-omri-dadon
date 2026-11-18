@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ProductCatalogModal from "@/components/products/ProductCatalogModal";
 import PackagingClarifyDialog from "@/components/sales/PackagingClarifyDialog";
 import { resolveCostBasis } from "@/api/productPackaging";
-import { clarificationFor, unitsPerLevel, SALE_LEVELS, LEVEL_LABEL } from "@/lib/packagingMath";
+import { unitsPerLevel, SALE_LEVELS, LEVEL_LABEL } from "@/lib/packagingMath";
 import {
   learnFromLines, mergePatterns, emptyPattern,
   levelForNewLine, levelForPriceEdit, patternHint, suggestLevel,
@@ -79,12 +79,45 @@ function LevelSelect({ value, packaging, onChange, source, pattern }) {
   );
 }
 
+/**
+ * THE SMALL THING ON THE ROW THAT REPLACED TEN MODAL DIALOGS.
+ *
+ * Two states, both of which withhold the line's margin rather than guess it:
+ *
+ *   "דרוש בירור"  no level at all. Nothing was ever stated and no confirmed
+ *                 price matches, so the cost cannot be normalised.
+ *   "לבדיקה"      a level the owner stated, whose price has since changed in a
+ *                 way the level does not support. The ANSWER IS STILL THERE —
+ *                 only the margin is withheld — and one look settles it.
+ *
+ * Clicking it opens the clarification dialog for that line and only that line.
+ * Ignoring it costs nothing: the order is entered, priced and saved exactly the
+ * same either way.
+ */
+function ClarifyFlag({ item, onClarify }) {
+  const needs = !item.sale_level;
+  const review = !needs && !!item.sale_level_review;
+  if (!needs && !review) return null;
+  return (
+    <button type="button" onClick={onClarify}
+      title={needs
+        ? "לא ידוע מה נמכר בשורה — הרווח לא מחושב. לחץ לבירור"
+        : "המחיר שונה ורמת האריזה לא אומתה מחדש — הרווח לא מחושב. לחץ לבדיקה"}
+      className={`inline-flex items-center gap-1 text-[10px] rounded-full border px-1.5 py-0.5
+        ${review
+          ? "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100"
+          : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}>
+      <AlertCircle className="w-3 h-3" />
+      {needs ? "דרוש בירור" : "לבדיקה"}
+    </button>
+  );
+}
+
 export default function ItemsEditor({ items, setItems, products, vatRate = 18, categories = [], defaultDiscount = 0, showPurchasePrice = false, lastPriceByProduct = null, salePatterns = null }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
-  // At most one outstanding packaging question, and a queue behind it so a
-  // multi-product selection asks once per product rather than all at once.
+  // The clarification dialog, open only when the operator asks for it from a
+  // row. There is no queue: nothing opens it in batches any more.
   const [clarify, setClarify] = useState(null);
-  const [queue, setQueue] = useState([]);
 
   // setItems is NOT a React state setter here. Every caller —
   // OrderCreateModal, OrderEditModal, QuoteEditor — passes a plain function
@@ -127,30 +160,41 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
   }, []);
 
   /**
-   * Attach what is known about a product's packaging to its line, and queue a
-   * question when the line's profit cannot be computed without one.
+   * Attach what is known about a product's packaging to its line, and reuse a
+   * level the product's confirmed history identifies beyond doubt.
    *
-   * Runs AFTER the lines are added, so adding products is never blocked by a
-   * question about profitability. A failed read asks nothing: a question
-   * answered from a failed read would overwrite a real row.
+   * ============================================================================
+   * THIS NEVER OPENS A DIALOG. THAT IS THE POINT.
+   * ============================================================================
+   * It used to queue a question per product that could not be costed, which on
+   * a ten-product order meant ten modal dialogs before the operator could type
+   * a single price. The information is worth having and the interruption is
+   * not: nothing about entering an order needs to stop for it.
+   *
+   * So a line whose level cannot be established is simply MARKED. The row says
+   * it needs clarification, the margin for it is withheld rather than guessed,
+   * and the operator can answer from the row whenever they choose — including
+   * never. Adding, pricing, re-quantifying and saving are all unaffected.
+   *
+   * A failed packaging read changes nothing: an answer saved from a failed read
+   * would overwrite a real row.
    */
   const resolveFor = useCallback(async (added) => {
-    const pending = [];
     for (const line of added) {
       if (!line?.product_id) continue;
       const { ok, packaging, buyLevel } = await resolveCostBasis(line.product_id);
       if (!ok) continue;
 
       // THE LEVEL IS REMEMBERED, NOT ASKED, WHEN THE PRICE SAYS WHICH IT IS.
-      // Only when exactly one learned price matches; anything else leaves the
-      // level unset and the question below is asked as it always was.
+      // Only when exactly one confirmed price matches; anything else leaves the
+      // level unset, which the row then shows.
       let saleLevel = line.sale_level ?? null;
       let source = line.sale_level_source ?? null;
       if (!saleLevel) {
         const learned = levelForNewLine({
           unitPrice: line.unit_price,
           pattern: patternRef.current.get(line.product_id),
-          // The product's packaging is the arbiter when its learned prices
+          // The product's packaging is the arbiter when its confirmed prices
           // disagree, so it is passed in with them.
           packaging,
         });
@@ -163,29 +207,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
           ? { sale_level: saleLevel, sale_level_source: source }
           : {}),
       });
-
-      const need = clarificationFor({
-        unitPrice: line.unit_price, buyPrice: line.buy_price,
-        packaging, saleLevel, buyLevel,
-      });
-      if (!need.ask) continue;
-      pending.push({
-        productId: line.product_id, productName: line.name || line.description || "המוצר",
-        packaging: packaging ?? {}, kind: need.kind,
-        level: need.kind === "packaging" ? need.level : null,
-        buyLevel: buyLevel ?? null, missing: need.missing,
-        // What the unverified record says, to show beside the question. Not
-        // pre-selected: see suggestLevel.
-        suggestion: suggestLevel({
-          unitPrice: line.unit_price,
-          pattern: patternRef.current.get(line.product_id),
-          packaging,
-        }),
-      });
     }
-    if (pending.length === 0) return;
-    setClarify(pending[0]);
-    setQueue(pending.slice(1));
   }, [patchLine]);
 
   const addProductsFromCatalog = (selectedItems) => {
@@ -198,15 +220,15 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
   };
 
   /**
-   * Put the level question for one line to the owner.
+   * Open the clarification dialog for ONE line, because the operator asked.
    *
-   * Used when the line's price and the owner's own earlier answer contradict
-   * each other. Nothing is pre-selected: the point is that neither side of the
-   * contradiction may be assumed. Queued behind any question already open.
+   * Only ever called from the indicator on the row. Nothing in this component
+   * calls it on its own — see `resolveFor`.
    */
-  const askLevelFor = (line, reason) => {
+  const clarifyLine = (line) => {
     if (!line?.product_id) return;
-    const req = {
+    if (clarify?.productId === line.product_id) return;      // already open
+    setClarify({
       productId: line.product_id,
       productName: line.name || line.description || "המוצר",
       packaging: line.packaging ?? {},
@@ -217,85 +239,142 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
         pattern: patternFor(line.product_id),
         packaging: line.packaging,
       }),
-      reason,
-    };
-    setClarify(cur => cur ?? req);
-    setQueue(q => (clarify ? [...q, req] : q));
+      reason: "requested",
+    });
   };
 
-  /** Move to the next queued question, if any. */
-  const advance = () => {
-    setClarify(queue[0] ?? null);
-    setQueue(q => q.slice(1));
-  };
+  const closeClarify = () => setClarify(null);
 
   /**
    * Edit one field of one line.
    *
    * ============================================================================
-   * A PRICE EDIT IS RE-READ AGAINST THE PRODUCT'S HISTORY
+   * TYPING IS NOT AN EDIT. THIS IS THE WHOLE FIX.
    * ============================================================================
-   * sale_level says what ONE unit of `quantity` is: a unit, a pack or a
-   * carton. It used to be kept through every later edit, which is how order
-   * #1197 went wrong: the line was 350 units at ₪0.53, was edited to 1 carton
-   * at ₪186 — the same goods, described differently — and kept sale_level
-   * "unit", so the popup costed ONE unit of a 350-unit carton: ₪0.29, a 99.8%
-   * margin.
+   * `onChange` fires on every keystroke, so replacing ₪0.53 with ₪186 arrives
+   * here three times — as 1, then 18, then 186. The level decision used to run
+   * on each of them, which meant the intermediate values were judged as if they
+   * were the operator's answer: ₪1 and ₪18 match nothing for a product whose
+   * levels are ₪0.53 and ₪186, both look like a rescale, and each one asked a
+   * question. The dialog reopened on every digit.
    *
-   * The level is now decided by `levelForPriceEdit`, from the product's own
-   * confirmed history:
+   * So this function now only does what typing means: it stores the characters
+   * and recomputes the line total. THE LEVEL IS LEFT EXACTLY AS IT IS — which
+   * is also what makes a half-typed price harmless, since a level is never
+   * judged against a number the operator has not finished.
    *
-   *   * ₪186 has meant "carton" for this product before, and nothing else has
-   *     been near it, so the edit SETS carton. #1197 fixes itself.
-   *   * a customer-specific ₪172 still matches carton and nothing else, so the
-   *     level is KEPT. An ordinary price edit costs nothing.
-   *   * a price that matches nothing learned but moved by a whole packaging
-   *     factor is a rescale to an unknown level, so the level is CLEARED, the
-   *     line reads "ממתין להבהרה", and the selector on the row states it.
+   * The decision happens once, in `commitPriceEdit`, when the field is left or
+   * Enter is pressed. See the comment there for what it decides and why.
    *
-   * THE QUANTITY IS NOT PART OF THIS, and a quantity edit does not touch the
-   * level at all: 1 -> 2 cartons is an ordinary edit, and no quantity has ever
-   * implied a level. The PRODUCT facts — packaging and the purchase level — are
-   * untouched by any edit here.
+   * THE QUANTITY IS NOT PART OF ANY OF THIS, on any event: 1 -> 2 cartons is an
+   * ordinary edit, and no quantity has ever implied a level. The PRODUCT facts —
+   * packaging and the purchase level — are untouched by every edit here.
    */
   const updateItem = (index, field, value) => {
     const updated = [...items];
     const before = updated[index];
     updated[index] = { ...before, [field]: value };
 
-    if (field === "unit_price" && String(before?.unit_price ?? "") !== String(value ?? "")) {
-      const decided = levelForPriceEdit({
-        currentLevel: before?.sale_level ?? null,
-        currentSource: before?.sale_level_source ?? null,
-        oldPrice: before?.unit_price, newPrice: value,
-        pattern: patternFor(before?.product_id),
-        packaging: before?.packaging,
-      });
-      if (decided.action === "set") {
-        updated[index].sale_level = decided.level;
-        updated[index].sale_level_source = "pattern";
-      } else if (decided.action === "clear") {
-        updated[index].sale_level = null;
-        updated[index].sale_level_source = null;
-      } else if (decided.action === "ask") {
-        // The owner's own answer and the owner's own price now disagree. The
-        // level is dropped so no wrong cost is shown in the meantime, and the
-        // question is put to them once, naming the same product.
-        updated[index].sale_level = null;
-        updated[index].sale_level_source = null;
-        askLevelFor(updated[index], decided.reason);
-      }
-    }
     // Choosing a level by hand is the owner answering, which is what teaches
     // the pattern — unlike a level this mechanism filled in.
     if (field === "sale_level") {
       updated[index].sale_level_source = value ? "confirmed" : null;
+      // The operator just looked at it, so there is nothing left to review.
+      updated[index].sale_level_review = false;
     }
     const qty = parseFloat(updated[index].quantity) || 0;
     const price = parseFloat(updated[index].unit_price) || 0;
     const disc = parseFloat(updated[index].discount) || 0;
     updated[index].total = qty * price * (1 - disc / 100);
     setItems(updated);
+  };
+
+  /**
+   * The price a row held when the operator started typing in it.
+   *
+   * A ref, not state: it must not cause a render, and it must survive the
+   * renders that every keystroke causes.
+   */
+  const priceEditRef = useRef(new Map());
+
+  const beginPriceEdit = (index) => {
+    if (priceEditRef.current.has(index)) return;        // already in this edit
+    const line = itemsRef.current[index];
+    priceEditRef.current.set(index, {
+      price: line?.unit_price,
+      level: line?.sale_level ?? null,
+      source: line?.sale_level_source ?? null,
+    });
+  };
+
+  /**
+   * ============================================================================
+   * THE LEVEL IS DECIDED ONCE, WHEN THE PRICE IS FINISHED
+   * ============================================================================
+   * Called on blur and on Enter. It compares the price the operator LEFT with
+   * the one they STARTED from — never with the previous keystroke — so a
+   * multi-digit entry is one edit with one decision:
+   *
+   *   * ₪186 has meant "carton" for this product before, and nothing else has
+   *     been near it, so the edit SETS carton. Order #1197 fixes itself.
+   *   * a customer-specific ₪172 still matches carton and nothing else, so the
+   *     level is KEPT. An ordinary price edit costs nothing.
+   *   * a price that matches nothing confirmed but moved by a whole packaging
+   *     factor is a rescale to an unknown level, so the level is CLEARED, the
+   *     line reads "ממתין להבהרה", and the selector on the row states it.
+   *   * if the level being contradicted is one the OWNER stated, it is not
+   *     replaced silently — the question is asked once instead.
+   *
+   * An edit that ends where it began decides nothing at all, so tabbing
+   * through a price, or blurring twice, cannot ask anything.
+   */
+  const commitPriceEdit = (index) => {
+    const started = priceEditRef.current.get(index);
+    priceEditRef.current.delete(index);
+    if (!started) return;
+
+    const lines = itemsRef.current;
+    const line = lines[index];
+    if (!line) return;
+    // Nothing was actually changed: focus and blur, or typed and undone.
+    if (String(started.price ?? "") === String(line.unit_price ?? "")) return;
+
+    const decided = levelForPriceEdit({
+      currentLevel: started.level,
+      currentSource: started.source,
+      oldPrice: started.price,
+      newPrice: line.unit_price,
+      pattern: patternFor(line.product_id),
+      packaging: line.packaging,
+    });
+    const updated = [...lines];
+    if (decided.action === "keep") {
+      // The price now agrees with the level, so any earlier doubt is settled.
+      if (!line.sale_level_review) return;
+      if (decided.reason !== "confirmed_by_pattern") return;
+      updated[index] = { ...line, sale_level_review: false };
+    } else if (decided.action === "set") {
+      updated[index] = {
+        ...line, sale_level: decided.level,
+        sale_level_source: "pattern", sale_level_review: false,
+      };
+    } else if (decided.action === "review") {
+      // THE OWNER'S ANSWER IS KEPT. Only the margin is withheld, and the row
+      // says so. Nothing is asked and nothing is blocked.
+      updated[index] = { ...line, sale_level_review: true };
+    } else {
+      // "clear": the level was a default, and the price no longer supports it.
+      updated[index] = {
+        ...line, sale_level: null, sale_level_source: null, sale_level_review: false,
+      };
+    }
+    itemsRef.current = updated;
+    setItems(updated);
+  };
+
+  /** Finish the edit on Enter as well as on blur. */
+  const priceKeyDown = (index) => (e) => {
+    if (e.key === "Enter") commitPriceEdit(index);
   };
 
   const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
@@ -353,6 +432,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                             pattern={patternFor(item.product_id)}
                             onChange={(v) => updateItem(i, "sale_level", v)}
                           />
+                          <ClarifyFlag item={item} onClarify={() => clarifyLine(item)} />
                         </span>
                       )}
                     </td>
@@ -374,6 +454,9 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                     <td className="px-3 py-2">
                       <Input type="number" step="0.01" value={item.unit_price}
                         onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
+                        onFocus={() => beginPriceEdit(i)}
+                        onBlur={() => commitPriceEdit(i)}
+                        onKeyDown={priceKeyDown(i)}
                         className="h-8 w-28" />
                     </td>
                     <td className="px-3 py-2">
@@ -426,6 +509,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                           pattern={patternFor(item.product_id)}
                           onChange={(v) => updateItem(i, "sale_level", v)}
                         />
+                        <ClarifyFlag item={item} onClarify={() => clarifyLine(item)} />
                       </span>
                     )}
                   </div>
@@ -440,7 +524,11 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">{showPurchasePrice ? "מחיר מכירה לפני מע״מ" : "מחיר לפני מע״מ"}</label>
                     <Input type="number" inputMode="decimal" step="0.01" value={item.unit_price}
-                      onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)} className="h-10" />
+                      onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
+                      onFocus={() => beginPriceEdit(i)}
+                      onBlur={() => commitPriceEdit(i)}
+                      onKeyDown={priceKeyDown(i)}
+                      className="h-10" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">הנחה %</label>
@@ -467,7 +555,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
           this line only. Skipping leaves the line pending — never guessed. */}
       <PackagingClarifyDialog
         open={!!clarify}
-        onOpenChange={(v) => { if (!v) advance(); }}
+        onOpenChange={(v) => { if (!v) closeClarify(); }}
         request={clarify}
         onResolved={(res) => {
           if (!res) return;
@@ -477,6 +565,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
             // An answer, so it teaches the pattern and is never overwritten by
             // one.
             sale_level_source: res.saleLevel ? "confirmed" : null,
+            sale_level_review: false,
           });
         }}
       />

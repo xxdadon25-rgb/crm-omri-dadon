@@ -575,11 +575,14 @@ export function priceEditRescaled({ oldPrice, newPrice, packaging } = {}) {
  *           the level being replaced was one this mechanism had filled in, not
  *           one the owner stated. This is order #1197 going right: ₪0.53 ->
  *           ₪186 moves the line from unit to carton by itself.
- *   ask   — the price says a different level, but the owner STATED the current
- *           one. Two things the owner said now disagree, and no code should
- *           pick the winner silently. One brief question settles it.
- *   clear — the price moved by a whole packaging factor, so the line was
- *           rescaled, but nothing says to what. Pending, and asked.
+ *   review— the price says otherwise, but the owner STATED the current level.
+ *           The level is KEPT, because only they may change their own answer,
+ *           and the line is flagged so the margin is withheld instead of being
+ *           computed at a level the price contradicts. Nothing is asked and
+ *           nothing is blocked; the line shows that it needs a look.
+ *   clear — the level was a default, not an answer, and the price moved by a
+ *           whole packaging factor. Dropped, and the line shows that its level
+ *           is unknown.
  *
  * THE QUANTITY IS NOT CONSULTED, and a quantity edit does not call this at all:
  * 1 -> 2 cartons is as ordinary as an edit gets, and no quantity has ever
@@ -590,7 +593,7 @@ export function priceEditRescaled({ oldPrice, newPrice, packaging } = {}) {
  * Anything else — "pattern", or nothing at all on a line that predates this —
  * is a default, and a default may be replaced without asking.
  *
- * @returns {{action: 'keep'|'set'|'ask'|'clear', level: string|null, reason: string}}
+ * @returns {{action: 'keep'|'set'|'review'|'clear', level: string|null, reason: string}}
  */
 export function levelForPriceEdit({
   currentLevel, currentSource, oldPrice, newPrice, pattern, packaging,
@@ -600,10 +603,12 @@ export function levelForPriceEdit({
   const m = matchLevel({ unitPrice: newPrice, pattern, packaging });
 
   if (m.status === "unambiguous") {
+    // The price agrees with the level. Any earlier doubt is settled, which is
+    // why this clears a review flag rather than merely leaving it.
     if (held === m.level) return { action: "keep", level: held, reason: "confirmed_by_pattern" };
     if (!held) return { action: "set", level: m.level, reason: "learned" };
-    // AN EXPLICIT ANSWER IS NEVER OVERWRITTEN IN SILENCE.
-    if (confirmed) return { action: "ask", level: null, reason: "contradicts_confirmed" };
+    // AN EXPLICIT ANSWER IS NEVER OVERWRITTEN, AND NEVER DISCARDED.
+    if (confirmed) return { action: "review", level: held, reason: "contradicts_confirmed" };
     return { action: "set", level: m.level, reason: "relearned" };
   }
 
@@ -611,8 +616,11 @@ export function levelForPriceEdit({
 
   if (priceEditRescaled({ oldPrice, newPrice, packaging })) {
     // A rescale invalidates the level whoever set it: the old answer was about
-    // different goods. Asked, not guessed.
-    return { action: confirmed ? "ask" : "clear", level: null, reason: "rescaled" };
+    // different goods. An answer the owner gave is kept and flagged; a default
+    // is simply dropped.
+    return confirmed
+      ? { action: "review", level: held, reason: "rescaled" }
+      : { action: "clear", level: null, reason: "rescaled" };
   }
   return { action: "keep", level: held, reason: "ordinary_price_edit" };
 }

@@ -44,7 +44,8 @@ import { cartLineForProfit } from "@/lib/cartProfit";
  *   totalSalesNet: number, totalCostNet: number, totalProfit: number,
  *   profitMargin: number|null,
  *   itemCount: number, avgProfitPerItem: number|null,
- *   pendingLines: number, costedLines: number, message: string|null
+ *   pendingLines: number, reviewLines: number, costedLines: number,
+ *   message: string|null
  * }}  amounts in SHEKELS, margin as a percentage
  */
 export function documentProfit(items = []) {
@@ -53,7 +54,7 @@ export function documentProfit(items = []) {
   let costAgorot = 0;          // the cost of the lines that could be costed
   let costedRevenue = 0;       // what those same lines were charged
   let salesAgorot = 0;         // what the WHOLE document was charged
-  let costedLines = 0, pendingLines = 0;
+  let costedLines = 0, pendingLines = 0, reviewLines = 0;
 
   for (const line of lines) {
     // THE LINE'S REVENUE IS ITS STORED TOTAL, not unit_price x quantity.
@@ -76,6 +77,10 @@ export function documentProfit(items = []) {
       costedLines += 1;
     } else {
       pendingLines += 1;
+      // A line whose stated level the price no longer supports is reported
+      // separately: it is a REVIEW, not a gap. The owner answered; the answer
+      // just has not been re-checked against the new price.
+      if (r.pending === "level_uncertain") reviewLines += 1;
     }
   }
 
@@ -95,11 +100,17 @@ export function documentProfit(items = []) {
     itemCount,
     avgProfitPerItem: ok && itemCount > 0 ? toShekels(profitAgorot) / itemCount : null,
     pendingLines,
+    reviewLines,
     costedLines,
     message: pendingLines > 0
-      ? (pendingLines === 1
-          ? "רווח ממתין להבהרה — שורה אחת חסרת נתוני אריזה"
-          : `רווח ממתין להבהרה — ${pendingLines} שורות חסרות נתוני אריזה`)
+      ? (reviewLines === pendingLines
+          ? (reviewLines === 1
+              ? "רווח ממתין לבדיקה — שורה אחת שינתה מחיר ורמת האריזה לא אומתה מחדש"
+              : `רווח ממתין לבדיקה — ${reviewLines} שורות שינו מחיר ורמת האריזה לא אומתה מחדש`)
+          : (pendingLines === 1
+              ? "רווח ממתין להבהרה — שורה אחת חסרת נתוני אריזה"
+              : `רווח ממתין להבהרה — ${pendingLines} שורות חסרות נתוני אריזה`
+                + (reviewLines > 0 ? `, מתוכן ${reviewLines} לבדיקה` : "")))
       : (costedLines === 0 ? "רווח ממתין להבהרה" : null),
   };
 }

@@ -29,6 +29,11 @@ export function cartLineForProfit(line) {
     // What the purchase price is quoted per. A product fact, read with the
     // packaging; never inferred from the sale level.
     buyLevel: line?.buy_level ?? null,
+    // Set when a price edit left the line's stated level in doubt. The level
+    // itself is preserved on the line; only the margin is withheld. Mapped
+    // here so EVERY profit display — the cart panel and all four document
+    // popups — honours it through the same adapter.
+    levelUncertain: !!line?.sale_level_review,
   };
 }
 

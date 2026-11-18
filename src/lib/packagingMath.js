@@ -81,6 +81,7 @@ export const PENDING = {
   NO_LEVEL: "no_level",               // nobody has said what this line sells
   NO_PACKAGING: "no_packaging",       // the level needs a factor we do not have
   NO_BUY_LEVEL: "no_buy_level",       // nobody has said what buy_price is per
+  LEVEL_UNCERTAIN: "level_uncertain", // the price moved; the level is unverified
   NO_REVENUE: "no_revenue",           // nothing was charged
   BAD_DATA: "bad_data",               // a value that cannot be arithmetic
 };
@@ -91,6 +92,7 @@ export const PENDING_MESSAGE = {
   [PENDING.NO_LEVEL]: "רווח ממתין להבהרה — לא נקבעה רמת האריזה שנמכרה",
   [PENDING.NO_PACKAGING]: "רווח ממתין להבהרה — חסרים נתוני אריזה למוצר",
   [PENDING.NO_BUY_LEVEL]: "רווח ממתין להבהרה — לא ידוע לאיזו רמת אריזה מתייחס מחיר הקנייה",
+  [PENDING.LEVEL_UNCERTAIN]: "רווח ממתין לבדיקה — המחיר שונה ורמת האריזה לא אומתה מחדש",
   [PENDING.NO_REVENUE]: "רווח ממתין להבהרה — אין סכום מכירה",
   [PENDING.BAD_DATA]: "רווח ממתין להבהרה — נתונים לא תקינים",
 };
@@ -248,7 +250,7 @@ export function costPerBaseUnit({ buyPrice, packaging, buyLevel } = {}) {
  */
 export function lineProfit({
   unitPrice, quantity, discountPercent = 0, buyPrice, packaging, saleLevel,
-  buyLevel,
+  buyLevel, levelUncertain = false,
 } = {}) {
   const fail = (pending) => ({
     ok: false, pending, message: PENDING_MESSAGE[pending],
@@ -277,6 +279,14 @@ export function lineProfit({
   if (unitsPerLevel(packaging, buyLevel) === null) return fail(PENDING.NO_PACKAGING);
 
   // WHAT THE LINE SOLD.
+  //
+  // A LEVEL THE PRICE NO LONGER SUPPORTS IS NOT USED, AND IS NOT DISCARDED.
+  // When a price edit leaves a level the owner stated looking doubtful, the
+  // level stays on the line — it is their answer, and only they may change it —
+  // but the margin is withheld. Costing a line at a level the price contradicts
+  // is exactly how order #1197 reported a 99.8% margin, and showing nothing is
+  // the only honest alternative to showing that.
+  if (levelUncertain) return fail(PENDING.LEVEL_UNCERTAIN);
   if (!saleLevel || !SALE_LEVELS.includes(saleLevel)) return fail(PENDING.NO_LEVEL);
   const unitsPerItem = unitsPerLevel(packaging, saleLevel);
   if (unitsPerItem === null) return fail(PENDING.NO_PACKAGING);
