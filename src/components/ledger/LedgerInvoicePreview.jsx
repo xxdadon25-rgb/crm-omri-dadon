@@ -20,6 +20,7 @@ import { displayInvoiceNumber } from "@/utils/invoiceDisplay";
 import { hasFinbotPdf, downloadFinbotPdf } from "@/utils/finbotPdfActions";
 import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
 import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
+import { documentProfit } from "@/lib/documentProfit";
 
 const BUCKET = "payment-attachments";
 
@@ -33,12 +34,12 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  const totalCostNet = useMemo(() => enrichedItems.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [enrichedItems]);
-  const totalSalesNet = useMemo(() => enrichedItems.reduce((s, i) => s + (i.total || 0), 0), [enrichedItems]);
-  const totalProfit = totalSalesNet - totalCostNet;
-  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
-  const itemCount = enrichedItems.reduce((s, i) => s + (i.quantity || 0), 0);
-  const avgProfitPerItem = itemCount > 0 ? totalProfit / itemCount : 0;
+  // ONE shared calculation for every document popup: the cost is normalised
+  // through the product's packaging and the margin is over REVENUE. The old
+  // local formula was `Σ buy_price × quantity` with a margin over cost, which
+  // charged a per-carton purchase price once per unit sold. See
+  // src/lib/documentProfit.js.
+  const profit = useMemo(() => documentProfit(enrichedItems), [enrichedItems]);
 
   useEffect(() => {
     if (!invoice?.id) { setEnrichedItems([]); return; }
@@ -384,12 +385,14 @@ export default function LedgerInvoicePreview({ invoice, onClose, businessSetting
         <ProfitabilityModal
           open={profitabilityModalOpen}
           onOpenChange={setProfitabilityModalOpen}
-          totalCostNet={totalCostNet}
-          totalSalesNet={totalSalesNet}
-          totalProfit={totalProfit}
-          profitMargin={profitMargin}
-          itemCount={itemCount}
-          avgProfitPerItem={avgProfitPerItem}
+          totalCostNet={profit.totalCostNet}
+          totalSalesNet={profit.totalSalesNet}
+          totalProfit={profit.totalProfit}
+          profitMargin={profit.profitMargin}
+          pendingLines={profit.pendingLines}
+          pendingMessage={profit.message}
+          itemCount={profit.itemCount}
+          avgProfitPerItem={profit.avgProfitPerItem}
         />
       </DialogContent>
     </Dialog>

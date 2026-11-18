@@ -15,6 +15,7 @@ import ItemsEditor from "@/components/documents/ItemsEditor";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 import DocumentActions from "@/components/documents/DocumentActions";
 import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
+import { documentProfit } from "@/lib/documentProfit";
 import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
 import { toast } from "sonner";
 
@@ -115,18 +116,13 @@ export default function QuoteEditor() {
   const selectedCustomer = customers.find(c => c.id === form.customer_id);
   const isBusiness = form.customer_type === "עסקי" || selectedCustomer?.customer_type === "עסקי";
 
-  // Profitability — prices are already net (before VAT)
-  const totalCostNet = useMemo(() => {
-    return form.items.reduce((s, i) => {
-      return s + ((i.buy_price || 0) * (i.quantity || 0));
-    }, 0);
-  }, [form.items]);
-  
-  const totalSalesNet = subtotal; // already net (before VAT)
-  const totalProfit = totalSalesNet - totalCostNet;
-  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
-  const itemCount = form.items.reduce((s, i) => s + (i.quantity || 0), 0);
-  const avgProfitPerItem = itemCount > 0 ? totalProfit / itemCount : 0;
+  // Profitability — prices are already net (before VAT).
+  //
+  // ONE shared calculation, as for every other document popup: the cost is
+  // normalised through the product's packaging and the margin is over
+  // REVENUE. `Σ buy_price × quantity` charged a per-carton purchase price once
+  // per unit sold. See src/lib/documentProfit.js.
+  const profit = useMemo(() => documentProfit(form.items), [form.items]);
   const hasCostData = form.items.some(i => i.buy_price !== undefined && i.buy_price !== null && i.buy_price !== "");
 
   const handleProfitabilityClick = () => {
@@ -437,12 +433,14 @@ export default function QuoteEditor() {
         <ProfitabilityModal
           open={profitabilityModalOpen}
           onOpenChange={setProfitabilityModalOpen}
-          totalCostNet={totalCostNet}
-          totalSalesNet={totalSalesNet}
-          totalProfit={totalProfit}
-          profitMargin={profitMargin}
-          itemCount={itemCount}
-          avgProfitPerItem={avgProfitPerItem}
+          totalCostNet={profit.totalCostNet}
+          totalSalesNet={profit.totalSalesNet}
+          totalProfit={profit.totalProfit}
+          profitMargin={profit.profitMargin}
+          pendingLines={profit.pendingLines}
+          pendingMessage={profit.message}
+          itemCount={profit.itemCount}
+          avgProfitPerItem={profit.avgProfitPerItem}
         />
       </div>
     </div>

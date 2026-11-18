@@ -10,6 +10,7 @@ import DocumentActions from "@/components/documents/DocumentActions";
 import DocumentTotals from "@/components/documents/DocumentTotals";
 import ProfitabilityAccessDialog from "@/components/documents/ProfitabilityAccessDialog";
 import ProfitabilityModal from "@/components/documents/ProfitabilityModal";
+import { documentProfit } from "@/lib/documentProfit";
 
 // const statusColors = {
 //   "טיוטה": "bg-gray-100 text-gray-700",
@@ -59,12 +60,12 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
   }, [order?.id, order?.items]);
 
   // Identical formulas to Invoices.jsx — margin is over COST, not revenue.
-  const totalCostNet = useMemo(() => enrichedItems.reduce((s, i) => s + ((i.buy_price || 0) * (i.quantity || 0)), 0), [enrichedItems]);
-  const totalSalesNet = useMemo(() => enrichedItems.reduce((s, i) => s + (i.total || 0), 0), [enrichedItems]);
-  const totalProfit = totalSalesNet - totalCostNet;
-  const profitMargin = totalCostNet > 0 ? (totalProfit / totalCostNet) * 100 : 0;
-  const profitItemCount = enrichedItems.reduce((s, i) => s + (i.quantity || 0), 0);
-  const avgProfitPerItem = profitItemCount > 0 ? totalProfit / profitItemCount : 0;
+  // ONE shared calculation for every document popup: the cost is normalised
+  // through the product's packaging and the margin is over REVENUE. The old
+  // local formulas were `Σ buy_price × quantity` with a margin over cost,
+  // which charged a per-carton purchase price once per unit sold. See
+  // src/lib/documentProfit.js.
+  const profit = useMemo(() => documentProfit(enrichedItems), [enrichedItems]);
 
   if (!order) return null;
 
@@ -253,12 +254,14 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
         <ProfitabilityModal
           open={profitabilityModalOpen}
           onOpenChange={setProfitabilityModalOpen}
-          totalCostNet={totalCostNet}
-          totalSalesNet={totalSalesNet}
-          totalProfit={totalProfit}
-          profitMargin={profitMargin}
-          itemCount={profitItemCount}
-          avgProfitPerItem={avgProfitPerItem}
+          totalCostNet={profit.totalCostNet}
+          totalSalesNet={profit.totalSalesNet}
+          totalProfit={profit.totalProfit}
+          profitMargin={profit.profitMargin}
+          pendingLines={profit.pendingLines}
+          pendingMessage={profit.message}
+          itemCount={profit.itemCount}
+          avgProfitPerItem={profit.avgProfitPerItem}
         />
       </DialogContent>
     </Dialog>
