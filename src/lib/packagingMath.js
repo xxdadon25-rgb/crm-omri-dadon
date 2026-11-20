@@ -276,7 +276,6 @@ export function lineProfit({
 
   // WHAT THE PURCHASE PRICE IS PER — required, never assumed.
   if (!buyLevel || !SALE_LEVELS.includes(buyLevel)) return fail(PENDING.NO_BUY_LEVEL);
-  if (unitsPerLevel(packaging, buyLevel) === null) return fail(PENDING.NO_PACKAGING);
 
   // WHAT THE LINE SOLD.
   //
@@ -288,6 +287,21 @@ export function lineProfit({
   // the only honest alternative to showing that.
   if (levelUncertain) return fail(PENDING.LEVEL_UNCERTAIN);
   if (!saleLevel || !SALE_LEVELS.includes(saleLevel)) return fail(PENDING.NO_LEVEL);
+
+  // If buying and selling levels are exactly the same, packaging factors
+  // cancel. E.g. 10 packs sold at ₪30 per pack cost ₪300 even if we do not
+  // know how many individual pieces are inside a pack. No inferred levels.
+  if (saleLevel === buyLevel) {
+    const cost = Math.round(netCostAgorot(rawCost) * qty);
+    return {
+      ok: true, pending: null, message: null,
+      revenue, cost, profit: revenue - cost, margin: (revenue - cost) / revenue,
+      unitsPerItem: unitsPerLevel(packaging, saleLevel), baseUnits: null,
+    };
+  }
+
+  // Different buy/sale levels REQUIRE a known conversion factor.
+  if (unitsPerLevel(packaging, buyLevel) === null) return fail(PENDING.NO_PACKAGING);
   const unitsPerItem = unitsPerLevel(packaging, saleLevel);
   if (unitsPerItem === null) return fail(PENDING.NO_PACKAGING);
 
