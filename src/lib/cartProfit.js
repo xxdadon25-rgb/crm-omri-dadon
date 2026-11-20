@@ -17,8 +17,55 @@
  *   rather than wrong — never guessed, never rewritten.
  */
 
+/**
+ * Temporary reconciled price bases for three catalogue entries whose stored
+ * legacy packaging labels contradict the actual sold unit.
+ *
+ * These are NOT generic margin/price guesses. Each rule applies only to an
+ * exact product + recorded purchase price + observed selling price combination.
+ * - Jumbo hand towel, 6-roll carton: ₪60 cost / sold carton (orders 1194, 1203).
+ * - Nitrile gloves L/M: owner confirmed ₪98 per carton of TEN sold packs.
+ *   Only the ₪14-per-pack sales are covered; e.g. a ₪135-per-carton sale must
+ *   continue to use its own ₪98 carton cost.
+ *
+ * Remove these narrow reconciliations when the product catalogue has a single
+ * verified purchase price per sold unit. No orders or catalogue prices are edited.
+ */
+function verifiedCostPerSoldItem(line) {
+  const productId = line?.product_id;
+  const cost = Number(line?.buy_price);
+  const sell = Number(line?.unit_price);
+  if (!Number.isFinite(cost) || !Number.isFinite(sell)) return null;
+
+  if (productId === "112c32af-ce11-4033-a780-260b99660e25"
+      && cost === 60 && (sell === 85 || sell === 65)) {
+    return 60; // One sold item = one 6-roll carton.
+  }
+
+  if ((productId === "0daf0ef8-bbe0-4115-9989-76af2a7adb2d"
+      || productId === "efeea7a8-86ca-40b9-9f7c-953378a33166")
+      && cost === 98 && sell === 14) {
+    return 9.8; // ₪98 / 10 packs in the purchased carton.
+  }
+  return null;
+}
+
 /** @param {object} line a cart line / orders.items entry */
 export function cartLineForProfit(line) {
+  const verifiedUnitCost = verifiedCostPerSoldItem(line);
+  if (verifiedUnitCost !== null) {
+    return {
+      unitPrice: line?.unit_price,
+      quantity: line?.quantity,
+      discountPercent: line?.discount ?? 0,
+      buyPrice: verifiedUnitCost,
+      packaging: null,
+      saleLevel: "unit",
+      buyLevel: "unit",
+      levelUncertain: false,
+    };
+  }
+
   return {
     unitPrice: line?.unit_price,
     quantity: line?.quantity,
