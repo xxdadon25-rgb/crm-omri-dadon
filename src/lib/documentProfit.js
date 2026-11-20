@@ -55,6 +55,7 @@ export function documentProfit(items = []) {
   let costedRevenue = 0;       // what those same lines were charged
   let salesAgorot = 0;         // what the WHOLE document was charged
   let costedLines = 0, pendingLines = 0, reviewLines = 0;
+  const pendingDetails = [];
 
   for (const line of lines) {
     // THE LINE'S REVENUE IS ITS STORED TOTAL, not unit_price x quantity.
@@ -77,6 +78,7 @@ export function documentProfit(items = []) {
       costedLines += 1;
     } else {
       pendingLines += 1;
+      pendingDetails.push({ name: line?.name || line?.description || "מוצר ללא שם", message: r.message || "חסרים נתוני עלות", reason: r.pending });
       // A line whose stated level the price no longer supports is reported
       // separately: it is a REVIEW, not a gap. The owner answered; the answer
       // just has not been re-checked against the new price.
@@ -100,6 +102,7 @@ export function documentProfit(items = []) {
     itemCount,
     avgProfitPerItem: ok && itemCount > 0 ? toShekels(profitAgorot) / itemCount : null,
     pendingLines,
+    pendingDetails,
     reviewLines,
     costedLines,
     message: pendingLines > 0
