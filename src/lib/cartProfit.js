@@ -35,7 +35,16 @@ export function cartLineForProfit(line) {
     // itself is preserved on the line; only the margin is withheld. Mapped
     // here so EVERY profit display — the cart panel and all four document
     // popups — honours it through the same adapter.
-    levelUncertain: !!line?.sale_level_review,
+    // Never trust an old unit/carton conversion that was not confirmed for
+    // this specific order line. A mismatched stored label can make a ₪60
+    // carton look like ₪0.06 per sold item and report a fictitious margin.
+    // Matching price units still use buy_price × quantity automatically.
+    levelUncertain: !!line?.sale_level_review || (
+      !!line?.sale_level &&
+      !!line?.buy_level &&
+      line.sale_level !== line.buy_level &&
+      line.sale_level_source !== "confirmed"
+    ),
   };
 }
 
