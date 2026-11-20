@@ -21,6 +21,7 @@ export default function ProfitabilityModal({
   avgProfitPerItem,
   pendingLines = 0,
   pendingMessage = null,
+  pendingDetails = [],
 }) {
   const pending = profitMargin === null || profitMargin === undefined;
   const money = (v) => (v ?? 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,10 +61,10 @@ export default function ProfitabilityModal({
           </div>
           <div className={`p-4 ${getProfitBg(profitMargin)} rounded-lg text-center`}>
             <p className={`text-xs ${getProfitColor(profitMargin)} mb-2`}>
-              רווח גולמי{pendingLines > 0 ? " (חלקי)" : ""}
+              {pending ? "רווח גולמי — לא ניתן לקבוע" : "רווח גולמי"}
             </p>
             <p className={`font-bold text-lg ${getProfitColor(profitMargin)}`}>
-              ₪{money(totalProfit)}
+              {pending ? "—" : `₪${money(totalProfit)}`}
             </p>
           </div>
           <div className={`p-4 ${getProfitBg(profitMargin)} rounded-lg text-center`}>
@@ -74,6 +75,13 @@ export default function ProfitabilityModal({
             </p>
             {pending && pendingMessage && (
               <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">{pendingMessage}</p>
+            )}
+            {pending && pendingDetails.length > 0 && (
+              <div className="text-right text-[11px] text-amber-900 mt-2 space-y-1">
+                {pendingDetails.map((line, index) => (
+                  <p key={index}><strong>{line.name}:</strong> {line.message}</p>
+                ))}
+              </div>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
