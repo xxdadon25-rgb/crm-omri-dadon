@@ -195,20 +195,24 @@ export default function PartialCreditDialog({ open, onOpenChange, invoice, credi
           <DialogTitle>זיכוי חלקי — חשבונית #{displayInvoiceNumber(invoice)}</DialogTitle>
         </DialogHeader>
 
-        {/* WHY NOTHING CAN BE SENT YET. First, not buried at the bottom: the
-            operator should know before filling anything in. */}
-        <div className="flex gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-medium">הפקת הזיכוי חסומה — שלוש שאלות לפינבוט טרם נענו</p>
-            <ul className="list-disc pr-4 space-y-0.5 text-amber-900">
-              {SUBMISSION_BLOCKED.map((b, i) => <li key={i}>{b}</li>)}
-            </ul>
-            <p className="text-[11px] text-muted-foreground">
-              אפשר לבחור ולבדוק את החישוב כאן. לא נרשם זיכוי, לא נשלח דבר לפינבוט.
-            </p>
+        {!PARTIAL_CREDIT_ISSUE_ENABLED ? (
+          <div className="flex gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-medium">הפקת זיכוי חלקי אינה זמינה כרגע</p>
+              <ul className="list-disc pr-4 space-y-0.5 text-amber-900">
+                {SUBMISSION_BLOCKED.map((b, i) => <li key={i}>{b}</li>)}
+              </ul>
+              <p className="text-[11px] text-muted-foreground">
+                אפשר לבחור ולבדוק את החישוב. לא נשלח דבר לפינבוט.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900">
+            הנפקה חיה: לחיצה על ״הפק זיכוי״ תשלח בקשה לפינבוט ותיצור מסמך זיכוי אמיתי אם הבקשה תאושר. בדוק את המוצרים, הכמויות והסכום לפני ההנפקה.
+          </div>
+        )>
 
         {/* What is left to credit on this invoice at all. */}
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -424,7 +428,9 @@ export default function PartialCreditDialog({ open, onOpenChange, invoice, credi
         <div className="flex items-center justify-between gap-2 flex-wrap border-t border-border pt-3">
           <p className="text-[11px] text-muted-foreground">
             {result.ok
-              ? "הבחירה תקינה. ההפקה תיפתח לאחר אימות דרישות ה-API של פינבוט."
+              ? (PARTIAL_CREDIT_ISSUE_ENABLED
+                  ? "הבחירה תקינה. לחיצה על ״הפק זיכוי״ תנפיק מסמך אמיתי בפינבוט."
+                  : "הבחירה תקינה. ההנפקה אינה זמינה כרגע.")
               : "השלם את הבחירה כדי לראות את החישוב המלא."}
           </p>
           <div className="flex gap-2">
