@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Minus, Loader2 } from "lucide-react";
+import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 const PAGE_SIZE = 30;
@@ -61,6 +62,13 @@ const ProductCard = memo(({ product, qty, onUpdate }) => (
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 export default function ProductCatalogModal({ open, onOpenChange, products, onAddProducts, defaultDiscount = 0 }) {
+  const queryClient = useQueryClient();
+  const refreshingProducts = useIsFetching({ queryKey: ["products"] }) > 0;
+
+  // A cached list can be incomplete after auth/navigation; refresh on each catalog open.
+  useEffect(() => {
+    if (open) queryClient.invalidateQueries({ queryKey: ["products"] });
+  }, [open, queryClient]);
   const pendingDeletedIds = (() => {
     try { return new Set(JSON.parse(sessionStorage.getItem("pendingDeletedProducts") || "[]")); } catch { return new Set(); }
   })();
@@ -118,40 +126,33 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore = visibleCount < filteredProducts.length;
 
-  // ── Stable IntersectionObserver — set up ONCE per open, never torn down mid-scroll ──
+  // Load additional cards on scroll; disconnect the previous observer on close/filter changes.
   useEffect(() => {
     if (!open) return;
-
-    // Wait one frame so the DOM is painted and refs are attached
+    let observer;
     const raf = requestAnimationFrame(() => {
       const sentinel = sentinelRef.current;
       const container = scrollRef.current;
       if (!sentinel || !container) return;
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!entries[0].isIntersecting) return;
-          // Always read fresh values from refs — no stale closure
-          const current = visibleCountRef.current;
-          const total = filteredLengthRef.current;
-          if (current < total) {
-            const next = Math.min(current + PAGE_SIZE, total);
-            visibleCountRef.current = next;
-            setVisibleCount(next);
-          }
-        },
-        {
-          root: container,
-          rootMargin: "0px 0px 400px 0px",
-          threshold: 0,
+      observer = new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting) return;
+        const current = visibleCountRef.current;
+        const total = filteredLengthRef.current;
+        if (current < total) {
+          const next = Math.min(current + PAGE_SIZE, total);
+          visibleCountRef.current = next;
+          setVisibleCount(next);
         }
-      );
+      }, { root: container, rootMargin: "0px 0px 400px 0px", threshold: 0 });
       observer.observe(sentinel);
-      return () => observer.disconnect();
     });
 
-    return () => cancelAnimationFrame(raf);
-  }, [open, searchTerm, selectedCategory]); // only re-create when dialog opens or filters change (not on every batch)
+    return () => {
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+    };
+  }, [open, searchTerm, selectedCategory]);
 
   // Stable updateQuantity — useCallback so ProductCard memo actually works
   const updateQuantity = useCallback((productId, qty) => {
@@ -196,7 +197,7 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col" dir="rtl">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>בחר מוצרים</DialogTitle>
+          <DialogTitle>בחר מוצרים {refreshingProducts ? "· מרענן רשימה..." : ""}</DialogTitle>
         </DialogHeader>
 
         {/* Search */}
@@ -267,9 +268,14 @@ export default function ProductCatalogModal({ open, onOpenChange, products, onAd
                 <div ref={sentinelRef} style={{ height: "1px" }} />
 
                 {hasMore && (
-                  <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    טוען עוד... ({visibleCount} מתוך {filteredProducts.length})
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      const next = Math.min(visibleCountRef.current + PAGE_SIZE, filteredLengthRef.current);
+                      visibleCountRef.current = next;
+                      setVisibleCount(next);
+                    }}>
+                      הצג עוד מוצרים ({visibleCount} מתוך {filteredProducts.length})
+                    </Button>
                   </div>
                 )}
                 {!hasMore && filteredProducts.length > PAGE_SIZE && (
