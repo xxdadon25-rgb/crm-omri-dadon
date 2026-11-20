@@ -260,6 +260,7 @@ export default function OrderViewModal({ open, onOpenChange, order, onEdit, onDo
           profitMargin={profit.profitMargin}
           pendingLines={profit.pendingLines}
           pendingMessage={profit.message}
+          pendingDetails={profit.pendingDetails}
           itemCount={profit.itemCount}
           avgProfitPerItem={profit.avgProfitPerItem}
         />
