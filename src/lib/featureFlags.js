@@ -37,7 +37,7 @@
  * customer. The dry-run preview exists so everything else can be finished and
  * verified while this is outstanding.
  */
-export const PARTIAL_CREDIT_ISSUE_ENABLED = false;
+export const PARTIAL_CREDIT_ISSUE_ENABLED = true;
 
 /** The questions, for the screen that has to explain itself. */
 export const PARTIAL_CREDIT_BLOCKERS = [
