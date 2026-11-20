@@ -28,7 +28,17 @@ export function cartLineForProfit(line) {
     saleLevel: line?.sale_level ?? null,
     // What the purchase price is quoted per. A product fact, read with the
     // packaging; never inferred from the sale level.
-    buyLevel: line?.buy_level ?? null,
+    // When all three packaging levels are explicitly identical (1 unit per
+    // pack, 1 pack per carton), any purchase-price level has the same cost.
+    // This is a mathematical identity, not a guessed unit or a price heuristic.
+    // In all other cases an unconfirmed purchase level remains unknown.
+    buyLevel: line?.buy_level ?? (
+      Number(line?.packaging?.units_per_pack) === 1 &&
+      Number(line?.packaging?.packs_per_carton) === 1 &&
+      line?.packaging?.units_per_pack != null &&
+      line?.packaging?.packs_per_carton != null
+        ? "unit" : null
+    ),
     // Set when a price edit left the line's stated level in doubt. The level
     // itself is preserved on the line; only the margin is withheld. Mapped
     // here so EVERY profit display — the cart panel and all four document
