@@ -19,6 +19,7 @@
  *   account's ledger. The customer is resolved first and the statement is
  *   refused outright if that read returns nothing.
  */
+import { invoicePosition } from "@/lib/invoiceBalance";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
@@ -174,12 +175,19 @@ export default function CustomerStatement() {
   // The customer sees the amount still owed on EACH invoice today, not the
   // historical running account balance at the moment of that row. The ledger's
   // closing/reconciliation maths remain unchanged and are shown above.
+  // PARTIAL CREDITS. This was `credited ? 0 : total - paid`, which has no
+  // reading of a partially credited invoice: it showed the full remaining
+  // balance, ignoring the credit, and it keyed off credited_at — which is no
+  // longer written for a partial credit at all. The shared arithmetic is used
+  // instead, so this sheet, the debt summary and the payment dialog cannot
+  // disagree about what one invoice owes.
   const remainingByInvoice = useMemo(() => new Map(data.invoices.map(inv => {
-    const credited = inv.payment_status === "זוכה" || !!inv.credited_at || !!inv.credit_note_id;
-    const amount = credited ? 0 : Math.max(0,
-      Math.round(Number(inv.total || 0) * 100) - Math.round(Number(inv.paid_amount || 0) * 100));
-    return [inv.id, amount];
-  })), [data.invoices]);
+    const pos = invoicePosition(inv, data.creditNotes || []);
+    // The sheet shows what the customer still owes, so a refund owed back is
+    // zero here; it appears on the ledger's own closing balance above, which
+    // keeps its sign.
+    return [inv.id, pos.debtAg];
+  })), [data.invoices, data.creditNotes]);
 
   // ── Fit-to-width, copied in spirit from the existing previews ────────────
   // The sheet is never reflowed: it keeps its A4 proportions and is scaled as

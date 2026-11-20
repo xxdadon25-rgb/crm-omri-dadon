@@ -24,8 +24,9 @@
  *   than it received.
  */
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { invoicePosition } from "@/lib/invoiceBalance";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,7 @@ import { classifyReceiptOutcome, receiptMessage, receiptPatch, RECEIPT } from "@
 import { deleteAttachmentLink } from "@/lib/attachmentLinks";
 import {
   validateAllocation, buildAllocationPayload, isAllocatable, autoAllocate,
-  compareForAllocation, remainingAgorot, toAgorot, toShekels,
+  compareForAllocation, toAgorot, toShekels,
 } from "@/lib/paymentAllocation";
 
 const BUCKET = "payment-attachments";
@@ -54,6 +55,21 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // onSaved callback refreshes payments and invoices but not orders, and the
   // ledger reads order status straight from that cache.
   const queryClient = useQueryClient();
+  // ==========================================================================
+  // WITHOUT THESE, A PARTIALLY CREDITED INVOICE CANNOT BE PAID
+  // ==========================================================================
+  // isAllocatable and validateAllocation both accept credit notes and fall back
+  // to the cruder credited_at signal when they are not given any — which
+  // refuses ANY credited invoice. An invoice of 1,000 credited by 200 still
+  // owes 800, and without this query the dialog would neither offer it nor
+  // accept a payment against it, and would show its remaining balance as the
+  // full 1,000.
+  const { data: creditNotes = [] } = useQuery({
+    queryKey: ["credit_notes"],
+    queryFn: () => base44.entities.CreditNote.list(),
+    enabled: open,
+    staleTime: 60_000,
+  });
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("העברה בנקאית");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -139,10 +155,10 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
     return invoices
       .filter(i => i.id !== invoice.id)
       .filter(i => i.customer_id === invoice.customer_id)
-      .filter(isAllocatable)
+      .filter(i => isAllocatable(i, creditNotes))
       .slice()
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-  }, [invoices, invoice]);
+  }, [invoices, invoice, creditNotes]);
 
   // All the lines of this payment: this invoice first, then the extras. The
   // total is DERIVED from them, never typed, so it cannot disagree with them.
@@ -168,8 +184,9 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
   // construction and its per-line rules — positive, within the invoice's
   // remaining balance, not credited — are the ones doing the work.
   const validation = useMemo(
-    () => validateAllocation({ invoices: allInvoices, amounts, paymentAmount: toShekels(totalAgorot) }),
-    [allInvoices, amounts, totalAgorot]);
+    () => validateAllocation({ invoices: allInvoices, amounts, creditNotes,
+                               paymentAmount: toShekels(totalAgorot) }),
+    [allInvoices, amounts, totalAgorot, creditNotes]);
 
   const extraErrorFor = (id) => validation.errors.find(e => e.invoiceId === id)?.message || null;
 
@@ -183,8 +200,8 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
     const pool = invoice
       ? [invoice, ...otherInvoices]
       : otherInvoices;
-    return pool.filter(isAllocatable).slice().sort(compareForAllocation);
-  }, [invoice, otherInvoices]);
+    return pool.filter(i => isAllocatable(i, creditNotes)).slice().sort(compareForAllocation);
+  }, [invoice, otherInvoices, creditNotes]);
 
   // Automatic allocation only means anything when there is more than one
   // invoice to allocate across. With a single open invoice the dialog shows,
@@ -195,8 +212,8 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
 
   const autoTotalAgorot = toAgorot(totalAmount);
   const auto = useMemo(
-    () => autoAllocate({ invoices: eligible, totalAgorot: autoTotalAgorot }),
-    [eligible, autoTotalAgorot]);
+    () => autoAllocate({ invoices: eligible, totalAgorot: autoTotalAgorot, creditNotes }),
+    [eligible, autoTotalAgorot, creditNotes]);
 
   // The lines this payment will actually write, whichever mode produced them.
   // handleSave decides the path from the same shape: exactly one line, for the
@@ -1013,7 +1030,9 @@ export default function PaymentDialog({ open, onOpenChange, invoice, customer, i
                   </div>
 
                   {otherInvoices.map(inv => {
-                    const rem = remainingAgorot(inv);
+                    // Credit-aware, so a partially credited invoice shows what
+                    // is really left rather than its full original balance.
+                    const rem = invoicePosition(inv, creditNotes).outstandingAg;
                     const err = extraErrorFor(inv.id);
                     return (
                       <div key={inv.id} className="p-3 flex items-center gap-3 flex-wrap">

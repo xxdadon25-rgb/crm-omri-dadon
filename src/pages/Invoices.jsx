@@ -1,8 +1,11 @@
+import PartialCreditDialog from "@/components/invoices/PartialCreditDialog";
+import CreditNoteReconcileDialog, { unsettledCreditNotes, creditNotesNeedingDate } from "@/components/invoices/CreditNoteReconcileDialog";
+import { invoicePosition, CREDIT_STATE, canDeleteInvoice } from "@/lib/invoiceBalance";
 import { useState, useMemo, useEffect } from "react";
 import { formatWhatsAppMessage } from "@/utils/formatWhatsAppMessage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Search, Receipt, Trash2, Eye, Link2, FileText, TrendingUp } from "lucide-react";
+import { Search, Receipt, Trash2, Eye, Link2, FileText, TrendingUp, AlertTriangle} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateUtils";
@@ -50,6 +53,15 @@ export default function Invoices() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteId, setDeleteId] = useState(null);
+  // Which invoice the partial-credit selection is open on. Selection only —
+  // the dialog cannot issue anything at this gate.
+  const [partialCreditInvoice, setPartialCreditInvoice] = useState(null);
+  // The GLOBAL reconciliation surface. Until now the only way to reach the
+  // reconciliation screen was a customer's own ledger, so a credit left
+  // 'uncertain' on a customer nobody opened was invisible — and an uncertain
+  // credit is precisely the one that must not be forgotten: a tax document may
+  // exist for it, and no code can find out.
+  const [reconcileOpen, setReconcileOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState(null);
   const [selectedInvoices, setSelectedInvoices] = useState(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -168,6 +180,14 @@ export default function Invoices() {
       return data ?? [];
     },
   });
+  // One definition of what an invoice still owes, shared with the debt
+  // summary and the payment dialog.
+  const positionOf = (inv) => invoicePosition(inv, creditNotes || []);
+  const creditState = (inv) => positionOf(inv).state;
+  const fmtPos = (inv) => {
+    const p = positionOf(inv);
+    return { credited: p.creditedAg / 100, outstanding: p.outstandingAg / 100 };
+  };
   const creditNoteMap = useMemo(() => new Map(creditNotes.map(cn => [cn.invoice_id, cn])), [creditNotes]);
 
   const filtered = useMemo(() => {
@@ -181,6 +201,14 @@ export default function Invoices() {
   const handleDelete = async () => {
     const idToDelete = deleteId;
     setDeleteId(null);
+
+    // THE GUARD, NOT JUST THE HIDDEN BUTTON. Hiding the control stops the
+    // common path; it does not stop this function, which is also reachable
+    // from a stale render or a cached dialog state. The refusal lives where
+    // the deletion happens.
+    const target = invoices.find(i => i.id === idToDelete);
+    const gate = canDeleteInvoice(target ?? { id: idToDelete }, creditNotes || []);
+    if (!gate.allowed) { toast.error(gate.message); return; }
 
     deletedInvoiceIds.add(idToDelete);
     const pendingDeleted = getPendingDeletedInvoiceIds();
@@ -227,7 +255,24 @@ export default function Invoices() {
 
   const handleBulkDelete = async () => {
     setDeleting(true);
-    const ids = Array.from(selectedInvoices);
+    // EVERY id IS CHECKED, and a blocked one does not stop the others. A bulk
+    // delete is where an issued document is likeliest to be swept up by
+    // accident: the row is one of twenty ticked at once and nobody reads it.
+    const requested = Array.from(selectedInvoices);
+    const blocked = [];
+    const ids = [];
+    for (const id of requested) {
+      const target = invoices.find(i => i.id === id);
+      const gate = canDeleteInvoice(target ?? { id }, creditNotes || []);
+      if (gate.allowed) ids.push(id);
+      else blocked.push({ id, invoice: target, message: gate.message });
+    }
+    if (blocked.length > 0) {
+      toast.error(blocked.length === 1
+        ? blocked[0].message
+        : `${blocked.length} חשבוניות לא נמחקו — הופקו עבורן מסמכים בפינבוט או שיש להן זיכוי שטרם אומת.`);
+    }
+    if (ids.length === 0) { setDeleting(false); setBulkDeleteOpen(false); return; }
 
     // 1. Mark as deleted in module-level set AND persist to sessionStorage (survives page refresh)
     ids.forEach(id => deletedInvoiceIds.add(id));
@@ -269,6 +314,47 @@ export default function Invoices() {
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--heillo-text-primary)", margin: 0, fontFamily: "'Heebo', sans-serif" }}>חשבוניות</h1>
         <p style={{ fontSize: 13, color: "var(--heillo-text-muted)", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{invoices.length} חשבוניות</p>
       </div>
+
+      {/* ── Credits that still need a person, across EVERY customer ── */}
+      {(() => {
+        const unsettled = unsettledCreditNotes(creditNotes || []);
+        const undated = creditNotesNeedingDate(creditNotes || []);
+        if (unsettled.length === 0 && undated.length === 0) return null;
+        const checks = unsettled.filter(c => c.finbot_status !== "failed").length;
+        const refused = unsettled.length - checks;
+        const parts = [];
+        if (checks > 0) {
+          parts.push(checks === 1 ? "זיכוי אחד ממתין לבדיקה בפינבוט"
+                                  : `${checks} זיכויים ממתינים לבדיקה בפינבוט`);
+        }
+        if (refused > 0) {
+          parts.push(refused === 1 ? "זיכוי אחד נדחה" : `${refused} זיכויים נדחו`);
+        }
+        // A confirmed document with no accounting date is a REPORTING gap, not
+        // an unsettled credit, so it is named separately.
+        if (undated.length > 0) {
+          parts.push(undated.length === 1
+            ? "מסמך זיכוי אחד ללא תאריך — לא משויך לתקופה"
+            : `${undated.length} מסמכי זיכוי ללא תאריך — לא משויכים לתקופה`);
+        }
+        const tail = unsettled.length > 0
+          ? " — המלאי לא הוחזר והחשבוניות לא סומנו" : "";
+        return (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                        gap: 12, flexWrap: "wrap", marginBottom: 16, padding: "10px 14px",
+                        background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 14 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+                           color: "#7C2D12", fontFamily: "'Heebo', sans-serif" }}>
+              <AlertTriangle size={16} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+              {parts.join(" · ")}{tail}
+            </span>
+            <button onClick={() => setReconcileOpen(true)} className="heillo-btn-secondary"
+              style={{ fontSize: 12, padding: "6px 14px", whiteSpace: "nowrap" }}>
+              בדוק וטפל
+            </button>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
@@ -341,8 +427,17 @@ export default function Invoices() {
                       <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 600, color: DARK }}>₪{(inv.total || 0).toLocaleString()}</td>
                       <td style={{ padding: "14px 20px" }}>
                         {/* OLD: {inv.credited_at ? <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge> : <Select><SelectTrigger className="h-7 w-fit border-0 p-0"><Badge .../></SelectTrigger>...</Select>} */}
-                        {inv.credited_at ? (
+                        {/* A PARTIAL credit is neither "open" nor "credited",
+                            and the invoice row is the only place that can say
+                            so: the amount column still shows the full total,
+                            because the invoice itself is unchanged. */}
+                        {creditState(inv) === CREDIT_STATE.FULL ? (
                           <span className={`heillo-badge ${getPaymentStatusColor("זוכה")}`}>זוכה</span>
+                        ) : creditState(inv) === CREDIT_STATE.PARTIAL ? (
+                          <span className={`heillo-badge ${getPaymentStatusColor("זוכה")}`}
+                            title={`זוכה ${fmtPos(inv).credited.toLocaleString()} ₪ מתוך ${(inv.total || 0).toLocaleString()} ₪ · נותר ${fmtPos(inv).outstanding.toLocaleString()} ₪`}>
+                            זוכה חלקית
+                          </span>
                         ) : (
                           <Select value={inv.payment_status} onValueChange={(v) => handleStatusChange(inv.id, v)}>
                             <SelectTrigger style={{ height: "auto", width: "fit-content", border: "none", padding: 0, background: "transparent", boxShadow: "none" }}>
@@ -363,15 +458,17 @@ export default function Invoices() {
                           <button title="צפייה" className="heillo-icon-btn" onClick={() => setViewInvoice(inv)}>
                             <Eye size={17} strokeWidth={1.8} />
                           </button>
-                          {!inv.credited_at && (
-                            /* OLD: <Button variant="ghost" size="icon" className="... text-destructive" onClick={() => setDeleteId(inv.id)}> */
+                          {canDeleteInvoice(inv, creditNotes || []).allowed && (
+                            /* Hidden once a credit DOCUMENT exists: deleting
+                               the invoice removes its credit notes, and that
+                               document is already reported. */
                             <button title="מחיקה" className="heillo-icon-btn" style={{ color: "#ef4444" }} onClick={() => setDeleteId(inv.id)}
                               onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.08)"}
                               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                               <Trash2 size={17} strokeWidth={1.8} />
                             </button>
                           )}
-                          {inv.credited_at && inv.credit_note_id && (
+                          {creditState(inv) !== CREDIT_STATE.NONE && (
                             /* OLD: <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-purple-600" title="הפק PDF זיכוי" ...> */
                             <button title="הפק PDF זיכוי" className="heillo-icon-btn" style={{ color: "#7c3aed" }}
                               onClick={() => {
@@ -384,7 +481,15 @@ export default function Invoices() {
                               <FileText size={17} strokeWidth={1.8} />
                             </button>
                           )}
-                          {!inv.credited_at && <CreditNoteButton invoice={inv} />}
+                          {creditState(inv) !== CREDIT_STATE.FULL
+                            && <CreditNoteButton invoice={inv} />}
+                          {creditState(inv) !== CREDIT_STATE.FULL && (inv.items || []).length > 0 && (
+                            <button title="זיכוי חלקי — בחירת פריטים, כמויות או הפרש מחיר"
+                              className="heillo-icon-btn" style={{ color: "#b45309", fontSize: 11, width: "auto", padding: "0 6px" }}
+                              onClick={() => setPartialCreditInvoice(inv)}>
+                              חלקי
+                            </button>
+                          )}
                           {!inv.external_pdf_url && (
                             <div style={{ flexShrink: 0 }}>
                               <ExternalInvoiceButton
@@ -428,6 +533,17 @@ export default function Invoices() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <CreditNoteReconcileDialog
+        open={reconcileOpen}
+        onOpenChange={setReconcileOpen}
+        creditNotes={creditNotes || []}
+      />
+      <PartialCreditDialog
+        open={!!partialCreditInvoice}
+        onOpenChange={(v) => { if (!v) setPartialCreditInvoice(null); }}
+        invoice={partialCreditInvoice}
+        creditNotes={(creditNotes || []).filter(cn => cn.invoice_id === partialCreditInvoice?.id)}
+      />
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader><AlertDialogTitle>מחיקת חשבונית</AlertDialogTitle><AlertDialogDescription>האם למחוק חשבונית זו?</AlertDialogDescription></AlertDialogHeader>

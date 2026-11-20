@@ -1,9 +1,11 @@
 /**
  * Manual allocation of one payment across several invoices — the arithmetic.
  *
- * PURE. No React, no network, no database, no imports. The rules that decide
- * whether an allocation is legal live here so they can be tested exhaustively,
- * and so the dialog and the server agree about what "legal" means.
+ * PURE. No React, no network, no database. The rules that decide whether an
+ * allocation is legal live here so they can be tested exhaustively, and so the
+ * dialog and the server agree about what "legal" means. The one import is the
+ * shared invoice-balance arithmetic, which is pure for the same reasons — there
+ * must be exactly one definition of what an invoice still owes.
  *
  * MONEY IS INTEGER AGOROT
  *   Every amount is converted to whole agorot before anything is compared or
@@ -17,6 +19,8 @@
  *   It does not allocate automatically — the owner enters every amount. It
  *   does not cancel or reverse anything. Both were excluded from this change.
  */
+
+import { invoicePosition } from "@/lib/invoiceBalance";
 
 /** Shekels (number | string | null) -> whole agorot. */
 export function toAgorot(value) {
@@ -43,14 +47,31 @@ export function remainingAgorot(invoice) {
 /**
  * Is this invoice a candidate for allocation?
  *
- * Mirrors the server's refusals, so the dialog cannot offer something the
- * function will reject: it must still owe money, and it must not be credited
- * (a credited invoice is no longer a debt).
+ * ============================================================================
+ * A PARTIALLY CREDITED INVOICE IS STILL PAYABLE
+ * ============================================================================
+ * This used to refuse any invoice with credited_at or credit_note_id set. That
+ * was right while a credit was always for the whole invoice, and becomes a bug
+ * the moment one is not: an invoice of 1,000 credited by 200 still owes 800,
+ * and refusing it would make the money uncollectable in the application.
+ *
+ * So the question is no longer "was it credited" but "does it still owe
+ * something" — which is the same question the server asks, and the credit is
+ * part of the arithmetic rather than a veto.
+ *
+ * `creditNotes` is optional: without them the invoice's own credited_at is
+ * honoured as a full credit, which is what it meant before credit notes
+ * carried a lifecycle, so a caller that has not loaded them is no worse off
+ * than before.
  */
-export function isAllocatable(invoice) {
+export function isAllocatable(invoice, creditNotes = null) {
   if (!invoice) return false;
-  if (invoice.credited_at || invoice.credit_note_id) return false;
-  return remainingAgorot(invoice) > 0;
+  if (creditNotes === null) {
+    // No credit notes in hand: fall back to the old, cruder signal.
+    if (invoice.credited_at || invoice.credit_note_id) return false;
+    return remainingAgorot(invoice) > 0;
+  }
+  return invoicePosition(invoice, creditNotes).outstandingAg > 0;
 }
 
 /**
@@ -79,7 +100,7 @@ export function isAllocatable(invoice) {
  *      invoices against nothing. The remainder is reported so the dialog can
  *      show exactly what is left to place.
  */
-export function validateAllocation({ invoices = [], amounts = {}, paymentAmount = 0 } = {}) {
+export function validateAllocation({ invoices = [], amounts = {}, creditNotes = null, paymentAmount = 0 } = {}) {
   const errors = [];
   const byId = new Map(invoices.map(i => [i.id, i]));
   const lines = [];
@@ -98,12 +119,23 @@ export function validateAllocation({ invoices = [], amounts = {}, paymentAmount 
       errors.push({ code: "negative_amount", invoiceId, message: "סכום ההקצאה חייב להיות חיובי" });
       continue;
     }
-    if (invoice.credited_at || invoice.credit_note_id) {
-      errors.push({ code: "invoice_credited", invoiceId, message: "לא ניתן לשלם חשבונית שזוכתה" });
+    // A FULLY credited invoice owes nothing and cannot take a payment. A
+    // partially credited one can, up to what is left after the credit.
+    const position = creditNotes === null ? null : invoicePosition(invoice, creditNotes);
+    if (position === null
+          ? (invoice.credited_at || invoice.credit_note_id)
+          : position.outstandingAg <= 0) {
+      errors.push({
+        code: "invoice_credited", invoiceId,
+        message: position && position.state === "partial"
+          ? "החשבונית זוכתה ואין בה יתרה לתשלום"
+          : "לא ניתן לשלם חשבונית שזוכתה",
+      });
       continue;
     }
 
-    const remaining = remainingAgorot(invoice);
+    const remaining = position === null ? remainingAgorot(invoice)
+                                        : position.outstandingAg;
     if (agorot > remaining) {
       errors.push({
         code: "overpayment", invoiceId,
@@ -220,9 +252,16 @@ export function compareForAllocation(a, b) {
  *   allocatedAgorot: number, eligibleAgorot: number, surplusAgorot: number
  * }}
  */
-export function autoAllocate({ invoices = [], totalAgorot = 0 } = {}) {
-  const eligible = invoices.filter(isAllocatable).slice().sort(compareForAllocation);
-  const eligibleAgorot = eligible.reduce((s, i) => s + remainingAgorot(i), 0);
+export function autoAllocate({ invoices = [], totalAgorot = 0, creditNotes = null } = {}) {
+  // Credit-aware, like the validator: a partially credited invoice absorbs only
+  // what is left AFTER the credit, so the oldest-first sweep cannot allocate
+  // money to an amount that no longer exists.
+  const leftOn = (inv) => (creditNotes === null
+    ? remainingAgorot(inv)
+    : invoicePosition(inv, creditNotes).outstandingAg);
+  const eligible = invoices.filter(i => isAllocatable(i, creditNotes))
+    .slice().sort(compareForAllocation);
+  const eligibleAgorot = eligible.reduce((s, i) => s + Math.max(0, leftOn(i)), 0);
 
   const empty = {
     lines: [], allocatedAgorot: 0, eligibleAgorot, surplusAgorot: 0,
@@ -249,7 +288,7 @@ export function autoAllocate({ invoices = [], totalAgorot = 0 } = {}) {
   let left = totalAgorot;
   for (const invoice of eligible) {
     if (left <= 0) break;
-    const rem = remainingAgorot(invoice);
+    const rem = leftOn(invoice);
     if (rem <= 0) continue;
     // Settle this one in full if the money reaches; otherwise it takes what is
     // left and the loop ends. Only the LAST line can be a partial payment.

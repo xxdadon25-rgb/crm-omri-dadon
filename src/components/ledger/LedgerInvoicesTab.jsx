@@ -1,3 +1,4 @@
+import { invoicePosition, CREDIT_STATE } from "@/lib/invoiceBalance";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -98,13 +99,28 @@ export default function LedgerInvoicesTab({ invoices, loading, onPreview, busine
                 <TableCell className="font-medium text-right">₪{(invoice.total || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right text-green-700 font-medium">₪{(invoice.paid_amount || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right">
-                  {invoice.credited_at ? (
-                    <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge>
-                  ) : (
-                    <Badge className={getPaymentStatusColor(invoice.payment_status)}>
-                      {invoice.payment_status || "—"}
-                    </Badge>
-                  )}
+                  {/* The same three states as the invoices page, from the
+                      same shared function: a partial credit is neither open
+                      nor settled. */}
+                  {(() => {
+                    const pos = invoicePosition(invoice, creditNotes);
+                    if (pos.state === CREDIT_STATE.FULL) {
+                      return <Badge className={getPaymentStatusColor("זוכה")}>זוכה</Badge>;
+                    }
+                    if (pos.state === CREDIT_STATE.PARTIAL) {
+                      return (
+                        <Badge className={getPaymentStatusColor("זוכה")}
+                          title={`זוכה ₪${(pos.creditedAg / 100).toLocaleString()} מתוך ₪${(pos.totalAg / 100).toLocaleString()} · נותר ₪${(pos.outstandingAg / 100).toLocaleString()}`}>
+                          זוכה חלקית
+                        </Badge>
+                      );
+                    }
+                    return (
+                      <Badge className={getPaymentStatusColor(invoice.payment_status)}>
+                        {invoice.payment_status || "—"}
+                      </Badge>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex gap-1 justify-end flex-wrap">
@@ -117,7 +133,7 @@ export default function LedgerInvoicesTab({ invoices, loading, onPreview, busine
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleWhatsApp(invoice)} title="WhatsApp">
                       <MessageCircle className="w-3.5 h-3.5" />
                     </Button>
-                    {invoice.credited_at && invoice.credit_note_id && (
+                    {invoicePosition(invoice, creditNotes).state !== CREDIT_STATE.NONE && (
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-purple-600" title="PDF זיכוי"
                         onClick={() => {
                           const cn = creditNoteMap.get(invoice.id);
@@ -127,7 +143,8 @@ export default function LedgerInvoicesTab({ invoices, loading, onPreview, busine
                         <FileText className="w-3.5 h-3.5" />
                       </Button>
                     )}
-                    {!invoice.credited_at && <CreditNoteButton invoice={invoice} />}
+                    {invoicePosition(invoice, creditNotes).state !== CREDIT_STATE.FULL
+                      && <CreditNoteButton invoice={invoice} />}
                   </div>
                 </TableCell>
               </TableRow>

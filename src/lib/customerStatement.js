@@ -60,6 +60,8 @@
  * happens only at the display edge.
  */
 
+import { isConfirmedCredit, mayExistCredit, isFailedCredit } from "@/lib/invoiceBalance";
+
 /** Shekels (number | string | null) -> whole agorot. Null-ish becomes 0. */
 export function toAgorot(value) {
   if (value === null || value === undefined || value === "") return 0;
@@ -368,7 +370,26 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
     });
   }
 
-  for (const cn of creditNotes) {
+  // ==========================================================================
+  // ONLY A CONFIRMED CREDIT APPEARS AS A CREDIT
+  // ==========================================================================
+  // Every credit note used to become a statement line, whatever the state of
+  // its Finbot document. That made this screen disagree with the debt summary,
+  // which counts only confirmed credits: the same customer could be shown as
+  // owing 800 here and 1,000 there, from one uncertain credit of 200.
+  //
+  // A credit note whose document may not exist is not a credit the customer can
+  // be shown; it is an open question. It is excluded from the ledger and
+  // reported as a reconciliation cause instead, so it is visible without
+  // moving the balance.
+  // 'pending' and 'uncertain' only: a document MAY exist for those, so they are
+  // an open question. A FAILED credit is proven not to exist and belongs in the
+  // error history, not in a figure the owner is asked to chase.
+  const unsettledCredits = creditNotes.filter(cn => mayExistCredit(cn));
+  const failedCredits = creditNotes.filter(cn => isFailedCredit(cn));
+  const ledgerCredits = creditNotes.filter(cn => isConfirmedCredit(cn));
+
+  for (const cn of ledgerCredits) {
     // created_at is nullable and there is no business date column, so a credit
     // note can arrive with no date of its own.
     //
@@ -502,7 +523,22 @@ export function buildStatement({ invoices = [], payments = [], creditNotes = [],
   if (creditedRemainder !== 0) {
     causes.push({ code: "crm_counts_credited_as_debt", amount: creditedRemainder });
   }
-  const creditNotesTotal = creditNotes.reduce((s, cn) => s + Math.abs(toAgorot(cn.total)), 0);
+  // Credits that are recorded but whose document is not proven to exist. They
+  // are deliberately NOT in the ledger above, so they are named here: the
+  // balance is right, and the open question is still visible.
+  const unsettledTotal = unsettledCredits.reduce((s, cn) => s + Math.abs(toAgorot(cn.total)), 0);
+  if (unsettledTotal !== 0) {
+    causes.push({ code: "credits_awaiting_finbot", amount: unsettledTotal,
+                  count: unsettledCredits.length });
+  }
+  // Audit only, and named separately so it can never be read as money awaiting
+  // anything: these were refused, and nothing is outstanding because of them.
+  const failedTotal = failedCredits.reduce((s, cn) => s + Math.abs(toAgorot(cn.total)), 0);
+  if (failedTotal !== 0) {
+    causes.push({ code: "credits_refused_by_finbot", amount: failedTotal,
+                  count: failedCredits.length, audit: true });
+  }
+  const creditNotesTotal = ledgerCredits.reduce((s, cn) => s + Math.abs(toAgorot(cn.total)), 0);
   if (creditNotesTotal !== 0) {
     causes.push({ code: "crm_ignores_credit_notes", amount: creditNotesTotal });
   }

@@ -1,3 +1,4 @@
+import { invoicePosition, canDeleteInvoice } from "@/lib/invoiceBalance";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -27,20 +28,45 @@ export default function DebtSummary() {
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list("-date"),
   });
+  // Credit notes are needed to compute a debt at all: an invoice credited by
+  // 200 of 1,000 owes 800, and that cannot be read off the invoice row.
+  const { data: creditNotes = [] } = useQuery({
+    queryKey: ["credit_notes"],
+    queryFn: () => base44.entities.CreditNote.list(),
+    staleTime: 60_000,
+  });
 
   const rows = useMemo(() => {
+    // ========================================================================
+    // THE DEBT IS DERIVED, AND ITS SIGN IS KEPT
+    // ========================================================================
+    // This used to be `total - paid_amount`, skipping only invoices marked
+    // "שולם", which had two defects: a credited invoice still counted as a
+    // debt, and `if (debt <= 0) continue` silently discarded every refund the
+    // business owed — the figure vanished rather than appearing on the other
+    // side.
+    //
+    // Now each invoice's position is computed from its total, its CONFIRMED
+    // credits and its payments, and the two sides are carried separately.
     const debtMap = new Map();
+    const refundMap = new Map();
     for (const inv of invoices) {
-      if (inv.payment_status === "שולם") continue;
-      const debt = (inv.total || 0) - (inv.paid_amount || 0);
-      if (debt <= 0) continue;
-      debtMap.set(inv.customer_id, (debtMap.get(inv.customer_id) || 0) + debt);
+      const pos = invoicePosition(inv, creditNotes);
+      if (pos.debtAg > 0) {
+        debtMap.set(inv.customer_id, (debtMap.get(inv.customer_id) || 0) + pos.debtAg / 100);
+      }
+      if (pos.refundDueAg > 0) {
+        refundMap.set(inv.customer_id, (refundMap.get(inv.customer_id) || 0) + pos.refundDueAg / 100);
+      }
     }
+    // A customer who is owed money but owes none still belongs on the screen.
+    for (const cid of refundMap.keys()) if (!debtMap.has(cid)) debtMap.set(cid, 0);
 
     const customerMap = new Map(customers.map(c => [c.id, c]));
 
     return Array.from(debtMap.entries())
       .map(([customerId, totalDebt]) => {
+        const refundDue = refundMap.get(customerId) || 0;
         const c = customerMap.get(customerId);
         return {
           id: customerId,
@@ -48,10 +74,11 @@ export default function DebtSummary() {
           phone: c?.mobile || c?.phone || "—",
           isBlocked: !!c?.is_blocked,
           totalDebt,
+          refundDue,
         };
       })
       .sort((a, b) => b.totalDebt - a.totalDebt);
-  }, [invoices, customers]);
+  }, [invoices, customers, creditNotes]);
 
   // Auto-block/unblock based on debt threshold, runs once per load when data is ready
   useEffect(() => {
@@ -79,6 +106,9 @@ export default function DebtSummary() {
   }, [loadingCustomers, loadingInvoices, customers, rows]);
 
   const grandTotal = rows.reduce((s, r) => s + r.totalDebt, 0);
+  // Shown beside the debt, never subtracted from it: a customer who owes 1,000
+  // on one invoice and is owed 1,000 on another is not a customer at zero.
+  const grandRefundDue = rows.reduce((s, r) => s + (r.refundDue || 0), 0);
   const loading = loadingCustomers || loadingInvoices;
 
   const [selectedId, setSelectedId] = useState(null);
@@ -100,12 +130,16 @@ export default function DebtSummary() {
 
   const selectedRow = rows.find(r => r.id === selectedId) || null;
 
+  // Every invoice of this customer that is NOT settled — owed to us or owed
+  // back to them. The old filter tested payment_status and total - paid, so a
+  // credited invoice stayed on the list and a refund never appeared on it.
   const selectedInvoices = useMemo(() => {
     if (!selectedId) return [];
     return invoices
-      .filter(inv => inv.customer_id === selectedId && inv.payment_status !== "שולם" && (inv.total || 0) - (inv.paid_amount || 0) > 0)
+      .filter(inv => inv.customer_id === selectedId
+                  && invoicePosition(inv, creditNotes).outstandingAg !== 0)
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  }, [invoices, selectedId]);
+  }, [invoices, selectedId, creditNotes]);
 
   // Clear invoice selection when switching customers
   useEffect(() => { setSelectedInvoiceIds(new Set()); }, [selectedId]);
@@ -123,6 +157,18 @@ export default function DebtSummary() {
   };
 
   const deleteInvoiceWithPayments = async (id) => {
+    // ========================================================================
+    // AN INVOICE WITH A CONFIRMED CREDIT DOCUMENT IS NOT DELETABLE
+    // ========================================================================
+    // Step 2 below deletes every credit note for the invoice. Once one of them
+    // has a Finbot document, that document is issued and reported, and nothing
+    // here can withdraw it — so the deletion would leave a live credit document
+    // with no record in this system to account for it. Refused instead.
+    const invoice = invoices.find(i => i.id === id);
+    const gate = canDeleteInvoice(invoice ?? { id }, creditNotes);
+    if (!gate.allowed) {
+      throw Object.assign(new Error(gate.message), { stage: "confirmed_credit" });
+    }
     // 1. Null out invoices.credit_note_id so the FK from invoices → credit_notes is released
     const { error: unlinkErr } = await supabase
       .from("invoices")
@@ -147,7 +193,9 @@ export default function DebtSummary() {
       queryClient.setQueryData(["invoices"], (old = []) => (old || []).filter(i => i.id !== idToDelete));
       toast.success("חשבונית נמחקה");
     } catch (err) {
-      if (err.stage === "unlink_credit") {
+      if (err.stage === "confirmed_credit") {
+        toast.error(err.message);
+      } else if (err.stage === "unlink_credit") {
         toast.error("שגיאה בניתוק זיכוי מהחשבונית");
       } else if (err.stage === "credit_notes") {
         toast.error("שגיאה במחיקת זיכויים קשורים לחשבונית");
@@ -200,6 +248,11 @@ export default function DebtSummary() {
             <p style={{ fontSize: 11, color: MUTED, margin: "0 0 2px", fontFamily: "'Heebo', sans-serif" }}>סה״כ חוב מצטבר</p>
             {/* OLD: <p className="text-2xl font-bold text-red-600"> */}
             <p style={{ fontSize: 24, fontWeight: 700, color: ACCENT, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{fmtILS(grandTotal)}</p>
+            {grandRefundDue > 0 && (
+              <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>
+                מתוך כך {fmtILS(grandRefundDue)} יתרת זכות ללקוחות (זיכויים שעלו על התשלומים)
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -276,6 +329,11 @@ export default function DebtSummary() {
                         color: isSel ? "#FFFFFF" : ACCENT,
                       }}>
                         {fmtILS(row.totalDebt)}
+                        {row.refundDue > 0 && (
+                          <span style={{ display: "block", fontSize: 11, color: "#b45309", fontWeight: 500 }}>
+                            זכות {fmtILS(row.refundDue)}
+                          </span>
+                        )}
                       </span>
                     </div>
                   </button>
@@ -324,6 +382,11 @@ export default function DebtSummary() {
                     <p style={{ fontSize: 11, color: MUTED, margin: "0 0 2px", fontFamily: "'Heebo', sans-serif" }}>יתרת חוב</p>
                     {/* OLD: <p className="text-2xl font-bold text-red-600"> */}
                     <p style={{ fontSize: 24, fontWeight: 700, color: ACCENT, margin: 0, fontFamily: "'Heebo', sans-serif" }}>{fmtILS(selectedRow.totalDebt)}</p>
+                    {selectedRow.refundDue > 0 && (
+                      <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0", fontFamily: "'Heebo', sans-serif" }}>
+                        ועוד {fmtILS(selectedRow.refundDue)} יתרת זכות ללקוח
+                      </p>
+                    )}
                   </div>
                 </div>
 

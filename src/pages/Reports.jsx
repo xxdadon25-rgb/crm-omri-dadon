@@ -1,6 +1,7 @@
 // Reports page
 import { useState, useMemo, useRef } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { isConfirmedCredit, isUnsettledCredit, creditDocumentDate } from "@/lib/invoiceBalance";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -31,6 +32,21 @@ export default function Reports() {
   const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => base44.entities.Product.list("-created_date") });
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => base44.entities.Customer.list("-created_date") });
   const { data: businessSettingsList = [] } = useQuery({ queryKey: ["businessSettings"], queryFn: () => base44.entities.BusinessSettings.list() });
+  // ==========================================================================
+  // INVOICE-BASED NET REVENUE — A SECOND FIGURE, NOT A CORRECTION OF THE FIRST
+  // ==========================================================================
+  // Every sales figure on this page is derived from ORDERS, and orders have no
+  // relationship to credit notes at all: no invoice_id, nothing to join on. So
+  // they cannot be made credit-aware, and they are deliberately left exactly as
+  // they are — changing them would silently restate every historical sales
+  // number on the page.
+  //
+  // What a credit DOES change is invoiced revenue, so that is shown as its own
+  // figure, from invoices, net of CONFIRMED credits only. The two answer
+  // different questions and are labelled so: one is what was sold, the other is
+  // what was billed and kept.
+  const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-date"), staleTime: 60_000 });
+  const { data: creditNotes = [] } = useQuery({ queryKey: ["credit_notes"], queryFn: () => base44.entities.CreditNote.list(), staleTime: 60_000 });
   const businessSettings = businessSettingsList?.[0];
 
   // Helper to get date range
@@ -75,6 +91,71 @@ export default function Reports() {
       return inDateRange && hasStatus && hasAgent;
     });
   }, [orders, dateStart, dateEnd, statusFilter]);
+
+  // ==========================================================================
+  // TWO SEPARATE QUESTIONS ABOUT THE SAME CREDITS
+  // ==========================================================================
+  // 1. FINANCIAL REPORTING, by the documents' OWN dates. An invoice counts in
+  //    the period it was issued; a credit document counts in the period IT was
+  //    issued. This is the figure that reconciles with a filing, and it is the
+  //    one shown by default.
+  //
+  //    A credit issued in March against a January invoice therefore reduces
+  //    MARCH. It is not backdated into January, which would restate a period
+  //    already closed and reported.
+  //
+  // 2. SALE-PERIOD ANALYSIS, which asks the different question "what did the
+  //    sales of this period end up being worth after later credits". That one
+  //    DOES attribute a credit to its invoice's period, and it is offered
+  //    separately and labelled as analysis — never as the period's revenue.
+  //
+  // Only CONFIRMED credits appear in either. A credit whose Finbot document is
+  // unverified has not reduced anything.
+  const invoicedNet = useMemo(() => {
+    const inRange = (d) => d instanceof Date && d >= dateStart && d <= dateEnd;
+    const asDate = (v) => {
+      if (!v) return null;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const billed = invoices.filter(i => inRange(asDate(i.date)));
+    const billedIds = new Set(billed.map(i => i.id));
+    const gross = billed.reduce((s2, i) => s2 + (Number(i.total) || 0), 0);
+
+    const confirmed = (creditNotes || []).filter(isConfirmedCredit);
+    const amount = (cn) => Math.abs(Number(cn.total) || 0);
+
+    // (1) By the credit document's own date.
+    let credited = 0, undated = 0;
+    for (const cn of confirmed) {
+      const own = creditDocumentDate(cn);
+      if (own === null) {
+        // Not placed anywhere. `credit_notes` has no business date column, so
+        // this is reportable rather than guessable.
+        undated += amount(cn);
+      } else if (inRange(own)) {
+        credited += amount(cn);
+      }
+    }
+
+    // (2) The other question: credits against THIS period's invoices, whenever
+    // they were issued.
+    const againstPeriodSales = confirmed
+      .filter(cn => billedIds.has(cn.invoice_id))
+      .reduce((s2, cn) => s2 + amount(cn), 0);
+
+    const unsettled = (creditNotes || [])
+      .filter(cn => isUnsettledCredit(cn)
+                 && (inRange(creditDocumentDate(cn)) || billedIds.has(cn.invoice_id)))
+      .reduce((s2, cn) => s2 + amount(cn), 0);
+
+    return {
+      gross, credited, net: gross - credited, undated, unsettled,
+      againstPeriodSales, salePeriodNet: gross - againstPeriodSales,
+      invoiceCount: billed.length,
+    };
+  }, [invoices, creditNotes, dateStart, dateEnd]);
 
   // Sales Summary
   const salesToday = useMemo(() => {
@@ -351,6 +432,15 @@ export default function Reports() {
     { label: "מכירות החודש", value: formatCurrency(salesMonth), icon: TrendingUp },
     { label: "מכירות השנה", value: formatCurrency(salesYear), icon: Package },
     { label: "ממוצע להזמנה", value: formatCurrency(avgPerOrder), icon: Users },
+  ];
+
+  // Kept out of `stats` ON PURPOSE. The four above are order-based and answer
+  // "what was sold"; this answers "what was billed, after credits". Mixing them
+  // into one row would invite reading them as the same kind of number.
+  const invoicedStats = [
+    { label: "חויב בתקופה (ברוטו)", value: formatCurrency(invoicedNet.gross) },
+    { label: "זיכויים שהופקו בתקופה", value: `−${formatCurrency(invoicedNet.credited)}` },
+    { label: "הכנסה נטו בתקופה", value: formatCurrency(invoicedNet.net), strong: true },
   ];
 
   return (
@@ -644,6 +734,74 @@ export default function Reports() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── Invoiced revenue, net of CONFIRMED credits ──
+            A separate block with its own heading, because it is a different
+            kind of number from the four above: those are order-based and say
+            what was sold, this is invoice-based and says what was billed and
+            kept. Credits are attributed to the period of the invoice they
+            reverse, so a closed period's revenue does not change later. */}
+        <div className="heillo-card" style={{ padding: 20, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>
+                הכנסה מחשבוניות בתקופה
+              </p>
+              <p style={{ fontSize: 11, color: "#B2B0B1", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>
+                {invoicedNet.invoiceCount} חשבוניות · כולל מע״מ · לפי תאריכי המסמכים עצמם ·
+                נפרד ממכירות לפי הזמנות שלמעלה
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {invoicedNet.unsettled > 0 && (
+                <span style={{ fontSize: 11, color: "#7C2D12", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "4px 10px", fontFamily: "'Heebo', sans-serif" }}>
+                  ועוד {formatCurrency(invoicedNet.unsettled)} זיכויים שטרם אומתו — לא נוכו
+                </span>
+              )}
+              {/* A confirmed credit with no date of its own cannot be placed in
+                  a period. It is named here rather than assigned to one. */}
+              {invoicedNet.undated > 0 && (
+                <span style={{ fontSize: 11, color: "#7C2D12", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "4px 10px", fontFamily: "'Heebo', sans-serif" }}>
+                  {formatCurrency(invoicedNet.undated)} זיכויים מאושרים ללא תאריך מסמך — לא שויכו לתקופה
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 16 }}>
+            {invoicedStats.map((st) => (
+              <div key={st.label}>
+                <p style={{ fontSize: 11, color: "#B2B0B1", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{st.label}</p>
+                <p style={{ fontSize: st.strong ? 20 : 16, fontWeight: st.strong ? 700 : 600, color: "#120F1C", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{st.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── THE OTHER QUESTION, kept apart and labelled as analysis ──
+              "What did this period's sales end up being worth after credits",
+              which attributes a credit to the period of the INVOICE it
+              reverses. Useful for judging a period's sales; NOT the period's
+              revenue, and never the figure that reconciles with a filing. */}
+          {invoicedNet.againstPeriodSales > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed rgba(0,0,0,0.12)" }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>
+                ניתוח: שווי מכירות התקופה אחרי זיכויים
+              </p>
+              <p style={{ fontSize: 11, color: "#B2B0B1", margin: "2px 0 10px", fontFamily: "'Heebo', sans-serif" }}>
+                מייחס זיכוי לתקופת החשבונית שהוא מהפך, מתי שהופק. <strong>אינו</strong> ההכנסה של התקופה ואינו מתאים לדיווח
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: "#B2B0B1", margin: 0, fontFamily: "'Heebo', sans-serif" }}>זיכויים מול חשבוניות התקופה</p>
+                  <p style={{ fontSize: 16, fontWeight: 600, color: "#120F1C", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>−{formatCurrency(invoicedNet.againstPeriodSales)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: "#B2B0B1", margin: 0, fontFamily: "'Heebo', sans-serif" }}>שווי מכירות התקופה נטו</p>
+                  <p style={{ fontSize: 16, fontWeight: 600, color: "#120F1C", margin: "2px 0 0", fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(invoicedNet.salePeriodNet)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Profitability Summary cards */}
