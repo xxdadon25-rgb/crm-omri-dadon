@@ -212,7 +212,7 @@ export default function PartialCreditDialog({ open, onOpenChange, invoice, credi
           <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900">
             הנפקה חיה: לחיצה על ״הפק זיכוי״ תשלח בקשה לפינבוט ותיצור מסמך זיכוי אמיתי אם הבקשה תאושר. בדוק את המוצרים, הכמויות והסכום לפני ההנפקה.
           </div>
-        )>
+        )}
 
         {/* What is left to credit on this invoice at all. */}
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
