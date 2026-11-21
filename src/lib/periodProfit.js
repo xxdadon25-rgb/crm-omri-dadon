@@ -65,6 +65,11 @@ export function periodGrossProfit(invoices, creditNotes, inPeriod) {
     totalSalesNet: pending ? null : netSales,
     totalCostNet: pending ? null : netCost,
     totalProfit: pending ? null : (salesAg - costAg) / 100,
+    // Reports UI/export legacy field names. All point at the same verified sum.
+    totalSales: pending ? null : netSales,
+    totalCost: pending ? null : netCost,
+    profit: pending ? null : (salesAg - costAg) / 100,
+    pendingInvoices: pending,
     profitMargin: pending || netSales <= 0 ? null : ((salesAg - costAg) / salesAg) * 100,
   };
 }
