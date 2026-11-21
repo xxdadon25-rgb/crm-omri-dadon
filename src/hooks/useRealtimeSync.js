@@ -5,14 +5,15 @@ import { supabase } from '@/api/supabaseClient';
 const TABLES = [
   { table: 'customers', queryKey: 'customers' },
   { table: 'products', queryKey: 'products' },
-  { table: 'orders', queryKey: 'orders' },
+  { table: 'orders', queryKey: ['orders', 'dashboard-orders'] },
   { table: 'quotes', queryKey: 'quotes' },
   { table: 'invoices', queryKey: 'invoices' },
   { table: 'suppliers', queryKey: 'suppliers' },
-  { table: 'credit_notes', queryKey: 'credit_notes' },
+  { table: 'credit_notes', queryKey: ['credit_notes', 'invoices'] },
   { table: 'customer_tasks', queryKey: 'customer_tasks' },
   { table: 'supplier_orders', queryKey: 'supplier_orders' },
-  { table: 'payments', queryKey: 'payments' },
+  { table: 'payments', queryKey: ['payments', 'invoices'] },
+  { table: 'expenses', queryKey: ['expenses', 'dashboard-expenses'] },
   // queryKey can be a string (single key) or array of strings (multiple keys to invalidate)
   { table: 'portal_orders', queryKey: ['portal-orders-pending-count', 'portal-orders-pending'] },
 ];
