@@ -132,7 +132,12 @@ export function cartLineForProfit(line) {
       Number.isFinite(Number(line.buy_price)) &&
       Number.isFinite(Number(line.unit_price)) &&
       Number(line.unit_price) > 0 &&
-      Number(line.buy_price) > Number(line.unit_price) * 3
+      (
+        Number(line.buy_price) > Number(line.unit_price) * 3 ||
+        // Reversed mismatch: a per-piece purchase price recorded against
+        // a per-carton selling price can invent a 98-99% margin.
+        Number(line.unit_price) > Number(line.buy_price) * 12
+      )
     ),
   };
 }
