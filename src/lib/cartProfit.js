@@ -47,6 +47,22 @@ function verifiedCostPerSoldItem(line) {
       && cost === 98 && sell === 14) {
     return 9.8; // ₪98 / 10 packs in the purchased carton.
   }
+  // Historical sales whose carton contents AND saved purchase-price base
+  // are established from the reviewed catalogue / supplier packaging:
+  // 400 aluminium trays per ₪160 carton, sold as individual trays.
+  if (productId === "69faf9af-c6c2-4add-aca0-46e9e486bdba"
+      && cost === 160 && sell === 0.88) return 160 / 400;
+
+  // Extra Plast oval casseroles: 66 pieces per pack, 10 packs per carton.
+  // Legacy sale qty is individual pieces, saved cost ₪35 per 660-piece carton.
+  if (productId === "7e6eec29-42f7-453f-87f1-390625c28179"
+      && cost === 35 && sell === 0.1) return 35 / 660;
+
+  // R29/R24 foil lid: 100 pieces at a historical ₪7.50 purchase cost,
+  // matching the reviewed catalogue's ₪0.075 per piece.
+  if (productId === "dba7dcfc-18ea-4f8c-bddd-d1d591a2bbae"
+      && cost === 7.5 && sell === 0.2) return 7.5 / 100;
+
   return null;
 }
 
