@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import { periodGrossProfit, monthKey } from "@/lib/periodProfit";
-import { isConfirmedCredit } from "@/lib/invoiceBalance";
+import { isConfirmedCredit, invoicePosition } from "@/lib/invoiceBalance";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target, Pencil } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
@@ -637,8 +637,10 @@ export default function Dashboard() {
     .filter(o => o.status && o.status !== "הושלם" && o.status !== "בוטל")
     .sort((a, b) => new Date(b.date || b.created_date) - new Date(a.date || a.created_date));
 
+  // Count actual outstanding receivables after confirmed credits and payments,
+  // not every document whose label happens to differ from "שולם".
   const unpaidInvoices = invoices
-    .filter(inv => inv.payment_status && inv.payment_status !== "שולם")
+    .filter(inv => invoicePosition(inv, creditNotes).debtAg > 0)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const currentMonthIdx = now.getMonth();
@@ -827,7 +829,7 @@ export default function Dashboard() {
             <>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ fontSize: 13, color: DARK, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.customer_name}</span>
-                <span style={{ fontSize: 11, color: MUTED }}>{inv.date?.slice(0, 10).split("-").reverse().join("/")} · ₪{((inv.total || 0) - (inv.paid_amount || 0)).toLocaleString()}</span>
+                <span style={{ fontSize: 11, color: MUTED }}>{inv.date?.slice(0, 10).split("-").reverse().join("/")} · ₪{(invoicePosition(inv, creditNotes).debtAg / 100).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
               </div>
               <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${getPaymentStatusColor(inv.payment_status)}`}>{inv.payment_status}</span>
             </>
