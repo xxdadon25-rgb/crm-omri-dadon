@@ -538,13 +538,14 @@ export default function Dashboard() {
   });
 
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
-  const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date") });
-  const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date") });
+  const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date"), refetchInterval: 60_000 });
+  const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date"), refetchInterval: 60_000 });
 
   // Only the two columns the monthly card needs. Its own key, like the other
   // dashboard-scoped queries above, so the Expenses page cache is untouched.
   const { data: expenses = [] } = useQuery({
     queryKey: ["dashboard-expenses"],
+    refetchInterval: 60_000,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
