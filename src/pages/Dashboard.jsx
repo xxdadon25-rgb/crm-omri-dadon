@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
+import { documentProfit } from "@/lib/documentProfit";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target, Pencil } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
@@ -595,7 +596,10 @@ export default function Dashboard() {
   const monthlyData = getMonthlyData(invoices);
   const topProducts = getTopProducts(invoices);
   const ordersPerMonth = getOrdersPerMonth(orders);
-  const monthlyProfit = getMonthlyProfit(orders, products);
+  // Gross profit follows INVOICED sales, not orders (which would double-count
+  // invoiced orders and used to multiply carton costs by individual quantities).
+  // Reuse the exact cost normalization shown inside every invoice.
+  const monthlyProfit = getMonthlyProfit(invoices, nowYear());
 
   const now = new Date();
 
@@ -755,14 +759,18 @@ export default function Dashboard() {
 
         {/* Monthly profit bar chart */}
         <div style={CARD_STYLE}>
-          <h3 style={{ fontWeight: 600, fontSize: 15, color: DARK, margin: "0 0 16px" }}>רווח חודשי</h3>
+          <h3 style={{ fontWeight: 600, fontSize: 15, color: DARK, margin: "0 0 4px" }}>רווח חודשי</h3>
+          <p style={{ fontSize: 11, color: MUTED, margin: "0 0 12px" }}>רווח גולמי מחשבוניות לפני מע״מ — לא כולל הוצאות עסק</p>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyProfit} margin={{ right: 8, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: MUTED }} />
                 <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={false} width={130} />
-                <Tooltip formatter={(val) => `₪${val.toLocaleString()}`} contentStyle={tooltipStyle} />
+                <Tooltip formatter={(val, name, props) => {
+                  if (name === "profit" && props?.payload?.pending) return ["ממתין להבהרת עלויות", "רווח"];
+                  return [`₪${Number(val).toLocaleString("he-IL", { maximumFractionDigits: 2 })}`, "רווח גולמי"];
+                }} contentStyle={tooltipStyle} />
                 <Bar dataKey="profit" fill={ACCENT} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -949,22 +957,38 @@ function getOrdersPerMonth(orders) {
   return data;
 }
 
-// Same profit formula as src/pages/Reports.jsx (profitability/monthlyData): per item, profit = item.total - buy_price * quantity
-function getMonthlyProfit(orders, products) {
+// Invoice dates are DATE strings; their YYYY-MM prefix is stable regardless
+// of timezone. Restrict to the displayed year so December 2025 cannot appear
+// inside a 2026 chart. Each invoice contributes once, never its linked order.
+function nowYear() { return new Date().getFullYear(); }
+
+function getMonthlyProfit(invoices, year = nowYear()) {
   const months = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
-  const data = months.map((month) => ({ month, profit: 0 }));
-  orders.forEach(order => {
-    if (!order.date || !Array.isArray(order.items)) return;
-    const m = new Date(order.date).getMonth();
-    order.items.forEach(item => {
-      if (!item || item.is_header) return;
-      const qty = item.quantity || 0;
-      const itemSales = item.total || 0;
-      const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find(p => p.id === item.product_id)?.buy_price || 0);
-      data[m].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
-    });
-  });
-  return data;
+  const data = months.map((month) => ({ month, profit: 0, pending: false, count: 0 }));
+  for (const invoice of invoices || []) {
+    if (typeof invoice?.date !== "string" ||
+        !invoice.date.startsWith(`${year}-`) ||
+        !Array.isArray(invoice.items)) continue;
+
+    const monthNumber = Number(invoice.date.slice(5, 7));
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) continue;
+    const month = data[monthNumber - 1];
+    const result = documentProfit(invoice.items);
+    month.count += 1;
+    if (!result.ok) {
+      // An unverified cost cannot be silently counted as zero; a partial
+      // month's profit is not a reliable result.
+      month.pending = true;
+    } else if (!month.pending) {
+      month.profit += result.totalProfit;
+    }
+  }
+  return data.map(({ month, profit, pending, count }) => ({
+    month,
+    profit: pending ? null : Math.round(profit * 100) / 100,
+    pending,
+    count,
+  }));
 }
 
 function getTopProducts(invoices) {
