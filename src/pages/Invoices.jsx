@@ -172,13 +172,14 @@ export default function Invoices() {
   });
   const { data: settings = [] } = useQuery({ queryKey: ["settings"], queryFn: () => base44.entities.BusinessSettings.list() });
   const { data: orders = [] } = useQuery({ queryKey: ["orders"], queryFn: () => base44.entities.Order.list("-created_date") });
+  // Keep a SINGLE shape for the shared credit_notes query everywhere.
+  // Previously this screen cached only id/invoice_id/url under the same key
+  // used by Reports, hiding confirmed status, amounts and accounting dates.
   const { data: creditNotes = [] } = useQuery({
     queryKey: ["credit_notes"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data } = await supabase.from("credit_notes").select("id, invoice_id, external_credit_note_url").eq("user_id", user?.id);
-      return data ?? [];
-    },
+    queryFn: () => base44.entities.CreditNote.list("-created_at"),
+    staleTime: 0,
+    refetchInterval: 60_000,
   });
   // One definition of what an invoice still owes, shared with the debt
   // summary and the payment dialog.
