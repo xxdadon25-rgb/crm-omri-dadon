@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
-import { documentProfit } from "@/lib/documentProfit";
+import { periodGrossProfit, monthKey } from "@/lib/periodProfit";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target, Pencil } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
@@ -539,6 +539,7 @@ export default function Dashboard() {
 
   const { data: quotes = [] } = useQuery({ queryKey: ["dashboard-quotes"], queryFn: () => base44.entities.Quote.list("-created_date") });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-created_date"), refetchInterval: 60_000 });
+  const { data: creditNotes = [] } = useQuery({ queryKey: ["credit_notes"], queryFn: () => base44.entities.CreditNote.list("-created_at"), refetchInterval: 60_000 });
   const { data: orders = [] } = useQuery({ queryKey: ["dashboard-orders"], queryFn: () => base44.entities.Order.list("-created_date"), refetchInterval: 60_000 });
 
   // Only the two columns the monthly card needs. Its own key, like the other
@@ -600,7 +601,7 @@ export default function Dashboard() {
   // Gross profit follows INVOICED sales, not orders (which would double-count
   // invoiced orders and used to multiply carton costs by individual quantities).
   // Reuse the exact cost normalization shown inside every invoice.
-  const monthlyProfit = getMonthlyProfit(invoices, nowYear());
+  const monthlyProfit = getMonthlyProfit(invoices, creditNotes, nowYear());
 
   const now = new Date();
 
@@ -616,13 +617,12 @@ export default function Dashboard() {
 
   // subtotal and amount_net are the stored before-VAT amounts. Nothing here
   // divides by a VAT rate or derives a net figure from a gross one.
-  const incomeNetSelected = invoices
-    .filter(inv => inSelectedMonth(inv.date))
-    .reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+  const selectedFinancial = periodGrossProfit(invoices, creditNotes, inSelectedMonth);
+  const incomeNetSelected = selectedFinancial.totalSalesNet;
   const expensesNetSelected = expenses
     .filter(e => inSelectedMonth(e.date))
     .reduce((sum, e) => sum + (Number(e.amount_net) || 0), 0);
-  const profitNetSelected = incomeNetSelected - expensesNetSelected;
+  const profitNetSelected = incomeNetSelected == null ? null : incomeNetSelected - expensesNetSelected;
 
   const newCustomersThisMonth = customers
     .filter(c => {
@@ -655,8 +655,8 @@ export default function Dashboard() {
 
   const salesSparkData = last6.map(({ year, month }) => ({
     value: invoices
-      .filter(inv => { const d = inv.date ? new Date(inv.date) : null; return d && d.getFullYear() === year && d.getMonth() === month; })
-      .reduce((s, inv) => s + (inv.total || 0), 0),
+      .filter(inv => monthKey(inv.date) === `${year}-${String(month + 1).padStart(2, "0")}`)
+      .reduce((s, inv) => s + (Number(inv.total) || 0), 0),
   }));
   const salesMoM = calcMoM(salesSparkData[5].value, salesSparkData[4].value);
 
@@ -761,7 +761,7 @@ export default function Dashboard() {
         {/* Monthly profit bar chart */}
         <div style={CARD_STYLE}>
           <h3 style={{ fontWeight: 600, fontSize: 15, color: DARK, margin: "0 0 4px" }}>רווח חודשי</h3>
-          <p style={{ fontSize: 11, color: MUTED, margin: "0 0 12px" }}>רווח גולמי מחשבוניות לפני מע״מ — לא כולל הוצאות עסק</p>
+          <p style={{ fontSize: 11, color: MUTED, margin: "0 0 12px" }}>רווח גולמי מחשבוניות בניכוי זיכויים ועלות מוצרים שהוחזרו — לפני מע״מ</p>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyProfit} margin={{ right: 8, left: 20 }}>
@@ -897,13 +897,13 @@ export default function Dashboard() {
             />
           </div>
           {[
-            { label: "סה״כ הכנסות ללא מע״מ", value: incomeNetSelected, color: DARK },
+            { label: "סה״כ הכנסות ללא מע״מ (אחרי זיכויים)", value: incomeNetSelected, color: DARK },
             { label: "סה״כ הוצאות ללא מע״מ", value: expensesNetSelected, color: DARK },
-            { label: "רווח", value: profitNetSelected, color: profitNetSelected < 0 ? "#ef4444" : "#16a34a", strong: true },
+            { label: "הכנסות פחות הוצאות רשומות (לא רווח נקי)", value: profitNetSelected, color: profitNetSelected < 0 ? "#ef4444" : "#16a34a", strong: true },
           ].map(({ label, value, color, strong }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
               <span style={{ fontSize: 13, color: MUTED }}>{label}</span>
-              <span style={{ fontSize: strong ? 17 : 15, fontWeight: strong ? 800 : 600, color }}>{formatCurrency(value)}</span>
+              <span style={{ fontSize: strong ? 17 : 15, fontWeight: strong ? 800 : 600, color }}>{value == null ? "ממתין להבהרה" : formatCurrency(value)}</span>
             </div>
           ))}
         </div>
@@ -963,33 +963,16 @@ function getOrdersPerMonth(orders) {
 // inside a 2026 chart. Each invoice contributes once, never its linked order.
 function nowYear() { return new Date().getFullYear(); }
 
-function getMonthlyProfit(invoices, year = nowYear()) {
-  const months = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
-  const data = months.map((month) => ({ month, profit: 0, pending: false, count: 0 }));
-  for (const invoice of invoices || []) {
-    if (typeof invoice?.date !== "string" ||
-        !invoice.date.startsWith(`${year}-`) ||
-        !Array.isArray(invoice.items)) continue;
-
-    const monthNumber = Number(invoice.date.slice(5, 7));
-    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) continue;
-    const month = data[monthNumber - 1];
-    const result = documentProfit(invoice.items);
-    month.count += 1;
-    if (!result.ok) {
-      // An unverified cost cannot be silently counted as zero; a partial
-      // month's profit is not a reliable result.
-      month.pending = true;
-    } else if (!month.pending) {
-      month.profit += result.totalProfit;
-    }
-  }
-  return data.map(({ month, profit, pending, count }) => ({
-    month,
-    profit: pending ? null : Math.round(profit * 100) / 100,
-    pending,
-    count,
-  }));
+function getMonthlyProfit(invoices, creditNotes, year = nowYear()) {
+  const names = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
+  return names.map((month, index) => {
+    const key = `${year}-${String(index + 1).padStart(2, "0")}`;
+    const result = periodGrossProfit(invoices, creditNotes, d => monthKey(d) === key);
+    return {
+      month, profit: result.totalProfit, pending: !result.ok,
+      count: result.invoiceCount, creditCount: result.creditCount,
+    };
+  });
 }
 
 function getTopProducts(invoices) {
