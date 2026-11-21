@@ -25,9 +25,9 @@ export function creditProfit(credit) {
   const result = documentProfit(items);
   const gross = Math.abs(Number(credit.total));
   const expectedGross = Math.round(result.totalSalesNet * 1.18 * 100) / 100;
-  // A full credit with missing/mismatched lines cannot safely reverse profit.
+  // A full credit with missing/mismatched lines cannot safely reverse profit.\n  // Allow up to ₪1 document-level rounding, as invoice 10129 was rounded\n  // from ₪195.41 to ₪195.00 without changing its net line amounts.
   if (!result.ok || !Number.isFinite(gross) ||
-      Math.abs(expectedGross - gross) > 0.10) {
+      Math.abs(expectedGross - gross) > 1.00) {
     return { ok: false, totalSalesNet: null, totalCostNet: null, totalProfit: null };
   }
   return result;
