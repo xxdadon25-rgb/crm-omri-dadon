@@ -47,6 +47,15 @@ function verifiedCostPerSoldItem(line) {
       && cost === 98 && sell === 14) {
     return 9.8; // ₪98 / 10 packs in the purchased carton.
   }
+  // Invoice 10054 / order 1108, confirmed by owner on 2026-11-21:
+  // 50 lids sold at ₪1 each, ₪0.48 cost per lid. The legacy sales line
+  // recorded 2 × ₪25 (two 25-lid groups). Historical buy_price ₪0.25 was
+  // an incorrect basis; the verified cost for each 25-lid group is ₪12.
+  // Keep the issued invoice and original order amounts untouched.
+  if (productId === "a08601f1-f5ad-4669-9cb4-197be38ad27d"
+      && cost === 0.25 && sell === 25 && Number(line.quantity) === 2
+      && Number(line.total) === 50) return 25 * 0.48;
+
   // Historical sales whose carton contents AND saved purchase-price base
   // are established from the reviewed catalogue / supplier packaging:
   // 400 aluminium trays per ₪160 carton, sold as individual trays.
