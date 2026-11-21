@@ -181,7 +181,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
    */
   const resolveFor = useCallback(async (added) => {
     for (const line of added) {
-      if (!line?.product_id) continue;
+      if (!line?.product_id || line.price_basis === "catalog_same_sold_unit_v1") continue;
       const { ok, packaging, buyLevel } = await resolveCostBasis(line.product_id);
       if (!ok) continue;
 
@@ -336,6 +336,9 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
     const lines = itemsRef.current;
     const line = lines[index];
     if (!line) return;
+    // The reviewed catalog uses one selling-price/cost basis per sold item.
+    // Editing a customer-specific price never changes that basis.
+    if (line.price_basis === "catalog_same_sold_unit_v1") return;
     // Nothing was actually changed: focus and blur, or typed and undone.
     if (String(started.price ?? "") === String(line.unit_price ?? "")) return;
 
@@ -423,7 +426,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                           because it drives the cost, and because a line whose
                           level is unknown must say so rather than look
                           complete. */}
-                      {item.product_id && (
+                      {item.product_id && item.price_basis !== "catalog_same_sold_unit_v1" && (
                         <span className="block mt-1">
                           <LevelSelect
                             value={item.sale_level}
@@ -500,7 +503,7 @@ export default function ItemsEditor({ items, setItems, products, vatRate = 18, c
                     <label className="text-xs text-muted-foreground block mb-1">כמות</label>
                     <Input type="number" inputMode="numeric" min="1" value={item.quantity}
                       onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} className="h-10" />
-                    {item.product_id && (
+                    {item.product_id && item.price_basis !== "catalog_same_sold_unit_v1" && (
                       <span className="block mt-1">
                         <LevelSelect
                           value={item.sale_level}
