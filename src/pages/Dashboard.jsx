@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
 import { fetchProductsWithPending } from "@/lib/pendingProducts";
 import { periodGrossProfit, monthKey } from "@/lib/periodProfit";
+import { isConfirmedCredit } from "@/lib/invoiceBalance";
 import { Package, AlertTriangle, FileText, Receipt, TrendingUp, Users, CalendarClock, ArrowUp, ArrowDown, Target, Pencil } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
@@ -594,8 +595,9 @@ export default function Dashboard() {
   // ── Calculations (unchanged) ──
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
   const lowStock = counterProducts.filter(p => !pendingDeletedIds.has(p.id) && p.quantity <= (p.min_quantity || 0));
-  const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-  const monthlyData = getMonthlyData(invoices);
+  const totalSales = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
+    - creditNotes.filter(isConfirmedCredit).reduce((sum, cn) => sum + Math.abs(Number(cn.total) || 0), 0);
+  const monthlyData = getMonthlyData(invoices, creditNotes);
   const topProducts = getTopProducts(invoices);
   const ordersPerMonth = getOrdersPerMonth(orders);
   // Gross profit follows INVOICED sales, not orders (which would double-count
@@ -653,11 +655,14 @@ export default function Dashboard() {
   }));
   const customerMoM = calcMoM(customerSparkData[5].value, customerSparkData[4].value);
 
-  const salesSparkData = last6.map(({ year, month }) => ({
-    value: invoices
-      .filter(inv => monthKey(inv.date) === `${year}-${String(month + 1).padStart(2, "0")}`)
-      .reduce((s, inv) => s + (Number(inv.total) || 0), 0),
-  }));
+  const salesSparkData = last6.map(({ year, month }) => {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const billed = invoices.filter(inv => monthKey(inv.date) === key)
+      .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    const credited = creditNotes.filter(cn => isConfirmedCredit(cn) && monthKey(cn.date) === key)
+      .reduce((sum, cn) => sum + Math.abs(Number(cn.total) || 0), 0);
+    return { value: billed - credited };
+  });
   const salesMoM = calcMoM(salesSparkData[5].value, salesSparkData[4].value);
 
   // ── Tooltip style for charts ──
@@ -898,6 +903,7 @@ export default function Dashboard() {
           </div>
           {[
             { label: "סה״כ הכנסות ללא מע״מ (אחרי זיכויים)", value: incomeNetSelected, color: DARK },
+            { label: "רווח גולמי אחרי זיכויים", value: selectedFinancial.totalProfit, color: DARK },
             { label: "סה״כ הוצאות ללא מע״מ", value: expensesNetSelected, color: DARK },
             { label: "הכנסות פחות הוצאות רשומות (לא רווח נקי)", value: profitNetSelected, color: profitNetSelected < 0 ? "#ef4444" : "#16a34a", strong: true },
           ].map(({ label, value, color, strong }) => (
@@ -934,16 +940,20 @@ export default function Dashboard() {
 }
 
 // ─── Data helpers (unchanged) ─────────────────────────────────────────────────
-function getMonthlyData(invoices) {
-  const months = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
-  const data = months.map((month) => ({ month, total: 0 }));
-  invoices.forEach(inv => {
-    if (inv.date) {
-      const m = new Date(inv.date).getMonth();
-      data[m].total += inv.total || 0;
-    }
-  });
-  return data;
+function getMonthlyData(invoices, creditNotes = [], year = nowYear()) {
+  const names = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
+  const data = names.map(month => ({ month, total: 0 }));
+  for (const inv of invoices || []) {
+    if (!monthKey(inv?.date)?.startsWith(`${year}-`)) continue;
+    const m = Number(inv.date.slice(5, 7)) - 1;
+    if (m >= 0 && m < 12) data[m].total += Number(inv.total) || 0;
+  }
+  for (const cn of creditNotes || []) {
+    if (!isConfirmedCredit(cn) || !monthKey(cn.date)?.startsWith(`${year}-`)) continue;
+    const m = Number(cn.date.slice(5, 7)) - 1;
+    if (m >= 0 && m < 12) data[m].total -= Math.abs(Number(cn.total) || 0);
+  }
+  return data.map(x => ({ ...x, total: Math.round(x.total * 100) / 100 }));
 }
 
 function getOrdersPerMonth(orders) {
