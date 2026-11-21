@@ -64,6 +64,15 @@ function verifiedCostPerSoldItem(line) {
       && cost === 144 && sell === 44 && Number(line.quantity) === 1
       && Number(line.total) === 44) return 44 * (144 / 240);
 
+  // Invoice 10068 / order 1120, line 9: owner confirmed 14 small colored
+  // carrier-bag packs at ₪4.90 sale and ₪3.60 cost per pack on 2026-11-21.
+  // The stored legacy buy_price ₪40 has a different, unverified basis.
+  // This correction matches ONLY that saved historical line; the separate
+  // ₪145 line for the same product is deliberately untouched.
+  if (productId === "203154c5-b802-4423-8957-6294f7eee6fe"
+      && cost === 40 && sell === 4.9 && Number(line.quantity) === 14
+      && Math.abs(Number(line.total) - 68.6) < 0.005) return 3.6;
+
   // Historical sales whose carton contents AND saved purchase-price base
   // are established from the reviewed catalogue / supplier packaging:
   // 400 aluminium trays per ₪160 carton, sold as individual trays.
