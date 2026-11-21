@@ -292,7 +292,12 @@ export function lineProfit({
   // cancel. E.g. 10 packs sold at ₪30 per pack cost ₪300 even if we do not
   // know how many individual pieces are inside a pack. No inferred levels.
   if (saleLevel === buyLevel) {
-    const cost = Math.round(netCostAgorot(rawCost) * qty);
+    // Round the TOTAL cost, not the tiny per-unit price. For example,
+    // 100 items at ₪0.085 cost ₪8.50, not 100 × ₪0.09 = ₪9.00.
+    const exactCostAgorot = Number(buyPrice) * 100 * qty;
+    const cost = BUY_PRICE_VAT_BASIS === "net"
+      ? Math.round(exactCostAgorot)
+      : Math.round(exactCostAgorot / (1 + VAT_RATE));
     return {
       ok: true, pending: null, message: null,
       revenue, cost, profit: revenue - cost, margin: (revenue - cost) / revenue,
