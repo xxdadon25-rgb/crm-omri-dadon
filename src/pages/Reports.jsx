@@ -499,11 +499,11 @@ export default function Reports() {
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", width: "25%", background: "#f5f5f5" }}>מכירה כוללת</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#2196f3" }}>₪{profitability.totalSales.toLocaleString()}</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", width: "25%", background: "#f5f5f5" }}>עלות כוללת</td>
-                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#ff9800" }}>₪{profitability.totalCost.toLocaleString()}</td>
+                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#ff9800" }}>{profitability.ok ? `₪${profitability.totalCost.toLocaleString()}` : "ממתין להבהרה"}</td>
                 </tr>
                 <tr>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>רווח גולמי</td>
-                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50" }}>₪{profitability.profit.toLocaleString()}</td>
+                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50" }}>{profitability.ok ? `₪${profitability.profit.toLocaleString()}` : "ממתין להבהרה"}</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>שולי רווח</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50", fontSize: "13px" }}>{profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(1)}%`}</td>
                 </tr>
