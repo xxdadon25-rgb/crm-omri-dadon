@@ -1,6 +1,9 @@
 // Reports page
 import { useState, useMemo, useRef } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { documentProfit } from "@/lib/documentProfit";
+import { cartLineForProfit } from "@/lib/cartProfit";
+import { lineProfit } from "@/lib/packagingMath";
 import { isConfirmedCredit, isUnsettledCredit, creditDocumentDate } from "@/lib/invoiceBalance";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -194,118 +197,84 @@ export default function Reports() {
   const totalOrders = filteredOrders.length;
   const avgPerOrder = totalOrders > 0 ? filteredOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0) / totalOrders : 0;
 
-  // Profitability Summary (NET prices before VAT)
+  // Invoice-only gross profit. Order status/agent filters apply to the order
+  // metrics, never to the independently issued invoice profit figures.
+  const filteredInvoices = useMemo(() => {
+    const from = format(dateStart, "yyyy-MM-dd");
+    const to = format(dateEnd, "yyyy-MM-dd");
+    return invoices.filter(i => typeof i.date === "string" &&
+      i.date.slice(0, 10) >= from && i.date.slice(0, 10) <= to);
+  }, [invoices, dateStart.getTime(), dateEnd.getTime()]);
+
   const profitability = useMemo(() => {
-    let totalSales = 0;
-    let totalCost = 0;
-
-    filteredOrders.forEach((order) => {
-      totalSales += order.subtotal || order.total || 0;
-
-      if (Array.isArray(order.items)) {
-        order.items.forEach((item) => {
-          if (!item || item.is_header) return;
-          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
-          totalCost += (isNaN(buyPrice) ? 0 : buyPrice) * (item.quantity || 0);
-        });
-      }
+    let totalSales = 0, totalCost = 0, pendingInvoices = 0;
+    filteredInvoices.forEach(i => {
+      const result = documentProfit(i.items || []);
+      totalSales += result.totalSalesNet;
+      if (!result.ok) pendingInvoices += 1;
+      else totalCost += result.totalCostNet;
     });
+    const ok = pendingInvoices === 0;
+    const profit = ok ? Math.round((totalSales - totalCost) * 100) / 100 : null;
+    return { ok, pendingInvoices, totalSales, totalCost: ok ? totalCost : null, profit,
+      profitMargin: ok && totalSales > 0 ? profit / totalSales * 100 : null };
+  }, [filteredInvoices]);
 
-    const profit = totalSales - totalCost;
-    const profitMargin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
-
-    return { totalSales, totalCost, profit, profitMargin };
-  }, [filteredOrders, products]);
-
-  // Top Products
   const topProducts = useMemo(() => {
-    const productMap = {};
+    const m = new Map();
+    filteredInvoices.forEach(inv => (inv.items || []).forEach(item => {
+      if (!item || item.is_header || !item.name) return;
+      const key = item.product_id || item.name;
+      if (!m.has(key)) m.set(key, { id: key, name: String(item.name), quantity: 0,
+        sales: 0, profit: 0, pending: false });
+      const row = m.get(key);
+      row.quantity += Number(item.quantity) || 0;
+      row.sales += Number(item.total) || 0;
+      const cost = lineProfit(cartLineForProfit(item));
+      if (!cost.ok) row.pending = true;
+      else row.profit += (Math.round(Number(item.total || 0) * 100) - cost.cost) / 100;
+    }));
+    return [...m.values()].sort((a, b) => b.sales - a.sales).slice(0, 5)
+      .map(x => ({ ...x, profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
+  }, [filteredInvoices]);
 
-    filteredOrders.forEach((order) => {
-      if (Array.isArray(order.items)) {
-        order.items.forEach((item) => {
-          if (!item || item.is_header || !item.name) return;
-          const key = item.product_id || item.name;
-          if (!productMap[key]) {
-            productMap[key] = { id: key, name: String(item.name), quantity: 0, sales: 0, profit: 0 };
-          }
-          const qty = item.quantity || 0;
-          const itemSales = item.total || 0;
-          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
-          productMap[key].quantity += qty;
-          productMap[key].sales += itemSales;
-          productMap[key].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
-        });
-      }
-    });
-
-    return Object.values(productMap).sort((a, b) => b.sales - a.sales).slice(0, 5);
-  }, [filteredOrders, products]);
-
-  // Top Customers
   const topCustomers = useMemo(() => {
-    const customerMap = {};
-
-    filteredOrders.forEach((order) => {
-      if (!customerMap[order.customer_id]) {
-        customerMap[order.customer_id] = {
-          id: order.customer_id,
-          name: order.customer_name,
-          orders: 0,
-          total: 0,
-          profit: 0,
-        };
-      }
-      customerMap[order.customer_id].orders += 1;
-      customerMap[order.customer_id].total += order.subtotal || order.total || 0;
-
-      if (Array.isArray(order.items)) {
-        order.items.forEach((item) => {
-          if (!item || item.is_header) return;
-          const qty = item.quantity || 0;
-          const itemSales = item.total || 0;
-          const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
-          customerMap[order.customer_id].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
-        });
-      }
+    const m = new Map();
+    filteredInvoices.forEach(inv => {
+      const key = inv.customer_id || inv.customer_name || inv.id;
+      if (!m.has(key)) m.set(key, { id: key, name: inv.customer_name || "לקוח",
+        orders: 0, total: 0, profit: 0, pending: false });
+      const row = m.get(key);
+      const r = documentProfit(inv.items || []);
+      row.orders += 1;
+      row.total += r.totalSalesNet;
+      if (!r.ok) row.pending = true;
+      else row.profit += r.totalProfit;
     });
+    return [...m.values()].sort((a, b) => b.total - a.total).slice(0, 5)
+      .map(x => ({ ...x, profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
+  }, [filteredInvoices]);
 
-    return Object.values(customerMap).sort((a, b) => b.total - a.total).slice(0, 5);
-  }, [filteredOrders, products]);
-
-  // Monthly data
   const monthlyData = useMemo(() => {
     const months = {};
     const now = new Date();
-
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = format(d, "yyyy-MM");
-      months[key] = { sales: 0, profit: 0, month: format(d, "MMM") };
+      months[format(d, "yyyy-MM")] = { sales: 0, profit: 0, pending: false, month: format(d, "MMM") };
     }
-
-    orders
-      .filter((o) => statusFilter === "all" || statusFilter === o.status)
-      .forEach((order) => {
-        if (!order.date) return;
-        const key = order.date.slice(0, 7);
-        if (months[key]) {
-          months[key].sales += order.subtotal || order.total || 0;
-
-          if (Array.isArray(order.items)) {
-            order.items.forEach((item) => {
-              if (!item || item.is_header) return;
-              const qty = item.quantity || 0;
-              const itemSales = item.total || 0;
-              const buyPrice = item.buy_price != null ? Number(item.buy_price) : (products.find((p) => p.id === item.product_id)?.buy_price || 0);
-              months[key].profit += itemSales - (isNaN(buyPrice) ? 0 : buyPrice) * qty;
-            });
-          }
-        }
-      });
-
-    return Object.values(months);
-  }, [orders, products, statusFilter]);
+    invoices.forEach(inv => {
+      if (typeof inv.date !== "string") return;
+      const bucket = months[inv.date.slice(0, 7)];
+      if (!bucket) return;
+      const r = documentProfit(inv.items || []);
+      bucket.sales += r.totalSalesNet;
+      if (!r.ok) bucket.pending = true;
+      else bucket.profit += r.totalProfit;
+    });
+    return Object.values(months).map(x => ({ ...x,
+      sales: Math.round(x.sales * 100) / 100,
+      profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
+  }, [invoices]);
 
   // Top Products Chart
   const topProductsChart = topProducts.slice(0, 5).map((p) => ({
@@ -346,9 +315,9 @@ export default function Reports() {
       "סיכום רווחיות",
       ["מטריקה", "ערך"],
       [
-        ["עלות כוללת", `₪${profitability.totalCost.toLocaleString()}`],
-        ["רווח גולמי", `₪${profitability.profit.toLocaleString()}`],
-        ["שיעור רווחיות", `${profitability.profitMargin.toFixed(2)}%`],
+        ["עלות כוללת", profitability.ok ? `₪${profitability.totalCost.toLocaleString()}` : "ממתין להבהרה"],
+        ["רווח גולמי", profitability.ok ? `₪${profitability.profit.toLocaleString()}` : "ממתין להבהרה"],
+        ["שיעור רווחיות", profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(2)}%`],
       ]
     );
 
@@ -356,14 +325,14 @@ export default function Reports() {
     addSection(
       "מוצרים מובילים",
       ["מוצר", "כמות", "מכירות", "רווח"],
-      topProducts.map(p => [p.name, String(p.quantity), `₪${p.sales.toLocaleString()}`, `₪${p.profit.toLocaleString()}`])
+      topProducts.map(p => [p.name, String(p.quantity), `₪${p.sales.toLocaleString()}`, p.profit == null ? "ממתין להבהרה" : `₪${p.profit.toLocaleString()}`])
     );
 
     // Section 4: Top Customers
     addSection(
       "לקוחות מובילים",
-      ["לקוח", "הזמנות", "סה״כ רכישות", "רווח"],
-      topCustomers.map(c => [c.name, String(c.orders), `₪${c.total.toLocaleString()}`, `₪${c.profit.toLocaleString()}`])
+      ["לקוח", "חשבוניות", "סה״כ מכירות", "רווח"],
+      topCustomers.map(c => [c.name, String(c.orders), `₪${c.total.toLocaleString()}`, c.profit == null ? "ממתין להבהרה" : `₪${c.profit.toLocaleString()}`])
     );
 
     // Add metadata at the end
@@ -520,7 +489,7 @@ export default function Reports() {
 
         {/* Profitability Section */}
         <div style={{ padding: "25px 30px", borderTop: "2px solid #f0f0f0", background: "#fafafa" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "15px", color: "#1a1a1a" }}>💰 סיכום רווחיות</h2>
+          <h2 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "15px", color: "#1a1a1a" }}>💰 רווחיות גולמית מחשבוניות</h2>
           {profitability.totalSales === 0 ? (
             <p style={{ fontSize: "12px", color: "#999", textAlign: "center", padding: "20px", background: "#fff", borderRadius: "6px" }}>אין נתונים לתקופה שנבחרה</p>
           ) : (
@@ -536,7 +505,7 @@ export default function Reports() {
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>רווח גולמי</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50" }}>₪{profitability.profit.toLocaleString()}</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>שולי רווח</td>
-                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50", fontSize: "13px" }}>{profitability.profitMargin.toFixed(1)}%</td>
+                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50", fontSize: "13px" }}>{profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(1)}%`}</td>
                 </tr>
               </tbody>
             </table>
@@ -816,17 +785,17 @@ export default function Reports() {
           </div>
           <div className="heillo-card" style={{ padding: 20 }}>
             <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>עלות כוללת</p>
-            <p style={{ fontSize: 20, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(profitability.totalCost)}</p>
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.ok ? formatCurrency(profitability.totalCost) : "ממתין להבהרה"}</p>
           </div>
           <div className="heillo-card" style={{ padding: 20 }}>
             <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווח גולמי</p>
-            {/* OLD: <p className="text-2xl font-bold text-green-600">{formatCurrency(profitability.profit)}</p> */}
-            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{formatCurrency(profitability.profit)}</p>
+            {/* OLD: <p className="text-2xl font-bold text-green-600">{profitability.ok ? formatCurrency(profitability.profit) : "ממתין להבהרה"}</p> */}
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.ok ? formatCurrency(profitability.profit) : "ממתין להבהרה"}</p>
           </div>
           <div className="heillo-card" style={{ padding: 20 }}>
             <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווחיות %</p>
-            {/* OLD: <p className="text-2xl font-bold text-green-600">{profitability.profitMargin.toFixed(1)}%</p> */}
-            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.profitMargin.toFixed(1)}%</p>
+            {/* OLD: <p className="text-2xl font-bold text-green-600">{profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(1)}%`}</p> */}
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(1)}%`}</p>
           </div>
         </div>
 
@@ -835,14 +804,14 @@ export default function Reports() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 20, marginBottom: 20 }}>
           {/* OLD: <div className="bg-card border border-border rounded-xl p-6"> */}
           <div className="heillo-card" style={{ padding: 20 }}>
-            {/* OLD: <h3 className="font-semibold mb-4">מכירות ורווח חודשיים</h3> */}
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", fontFamily: "'Heebo', sans-serif" }}>מכירות ורווח חודשיים</h3>
+            {/* OLD: <h3 className="font-semibold mb-4">מכירות ורווח חודשיים (חשבוניות)</h3> */}
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#120F1C", margin: "0 0 16px", fontFamily: "'Heebo', sans-serif" }}>מכירות ורווח חודשיים (חשבוניות)</h3>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
-                <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
+                <Tooltip formatter={(v) => v == null ? "ממתין להבהרה" : `₪${Number(v).toLocaleString()}`} />
                 {/* OLD: stroke="hsl(var(--primary))" / stroke="hsl(200,60%,50%)" */}
                 <Line type="monotone" dataKey="sales" stroke="#F5885E" name="מכירות" strokeWidth={2} />
                 <Line type="monotone" dataKey="profit" stroke="#CEB9B5" name="רווח" strokeWidth={2} />
@@ -863,7 +832,7 @@ export default function Reports() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tick={<CustomYAxisTick />} tickLine={false} axisLine={true} width={100} />
-                  <Tooltip formatter={(v) => `₪${v.toLocaleString()}`} />
+                  <Tooltip formatter={(v) => v == null ? "ממתין להבהרה" : `₪${Number(v).toLocaleString()}`} />
                   {/* OLD: fill="hsl(var(--primary))" / fill="hsl(200,60%,50%)" */}
                   <Bar dataKey="sales" fill="#F5885E" name="מכירות" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="profit" fill="#CEB9B5" name="רווח" radius={[4, 4, 0, 0]} />
@@ -895,7 +864,7 @@ export default function Reports() {
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C", fontWeight: 500 }}>{product.name}</td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C" }}>{product.quantity}</td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#F5885E", fontWeight: 600 }}>{formatCurrency(product.sales)}</td>
-                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{formatCurrency(product.profit)}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{product.profit == null ? "ממתין להבהרה" : formatCurrency(product.profit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -914,7 +883,7 @@ export default function Reports() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Heebo', sans-serif" }}>
               <thead className="heillo-table-header"><tr>
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>לקוח</th>
-                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>מספר הזמנות</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>מספר חשבוניות</th>
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>סך רכישות</th>
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>רווח גולמי</th>
               </tr></thead>
@@ -924,7 +893,7 @@ export default function Reports() {
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C", fontWeight: 500 }}>{customer.name}</td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#120F1C" }}>{customer.orders}</td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#F5885E", fontWeight: 600 }}>{formatCurrency(customer.total)}</td>
-                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{formatCurrency(customer.profit)}</td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>{customer.profit == null ? "ממתין להבהרה" : formatCurrency(customer.profit)}</td>
                   </tr>
                 ))}
               </tbody>
