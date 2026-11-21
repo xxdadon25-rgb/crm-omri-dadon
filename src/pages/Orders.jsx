@@ -268,31 +268,6 @@ export default function Orders() {
     }
   };
 
-  const deductInventory = async (items) => {
-    for (const item of items) {
-      const productId = item.product_id || item.id;
-      const { data: product, error: fetchErr } = await supabase.from("products").select("id,quantity").eq("id", productId).single();
-      if (!product) continue;
-      const newQty = Math.max(0, (product.quantity || 0) - (item.quantity || 0));
-      const { error: updateErr } = await supabase.from("products").update({ quantity: newQty }).eq("id", productId);
-      const raw = sessionStorage.getItem("pendingProductUpdates");
-      if (raw) {
-        try {
-          const filtered = JSON.parse(raw).filter(p => p.id !== productId);
-          if (filtered.length === 0) sessionStorage.removeItem("pendingProductUpdates");
-          else sessionStorage.setItem("pendingProductUpdates", JSON.stringify(filtered));
-        } catch (e) {}
-      }
-    }
-    queryClient.removeQueries({ queryKey: ["products"] });
-    queryClient.invalidateQueries({ queryKey: ["products"] });
-  };
-
-  // restoreInventory used to sit here. Every restore now happens inside
-  // save_order_with_inventory, in the same transaction as the order write, so
-  // the client-side copy had no caller left. deductInventory above is KEPT
-  // because the order-create path still uses it.
-
   // ── Customer-specific product prices ───────────────────────────────────────
   // The last unit price saved for a customer becomes that customer's price for
   // that product, and the portal shows it instead of sell_price. One row per
@@ -840,15 +815,7 @@ export default function Orders() {
           onOpenChange={setCreateOpen}
           getLastCustomerPrices={getLastCustomerPrices}
           getSalePatterns={getSalePatterns}
-          onCreated={async (created) => {
-            if (created.fulfilled && !created.inventory_deducted) {
-              await deductInventory(created.items || []);
-              await base44.entities.Order.update(created.id, { inventory_deducted: true });
-              queryClient.setQueryData(["orders"], (old = []) =>
-                old.map(o => o.id === created.id ? { ...o, inventory_deducted: true } : o)
-              );
-            }
-          }}
+          onCreated={() => {}}
         />
 
         <OrderEditModal
