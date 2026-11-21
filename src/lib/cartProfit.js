@@ -81,6 +81,14 @@ function verifiedCostPerSoldItem(line) {
       && cost === 0 && sell === 0.15 && Number(line.quantity) === 100
       && Number(line.total) === 15) return 0.05;
 
+  // Invoice 10088 / order 1147, owner confirmed 2026-11-21:
+  // two 1000-cup OZ8 cartons sold at ₪65 per carton, purchase cost
+  // at the time was ₪42 per carton (legacy snapshot incorrectly had ₪67).
+  // Only correct profit, never rewrite an issued invoice or past totals.
+  if (productId === "8504da57-d460-43c0-a715-5323bf51b517"
+      && cost === 67 && sell === 65 && Number(line.quantity) === 2
+      && Number(line.total) === 130) return 42;
+
   // Historical sales whose carton contents AND saved purchase-price base
   // are established from the reviewed catalogue / supplier packaging:
   // 400 aluminium trays per ₪160 carton, sold as individual trays.
