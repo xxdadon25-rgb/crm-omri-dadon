@@ -56,6 +56,14 @@ function verifiedCostPerSoldItem(line) {
       && cost === 0.25 && sell === 25 && Number(line.quantity) === 2
       && Number(line.total) === 50) return 25 * 0.48;
 
+  // Invoice 10094 / order 1153: owner confirmed 44 individual lids
+  // sold at ₪1 each, while the legacy line stores 1 × ₪44.
+  // Verified Twins purchase document 581489: ₪144 per 240 lids = ₪0.60 each.
+  // The historical sale unit is the full 44-piece group, cost ₪26.40.
+  if (productId === "a08601f1-f5ad-4669-9cb4-197be38ad27d"
+      && cost === 144 && sell === 44 && Number(line.quantity) === 1
+      && Number(line.total) === 44) return 44 * (144 / 240);
+
   // Historical sales whose carton contents AND saved purchase-price base
   // are established from the reviewed catalogue / supplier packaging:
   // 400 aluminium trays per ₪160 carton, sold as individual trays.
