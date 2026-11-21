@@ -73,6 +73,14 @@ function verifiedCostPerSoldItem(line) {
       && cost === 40 && sell === 4.9 && Number(line.quantity) === 14
       && Math.abs(Number(line.total) - 68.6) < 0.005) return 3.6;
 
+  // Invoice 10024 / order 1077: source order already records ₪0.05
+  // purchase cost per R25 lid, confirmed by owner on 2026-11-21.
+  // The issued invoice snapshot mistakenly saved buy_price=0.
+  // Cost 100 lids at ₪0.05 without editing the issued invoice or sale total.
+  if (productId === "ded74ba9-70de-46c7-9031-f3b5c7528dc2"
+      && cost === 0 && sell === 0.15 && Number(line.quantity) === 100
+      && Number(line.total) === 15) return 0.05;
+
   // Historical sales whose carton contents AND saved purchase-price base
   // are established from the reviewed catalogue / supplier packaging:
   // 400 aluminium trays per ₪160 carton, sold as individual trays.
