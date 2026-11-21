@@ -63,6 +63,34 @@ function verifiedCostPerSoldItem(line) {
   if (productId === "dba7dcfc-18ea-4f8c-bddd-d1d591a2bbae"
       && cost === 7.5 && sell === 0.2) return 7.5 / 100;
 
+  // 4.5 L container: 50 individual containers per carton. Historical rows
+  // record purchase price PER CONTAINER (₪1.38 / ₪1.80), but quote the sale
+  // of one complete 50-piece carton at ₪78.
+  if (productId === "46d47622-c490-40f7-8a7d-8dd09a538a74"
+      && (cost === 1.38 || cost === 1.8) && sell === 78) {
+    return cost * 50;
+  }
+
+  // Twelve Basic floor cloths sold together at ₪36; historical cost ₪2.33
+  // was per cloth. The reviewed product now sells one cloth at ₪3.
+  if (productId === "bf67c2a0-4541-4dfc-8bdd-3e61648028c3"
+      && cost === 2.33 && sell === 36) return 2.33 * 12;
+
+  // Dishwashing liquid: four 4L jugs in a carton, but this line's qty=4
+  // and ₪18.90 selling price are for INDIVIDUAL jugs. Old labels carton/unit
+  // were reversed. ₪9.50 is cost for one jug.
+  if (productId === "5a2eb32e-713f-4e0b-9f58-392aa516de71"
+      && cost === 9.5 && sell === 18.9 && Number(line.quantity) === 4) {
+    return 9.5;
+  }
+
+  // 15 kg carrier-bag sack historically bought for ₪110 per 15 kg,
+  // with 5 kg sold at ₪8 per kg.
+  if (productId === "5383cf57-3321-4f5d-897b-7c4d0a951d68"
+      && cost === 110 && sell === 8 && Number(line.quantity) === 5) {
+    return 110 / 15;
+  }
+
   return null;
 }
 
