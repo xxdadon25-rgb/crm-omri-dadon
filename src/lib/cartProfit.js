@@ -52,6 +52,21 @@ function verifiedCostPerSoldItem(line) {
 
 /** @param {object} line a cart line / orders.items entry */
 export function cartLineForProfit(line) {
+  // From the reviewed catalogue onward, both recorded prices refer to ONE
+  // selected sales unit (pack / individual item / carton / meter).
+  // Old supplier packaging labels must never override this explicit basis.
+  if (line?.price_basis === "catalog_same_sold_unit_v1") {
+    return {
+      unitPrice: line?.unit_price,
+      quantity: line?.quantity,
+      discountPercent: line?.discount ?? 0,
+      buyPrice: line?.buy_price,
+      packaging: null,
+      saleLevel: "unit",
+      buyLevel: "unit",
+      levelUncertain: false,
+    };
+  }
   const verifiedUnitCost = verifiedCostPerSoldItem(line);
   if (verifiedUnitCost !== null) {
     return {
@@ -91,6 +106,17 @@ export function cartLineForProfit(line) {
       !!line?.buy_level &&
       line.sale_level !== line.buy_level &&
       line.sale_level_source !== "confirmed"
+    ) || (
+      // Legacy documents with NO recorded price basis sometimes carry a
+      // carton purchase price against a single-piece selling price.
+      // A 3x+ discrepancy is not proof of a loss; with no confirmed basis
+      // the result is pending instead of a fictitious 3,000% loss.
+      !line?.sale_level && !line?.buy_level &&
+      line?.buy_price != null && line?.unit_price != null &&
+      Number.isFinite(Number(line.buy_price)) &&
+      Number.isFinite(Number(line.unit_price)) &&
+      Number(line.unit_price) > 0 &&
+      Number(line.buy_price) > Number(line.unit_price) * 3
     ),
   };
 }
