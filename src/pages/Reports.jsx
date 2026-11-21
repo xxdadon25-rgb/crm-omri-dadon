@@ -49,7 +49,7 @@ export default function Reports() {
   // different questions and are labelled so: one is what was sold, the other is
   // what was billed and kept.
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list("-date"), staleTime: 60_000 });
-  const { data: creditNotes = [] } = useQuery({ queryKey: ["credit_notes"], queryFn: () => base44.entities.CreditNote.list(), staleTime: 60_000 });
+  const { data: creditNotes = [] } = useQuery({ queryKey: ["credit_notes"], queryFn: () => base44.entities.CreditNote.list("-created_at"), staleTime: 60_000 });
   const businessSettings = businessSettingsList?.[0];
 
   // Helper to get date range
