@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,12 +56,14 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
 
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const createRequestId = useRef(null);
   // The final amount the user typed, or null for "use the calculated one".
   const [totalOverride, setTotalOverride] = useState(null);
 
   // Reset form each time the modal opens
   useEffect(() => {
     if (open) {
+      createRequestId.current = null;
       setForm({
         ...emptyForm(),
         vat_rate: businessSettings?.vat_rate || 17,
@@ -151,9 +154,7 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
 
     setSaving(true);
     try {
-      const counter = (businessSettings?.order_counter || 1000) + 1;
       const orderData = {
-        order_number: counter,
         customer_id: form.customer_id,
         customer_name: form.customer_name,
         customer_tax_id: form.customer_tax_id || "",
@@ -171,21 +172,41 @@ export default function OrderCreateModal({ open, onOpenChange, onCreated, getLas
         notes: form.notes || "",
         status: form.status,
         fulfilled: !!form.fulfilled,
-        inventory_deducted: false,
         agent: form.agent || "",
       };
 
-      const created = await base44.entities.Order.create(orderData);
+      // One database transaction creates the order and moves stock.
+      // Keep this ID across a failed network attempt so retry is idempotent.
+      if (!createRequestId.current) createRequestId.current = crypto.randomUUID();
+      const { data: created, error } = await supabase.rpc("create_order_with_inventory", {
+        p_request_id: createRequestId.current,
+        p_order: orderData,
+      });
+      if (error) throw error;
+      if (!created) throw new Error("order_create_failed");
 
-      if (businessSettings?.id) {
-        await base44.entities.BusinessSettings.update(businessSettings.id, { order_counter: counter });
-        queryClient.invalidateQueries({ queryKey: ["settings"] });
-      }
+      createRequestId.current = null;
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.removeQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+
+      // Remove stale optimistic product snapshots for items touched by this order.
+      try {
+        const raw = sessionStorage.getItem("pendingProductUpdates");
+        if (raw) {
+          const touched = new Set(created.items?.map(i => i.product_id).filter(Boolean));
+          const remaining = JSON.parse(raw).filter(p => !touched.has(p.id));
+          if (remaining.length) sessionStorage.setItem("pendingProductUpdates", JSON.stringify(remaining));
+          else sessionStorage.removeItem("pendingProductUpdates");
+        }
+      } catch {}
 
       sessionStorage.setItem("pendingOrder", JSON.stringify(created));
-      queryClient.setQueryData(["orders"], (old = []) => [created, ...(Array.isArray(old) ? old : [])]);
+      queryClient.setQueryData(["orders"], (old = []) =>
+        [created, ...(Array.isArray(old) ? old.filter(o => o.id !== created.id) : [])]
+      );
 
-      toast.success(`הזמנה #${counter} נוצרה בהצלחה`);
+      toast.success(`הזמנה #${created.order_number} נוצרה בהצלחה`);
       onOpenChange(false);
       if (onCreated) onCreated(created);
     } catch (err) {
