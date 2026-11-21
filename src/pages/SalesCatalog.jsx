@@ -174,7 +174,8 @@ export default function SalesCatalog() {
     handleProductView(product);
     // Deliberately not awaited: the line appears at once and the packaging
     // fills in behind it.
-    resolvePackagingFor(product);
+    // Catalogue buy/sell prices are already reviewed per the sold unit.
+    // Do not request legacy carton/pack conversions for new cart lines.
     setCartItems((prev) => {
       const exists = prev.find((i) => i.product_id === product.id);
       if (exists) {
@@ -194,6 +195,12 @@ export default function SalesCatalog() {
           quantity: qty,
           unit_price: product.sell_price || 0,
           buy_price: product.buy_price ?? null,
+          // Snapshot price basis; new orders and invoices retain this even if
+          // catalog prices or packaging are edited later.
+          price_basis: "catalog_same_sold_unit_v1",
+          sale_level: "unit",
+          buy_level: "unit",
+          sale_level_source: "catalog_confirmed",
           unit: product.meters_per_roll ? "מטר" : (product.unit || "יחידה"),
           meters_per_roll: product.meters_per_roll || null,
           discount: selectedCustomer?.discount_percent || 0,
