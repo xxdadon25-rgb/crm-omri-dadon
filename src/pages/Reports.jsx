@@ -2,6 +2,7 @@
 import { useState, useMemo, useRef } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { documentProfit } from "@/lib/documentProfit";
+import { periodGrossProfit, creditProfit, monthKey } from "@/lib/periodProfit";
 import { cartLineForProfit } from "@/lib/cartProfit";
 import { lineProfit } from "@/lib/packagingMath";
 import { isConfirmedCredit, isUnsettledCredit, creditDocumentDate } from "@/lib/invoiceBalance";
@@ -206,75 +207,98 @@ export default function Reports() {
       i.date.slice(0, 10) >= from && i.date.slice(0, 10) <= to);
   }, [invoices, dateStart.getTime(), dateEnd.getTime()]);
 
-  const profitability = useMemo(() => {
-    let totalSales = 0, totalCost = 0, pendingInvoices = 0;
-    filteredInvoices.forEach(i => {
-      const result = documentProfit(i.items || []);
-      totalSales += result.totalSalesNet;
-      if (!result.ok) pendingInvoices += 1;
-      else totalCost += result.totalCostNet;
-    });
-    const ok = pendingInvoices === 0;
-    const profit = ok ? Math.round((totalSales - totalCost) * 100) / 100 : null;
-    return { ok, pendingInvoices, totalSales, totalCost: ok ? totalCost : null, profit,
-      profitMargin: ok && totalSales > 0 ? profit / totalSales * 100 : null };
-  }, [filteredInvoices]);
+  const profitability = useMemo(() =>
+    periodGrossProfit(invoices, creditNotes, date => {
+      if (typeof date !== "string") return false;
+      return date.slice(0, 10) >= format(dateStart, "yyyy-MM-dd") &&
+        date.slice(0, 10) <= format(dateEnd, "yyyy-MM-dd");
+    }), [invoices, creditNotes, dateStart.getTime(), dateEnd.getTime()]);
+
+  // For product/customer breakdowns, apply only credit documents whose own
+  // accounting date falls in this reporting window. Each credit reverses the
+  // corresponding invoice line's revenue AND purchase cost, never revenue only.
+  const periodCredits = useMemo(() => {
+    const from = format(dateStart, "yyyy-MM-dd");
+    const to = format(dateEnd, "yyyy-MM-dd");
+    return creditNotes.filter(cn => typeof cn.date === "string" &&
+      cn.date.slice(0, 10) >= from && cn.date.slice(0, 10) <= to &&
+      isConfirmedCredit(cn));
+  }, [creditNotes, dateStart.getTime(), dateEnd.getTime()]);
 
   const topProducts = useMemo(() => {
     const m = new Map();
-    filteredInvoices.forEach(inv => (inv.items || []).forEach(item => {
+    const add = (item, sign) => {
       if (!item || item.is_header || !item.name) return;
       const key = item.product_id || item.name;
       if (!m.has(key)) m.set(key, { id: key, name: String(item.name), quantity: 0,
         sales: 0, profit: 0, pending: false });
       const row = m.get(key);
-      row.quantity += Number(item.quantity) || 0;
-      row.sales += Number(item.total) || 0;
-      const cost = lineProfit(cartLineForProfit(item));
+      row.quantity += sign * (Number(item.quantity) || 0);
+      row.sales += sign * Math.abs(Number(item.total) || 0);
+      const normalized = sign < 0
+        ? { ...item, unit_price: Math.abs(Number(item.unit_price)),
+            total: Math.abs(Number(item.total)) } : item;
+      const cost = lineProfit(cartLineForProfit(normalized));
       if (!cost.ok) row.pending = true;
-      else row.profit += (Math.round(Number(item.total || 0) * 100) - cost.cost) / 100;
-    }));
+      else row.profit += sign * (Math.round(Math.abs(Number(item.total) || 0) * 100) - cost.cost) / 100;
+    };
+    filteredInvoices.forEach(inv => (inv.items || []).forEach(item => add(item, 1)));
+    periodCredits.forEach(cn => {
+      const credit = creditProfit(cn);
+      if (!credit.ok) return;
+      (cn.items || []).forEach(item => add(item, -1));
+    });
     return [...m.values()].sort((a, b) => b.sales - a.sales).slice(0, 5)
-      .map(x => ({ ...x, profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
-  }, [filteredInvoices]);
+      .map(x => ({ ...x, profit: x.pending || !profitability.ok ? null : Math.round(x.profit * 100) / 100 }));
+  }, [filteredInvoices, periodCredits, profitability.ok]);
 
   const topCustomers = useMemo(() => {
     const m = new Map();
-    filteredInvoices.forEach(inv => {
-      const key = inv.customer_id || inv.customer_name || inv.id;
-      if (!m.has(key)) m.set(key, { id: key, name: inv.customer_name || "לקוח",
-        orders: 0, total: 0, profit: 0, pending: false });
+    const invoiceById = new Map(invoices.map(inv => [inv.id, inv]));
+    const add = (key, name, result, sign) => {
+      if (!m.has(key)) m.set(key, { id: key, name: name || "לקוח", orders: 0,
+        total: 0, profit: 0, pending: false });
       const row = m.get(key);
-      const r = documentProfit(inv.items || []);
-      row.orders += 1;
-      row.total += r.totalSalesNet;
+      row.orders += sign;
+      if (!result.ok) row.pending = true;
+      else {
+        row.total += sign * result.totalSalesNet;
+        row.profit += sign * result.totalProfit;
+      }
+    };
+    filteredInvoices.forEach(inv =>
+      add(inv.customer_id || inv.customer_name || inv.id, inv.customer_name,
+        documentProfit(inv.items || []), 1));
+    periodCredits.forEach(cn => {
+      const inv = invoiceById.get(cn.invoice_id);
+      add(cn.customer_id || inv?.customer_id || inv?.customer_name || cn.invoice_id,
+        inv?.customer_name || "לקוח", creditProfit(cn), 0);
+      const key = cn.customer_id || inv?.customer_id || inv?.customer_name || cn.invoice_id;
+      const r = creditProfit(cn);
+      const row = m.get(key);
       if (!r.ok) row.pending = true;
-      else row.profit += r.totalProfit;
+      else { row.total -= r.totalSalesNet; row.profit -= r.totalProfit; }
     });
     return [...m.values()].sort((a, b) => b.total - a.total).slice(0, 5)
-      .map(x => ({ ...x, profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
-  }, [filteredInvoices]);
+      .map(x => ({ ...x, profit: x.pending || !profitability.ok ? null : Math.round(x.profit * 100) / 100 }));
+  }, [filteredInvoices, periodCredits, invoices, profitability.ok]);
 
   const monthlyData = useMemo(() => {
     const months = {};
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months[format(d, "yyyy-MM")] = { sales: 0, profit: 0, pending: false, month: format(d, "MMM") };
+      const key = format(d, "yyyy-MM");
+      months[key] = { sales: 0, profit: 0, pending: false, month: format(d, "MMM") };
     }
-    invoices.forEach(inv => {
-      if (typeof inv.date !== "string") return;
-      const bucket = months[inv.date.slice(0, 7)];
-      if (!bucket) return;
-      const r = documentProfit(inv.items || []);
-      bucket.sales += r.totalSalesNet;
-      if (!r.ok) bucket.pending = true;
-      else bucket.profit += r.totalProfit;
+    Object.keys(months).forEach(key => {
+      const r = periodGrossProfit(invoices, creditNotes, d => monthKey(d) === key);
+      months[key].sales = r.totalSalesNet;
+      months[key].profit = r.totalProfit;
+      months[key].pending = !r.ok;
     });
-    return Object.values(months).map(x => ({ ...x,
-      sales: Math.round(x.sales * 100) / 100,
-      profit: x.pending ? null : Math.round(x.profit * 100) / 100 }));
-  }, [invoices]);
+    return Object.values(months);
+  }, [invoices, creditNotes]);
 
   // Top Products Chart
   const topProductsChart = topProducts.slice(0, 5).map((p) => ({
@@ -502,7 +526,7 @@ export default function Reports() {
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#ff9800" }}>{profitability.ok ? `₪${profitability.totalCost.toLocaleString()}` : "ממתין להבהרה"}</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>רווח גולמי</td>
+                  <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>רווח גולמי אחרי זיכויים</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50" }}>{profitability.ok ? `₪${profitability.profit.toLocaleString()}` : "ממתין להבהרה"}</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "600", background: "#f5f5f5" }}>שולי רווח</td>
                   <td style={{ padding: "12px 15px", textAlign: "right", fontWeight: "bold", color: "#4caf50", fontSize: "13px" }}>{profitability.profitMargin == null ? "ממתין להבהרה" : `${profitability.profitMargin.toFixed(1)}%`}</td>
@@ -788,7 +812,7 @@ export default function Reports() {
             <p style={{ fontSize: 20, fontWeight: 700, color: "#120F1C", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.ok ? formatCurrency(profitability.totalCost) : "ממתין להבהרה"}</p>
           </div>
           <div className="heillo-card" style={{ padding: 20 }}>
-            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווח גולמי</p>
+            <p style={{ fontSize: 11, color: "#B2B0B1", margin: "0 0 6px", fontFamily: "'Heebo', sans-serif" }}>רווח גולמי אחרי זיכויים</p>
             {/* OLD: <p className="text-2xl font-bold text-green-600">{profitability.ok ? formatCurrency(profitability.profit) : "ממתין להבהרה"}</p> */}
             <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", margin: 0, fontFamily: "'Heebo', sans-serif" }}>{profitability.ok ? formatCurrency(profitability.profit) : "ממתין להבהרה"}</p>
           </div>
@@ -885,7 +909,7 @@ export default function Reports() {
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>לקוח</th>
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>מספר חשבוניות</th>
                 <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>סך רכישות</th>
-                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>רווח גולמי</th>
+                <th style={{ padding: "12px 20px", textAlign: "right", whiteSpace: "nowrap" }}>רווח גולמי אחרי זיכויים</th>
               </tr></thead>
               <tbody>
                 {topCustomers.map((customer) => (
