@@ -32,6 +32,7 @@ declare
   v_agent uuid := auth.uid();
   v_owner uuid;
   v_agent_name text;
+  v_commission_pct numeric;
   v_request public.sales_agent_margin_exceptions%rowtype;
   v_customer public.customers%rowtype;
   v_settings public.business_settings%rowtype;
@@ -49,8 +50,8 @@ begin
   if p_exception_id is null or p_order_id is null then
     raise exception 'invalid_exception_order'; end if;
 
-  select ap.owner_auth_id,ap.display_name
-    into v_owner,v_agent_name
+  select ap.owner_auth_id,ap.display_name,ap.commission_pct
+    into v_owner,v_agent_name,v_commission_pct
   from public.sales_agent_profiles ap
   where ap.auth_user_id=v_agent and ap.is_active=true
   for share;
@@ -190,8 +191,8 @@ begin
     'ממתין לאישור',false,false,v_agent_name
   ) returning * into v_order;
 
-  insert into public.sales_agent_order_attributions(order_id,agent_auth_id)
-  values (v_order.id,v_agent);
+  insert into public.sales_agent_order_attributions(order_id,agent_auth_id,commission_pct_attributed)
+  values(v_order.id,v_agent,v_commission_pct);
 
   insert into public.sales_agent_delivery_alerts(order_id,agent_auth_id)
   values (v_order.id,v_agent)
