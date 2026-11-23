@@ -5,16 +5,10 @@
  * Explicit allowlist; new routes are forbidden for agents by default.
  * Managers keep every existing route (no regression).
  */
+// Agent-facing screens are dedicated and read/write only through guarded RPCs.
+// Legacy CRM pages contain manager mutations and must remain manager-only.
 export const AGENT_ALLOWED_ROUTE_PATHS = Object.freeze([
-  "/",
-  "/sales-catalog",
-  "/product-catalog",
-  "/customers",
-  "/orders",
-  "/quotes",
-  "/invoices",
-  "/customer-ledger",
-  "/debt-summary",
+  "/agent-orders",
 ]);
 
 function normalizePath(pathname) {
@@ -34,14 +28,7 @@ export function canAccessCrmRoute(role, pathname) {
   if (!path) return false;
   if (role === "manager") return true;
   if (role !== "agent") return false;
-  if (AGENT_ALLOWED_ROUTE_PATHS.includes(path)) return true;
-  // The customer profile is nested; never authorize arbitrary /customers/*
-  // e.g. another manager's report route or a typo bypass.
-  if (/^\/customers\/[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(path)) {
-    return true;
-  }
-  // Quote editor is reachable from a separate route.
-  return path === "/quotes/new" || path === "/quotes/edit";
+  return AGENT_ALLOWED_ROUTE_PATHS.includes(path);
 }
 
 /**
