@@ -248,3 +248,31 @@ linked to different agents, and refunds/credits must reverse accrual. The
 entry/payout ledger exists only as staged structure, with no production
 accrual hook enabled. It needs verified invoice-order settlement allocation
 before showing a definitive commission total to the agent.
+
+## Commission preview checkpoint — 2026-11-23
+
+- Staged SQL **14_commission_rate_snapshot_NOT_APPLIED.sql** adds a snapshot of
+  the agreed commission percentage to original agent order attribution and
+  makes it immutable. Agent order RPCs in 08 and 11 now capture it at order
+  creation (currently 8% by default). No historical rate is guessed or
+  automatically backfilled.
+- Staged SQL **13_commission_preview_NOT_APPLIED.sql** is a read-only,
+  auth-scoped, payment-per-row commission preview: uses only manager-recorded
+  payments with status `אושר`, invoice-local VAT rate, and immutable
+  attributed order/agent. A payment group is a collection of invoice-specific
+  payment rows, never a second payment to count again.
+- Unclear multi-order invoice, missing data, or credit notes are returned
+  with review reasons and **no commission amount**. Pending credits are
+  intentionally not assumed fully reconciled. No new cheque clearance step:
+  the owner confirmed all cheque entries in Payments were received/cleared.
+- New disabled-by-default **/agent-commissions** UI shows net receipts,
+  preliminary commissions, and review rows. It cannot create/change payments,
+  approve earnings or pay an agent. Historical snapshot tests confirm that
+  later changes to an agent's rate do not reprice older receipts.
+- CI **45264940496**: three jobs SUCCESS — Node rules, disposable PostgreSQL
+  integration, and Vite build. No production Supabase SQL or live CRM changes.
+- **Not complete for payouts:** immutable accrued ledger synchronization,
+  per-order allocation for genuinely multi-order invoices, proper credit and
+  refund adjustments, payout deduction/locking, historical non-agent order
+  reconciliation and restored-production regression. Until then the UI MUST
+  say preliminary/estimated and not promise payable commission.
