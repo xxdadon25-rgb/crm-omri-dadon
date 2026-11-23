@@ -1,41 +1,15 @@
--- PREPARATION ONLY: DO NOT APPLY IN PRODUCTION.
--- Read-only trusted margin calculation for future sales-agent order RPC.
+-- PREPARATION ONLY — DO NOT APPLY IN PRODUCTION.
+-- Uses CURRENT QuickStock purchase prices, with the same-unit rule of
+-- src/lib/cartProfit.js + src/lib/packagingMath.js.
+-- NO new cost-verification table and NO re-entry of existing catalogue.
+-- Purchase and sale prices are NET before VAT in the existing system.
 --
--- IMPORTANT: Product buy_price has heterogeneous unit/pack/carton bases;
--- neither a browser-supplied buy_price NOR a made-up multiplier can be
--- trusted. Only products whose cost PER SOLD UNIT was VERIFIED by management
--- may pass this particular gate. The current product purchase snapshot is
--- recorded and compared, making edited purchase prices fail closed until
--- re-verification. This table is initially empty and creates NO auto-approvals.
+-- NOTE: The products table has no persisted pack/carton conversion fields.
+-- If a line EXPLICITLY states different sale/buy levels or uncertain basis,
+-- the API fails closed rather than trusting a forged packaging multiplier.
+-- The existing UI may still offer detailed pack/carton cost display; for
+-- fully equivalent server support, store trusted packaging evidence first.
 begin;
-
-create table if not exists public.sales_agent_verified_unit_costs (
-  product_id uuid primary key references public.products(id) on delete cascade,
-  owner_auth_id uuid not null references auth.users(id) on delete restrict,
-  cost_per_sold_unit_net numeric(16,6) not null
-    check (cost_per_sold_unit_net >= 0),
-  observed_buy_price numeric(16,6) not null
-    check (observed_buy_price >= 0),
-  verified_by uuid not null references auth.users(id) on delete restrict,
-  verified_at timestamptz not null default now(),
-  notes text
-);
-alter table public.sales_agent_verified_unit_costs enable row level security;
-revoke all on public.sales_agent_verified_unit_costs from public,anon,authenticated;
-grant select on public.sales_agent_verified_unit_costs to authenticated;
-create policy "verified_unit_cost_read" on public.sales_agent_verified_unit_costs
-for select to authenticated using (
-  owner_auth_id = (select auth.uid()) or
-  exists (
-    select 1 from public.sales_agent_profiles ap
-    where ap.auth_user_id = (select auth.uid())
-      and ap.owner_auth_id = sales_agent_verified_unit_costs.owner_auth_id
-      and ap.is_active = true
-  )
-);
-
--- A cost can be inserted/updated only through a subsequent audited manager
--- process. No direct client writes or administrator bulk auto-fill.
 
 create or replace function public.sales_agent_check_order_margin(
   p_customer_id uuid,
@@ -50,8 +24,7 @@ returns table (
   net_cost numeric,
   rejection_code text
 )
-language plpgsql
-security definer
+language plpgsql security definer
 set search_path = ''
 as $$
 declare
@@ -59,19 +32,16 @@ declare
   v_owner uuid;
   v_item jsonb;
   v_product public.products%rowtype;
-  v_cost public.sales_agent_verified_unit_costs%rowtype;
   v_quantity numeric;
   v_unit_price numeric;
   v_discount numeric;
   v_line_total numeric;
-  v_expected_total numeric;
-  v_sum_sales numeric := 0;
-  v_sum_cost numeric := 0;
+  v_line_sales integer;
+  v_line_cost integer;
+  v_sales_agorot bigint := 0;
+  v_cost_agorot bigint := 0;
   v_margin numeric;
 begin
-  -- This is an INFORMATIONAL read-only calculator; the future order write
-  -- RPC MUST recalculate the margin in the same transaction as the insert.
-  -- Calling this function does not create any permission to place orders.
   if v_agent is null then raise exception 'not_authenticated'; end if;
   select ap.owner_auth_id into v_owner
   from public.sales_agent_profiles ap
@@ -79,26 +49,25 @@ begin
   if v_owner is null then raise exception 'agent_not_active'; end if;
 
   if p_customer_id is null or not exists (
-    select 1
-    from public.sales_agent_customer_assignments ca
+    select 1 from public.sales_agent_customer_assignments ca
     join public.customers c on c.id=ca.customer_id
-    where ca.agent_auth_id = v_agent and ca.customer_id=p_customer_id
-      and c.user_id=v_owner
+    where ca.agent_auth_id=v_agent
+      and ca.customer_id=p_customer_id and c.user_id=v_owner
   ) then raise exception 'customer_not_assigned'; end if;
 
   if p_items is null or jsonb_typeof(p_items) <> 'array'
-     or jsonb_array_length(p_items) not between 1 and 250 then
-    raise exception 'invalid_items';
-  end if;
-  if p_document_discount_net is null or p_document_discount_net < 0 then
-    raise exception 'invalid_document_discount';
+    or jsonb_array_length(p_items) not between 1 and 250
+  then raise exception 'invalid_items'; end if;
+
+  -- Document-level discounts are intentionally blocked until the existing
+  -- documentProfit aggregation and editable total can be matched exactly.
+  if p_document_discount_net is distinct from 0 then
+    raise exception 'document_discount_not_yet_supported';
   end if;
 
-  for v_item in select value from jsonb_array_elements(p_items) loop
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
     if jsonb_typeof(v_item) <> 'object' then raise exception 'invalid_line'; end if;
-
-    -- Validate all provided numeric fields before coercion; client input
-    -- cannot pretend a line has a different net total from its priced items.
     if coalesce(v_item->>'quantity','') !~ '^[0-9]+([.][0-9]+)?$'
       or coalesce(v_item->>'unit_price','') !~ '^[0-9]+([.][0-9]+)?$'
       or coalesce(v_item->>'total','') !~ '^[0-9]+([.][0-9]+)?$'
@@ -111,56 +80,68 @@ begin
     v_unit_price := (v_item->>'unit_price')::numeric;
     v_discount := coalesce((v_item->>'discount')::numeric,0);
     v_line_total := (v_item->>'total')::numeric;
-    if v_quantity <= 0 or v_quantity > 1000000 or v_unit_price < 0
-      or v_unit_price > 100000000 or v_discount < 0 or v_discount > 100
-      or v_line_total < 0 then raise exception 'invalid_line'; end if;
 
-    v_expected_total := round(v_quantity*v_unit_price*(1-v_discount/100),2);
-    if v_expected_total <> v_line_total then
-      raise exception 'inconsistent_line_total';
-    end if;
+    if v_quantity <= 0 or v_quantity > 1000000
+      or v_unit_price < 0 or v_unit_price > 100000000
+      or v_discount < 0 or v_discount > 100 or v_line_total <= 0
+    then raise exception 'invalid_line'; end if;
 
-    select * into v_product from public.products p
-    where p.id=(v_item->>'product_id')::uuid
-      and p.user_id=v_owner and p.is_active is true;
+    -- A line is sale-level unit-priced by the current catalogue convention.
+    -- Never accept client packaging to fabricate a cheaper cost per sale.
+    if coalesce(v_item->>'sale_level_review','false') = 'true'
+       or (v_item ? 'sale_level'
+         and v_item ? 'buy_level'
+         and v_item->>'sale_level' <> v_item->>'buy_level')
+       or (v_item ? 'price_basis'
+         and v_item->>'price_basis' <> 'catalog_same_sold_unit_v1')
+       or (v_item ? 'sale_level'
+         and v_item->>'sale_level' not in ('unit','pack','carton'))
+       or (v_item ? 'buy_level'
+         and v_item->>'buy_level' not in ('unit','pack','carton'))
+    then raise exception 'sale_unit_needs_clarification'; end if;
+
+    select * into v_product
+    from public.products p
+    where p.id = (v_item->>'product_id')::uuid
+      and p.user_id = v_owner and p.is_active is true;
     if not found then raise exception 'product_not_found'; end if;
+    if v_product.buy_price is null or v_product.buy_price < 0
+    then raise exception 'cost_missing'; end if;
 
-    -- A server-trusted, still-current cost basis must exist. If an owner
-    -- changes a product's buy_price, re-verify its unit cost first.
-    select * into v_cost from public.sales_agent_verified_unit_costs vc
-    where vc.product_id=v_product.id and vc.owner_auth_id=v_owner
-      and vc.observed_buy_price=v_product.buy_price;
-    if not found then raise exception 'cost_basis_unverified'; end if;
+    -- Existing JS lineProfit same-level behavior:
+    -- line cost = round(buy_price * 100 * qty) agorot.
+    -- Stored line TOTAL is the actual NET revenue per documentProfit.
+    -- Guard line consistency: a malicious client cannot inflate TOTAL
+    -- independently of quantity, price and discount.
+    v_line_sales := round(v_unit_price * 100 * v_quantity
+                          * (1-v_discount/100))::integer;
+    if v_line_sales <> round(v_line_total*100)::integer
+    then raise exception 'inconsistent_line_total'; end if;
 
-    -- The server must NOT use line.buy_price, line.price_basis,
-    -- line.packaging, or any client-supplied cost evidence.
-    v_sum_sales := v_sum_sales + v_line_total;
-    v_sum_cost := v_sum_cost + round(v_quantity*v_cost.cost_per_sold_unit_net,2);
+    v_line_cost := round(v_product.buy_price*100*v_quantity)::integer;
+    v_sales_agorot := v_sales_agorot + v_line_sales;
+    v_cost_agorot := v_cost_agorot + v_line_cost;
   end loop;
 
-  v_sum_sales := round(v_sum_sales - p_document_discount_net,2);
-  if v_sum_sales <= 0 then raise exception 'no_net_revenue'; end if;
-  v_margin := round((v_sum_sales-v_sum_cost)/v_sum_sales*100,6);
+  if v_sales_agorot <= 0 then raise exception 'no_net_revenue'; end if;
+  v_margin := (v_sales_agorot-v_cost_agorot)::numeric*100/v_sales_agorot;
   return query select
-    (v_sum_sales-v_sum_cost)*100 >= 40*v_sum_sales,
-    (v_sum_sales-v_sum_cost)*100 < 40*v_sum_sales,
-    v_margin,v_sum_sales,v_sum_cost,
-    case when (v_sum_sales-v_sum_cost)*100 >= 40*v_sum_sales
+    (v_sales_agorot-v_cost_agorot)*100 >= 40*v_sales_agorot,
+    (v_sales_agorot-v_cost_agorot)*100 < 40*v_sales_agorot,
+    round(v_margin,6),
+    v_sales_agorot::numeric/100,
+    v_cost_agorot::numeric/100,
+    case when (v_sales_agorot-v_cost_agorot)*100 >= 40*v_sales_agorot
       then null::text else 'manager_exception_required'::text end;
 end;
 $$;
-
 revoke all on function public.sales_agent_check_order_margin(uuid,jsonb,numeric)
-  from public, anon, authenticated;
+  from public,anon,authenticated;
 grant execute on function public.sales_agent_check_order_margin(uuid,jsonb,numeric)
   to authenticated;
-
 commit;
 
--- IMPORTANT BEFORE ACTIVATION:
--- Ensure document-level discounts and editable final totals are handled in
--- the ATOMIC order writer. This read-only preview does not authorize any
--- final-total override or business-level charge adjustment.
--- Verify parity against documentProfit fixtures, including historical pack
--- conversions, VAT, discounts and rounding, before choosing a product's
--- verified unit cost; never bulk-approve unverified catalog products.
+-- Mandatory restored-DB tests before deployment: parity with documentProfit
+-- on actual current-catalogue sale-unit lines, 40%-boundary, discounts,
+-- unknown cost, forged total/packaging, multi-product blending, concurrent
+-- product-price edits, disabled agent and unassigned customer.
