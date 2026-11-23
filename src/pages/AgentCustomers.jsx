@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -48,6 +50,41 @@ export default function AgentCustomers() {
   const {crmRole}=useAuth();
   const allowed=AGENT_FEATURES_ENABLED && crmRole==="agent";
   const [customerId,setCustomerId]=useState("");
+  const queryClient=useQueryClient();
+  const [newCustomer,setNewCustomer]=useState({name:"",phone:"",city:""});
+  const [creating,setCreating]=useState(false);
+  const createRetry=useRef(new Map());
+
+  async function createCustomer(event) {
+    event.preventDefault();
+    if(creating || !allowed)return;
+    const name=newCustomer.name.trim();
+    if(!name || name.length>200){
+      toast.error("יש להזין שם לקוח תקין");
+      return;
+    }
+    const payload={
+      name,phone:newCustomer.phone.trim(),city:newCustomer.city.trim(),
+    };
+    const signature=JSON.stringify(payload);
+    if(!createRetry.current.has(signature))createRetry.current.set(signature,crypto.randomUUID());
+    setCreating(true);
+    try{
+      const {data,error}=await supabase.rpc("sales_agent_create_customer",{
+        p_request_id:createRetry.current.get(signature),p_customer:payload,
+      });
+      if(error)throw error;
+      if(!data?.id)throw Error("customer_id_missing");
+      setNewCustomer({name:"",phone:"",city:""});
+      createRetry.current.clear();
+      await queryClient.invalidateQueries({queryKey:["agent-customers"]});
+      setCustomerId(data.id);
+      toast.success("הלקוח נוצר ושויך אליך.");
+    }catch(err){
+      console.error("Agent customer create failed",err);
+      toast.error("יצירת הלקוח לא הושלמה. בדוק את הפרטים או פנה למנהל.");
+    }finally{setCreating(false);}
+  }
   const customersQ=useQuery({
     queryKey:["agent-customers"],
     queryFn:listAssignedCustomers,
@@ -70,6 +107,34 @@ export default function AgentCustomers() {
           מידע לקריאה בלבד על לקוחות המשויכים אליך. מסמכים ותשלומים אינם ניתנים לעריכה כאן.
         </p>
       </header>
+      <form onSubmit={createCustomer} className="bg-white border rounded-xl p-4 space-y-3">
+        <h2 className="font-bold">הוספת לקוח חדש</h2>
+        <p className="text-xs text-slate-500">הלקוח החדש ישויך אליך אוטומטית. תנאי אשראי ומחירים לא ישתנו.</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="space-y-1">
+            <span className="block text-sm">שם לקוח *</span>
+            <input className="w-full rounded-lg border p-2" required maxLength={200}
+              value={newCustomer.name} disabled={creating}
+              onChange={e=>setNewCustomer(v=>({...v,name:e.target.value}))}/>
+          </label>
+          <label className="space-y-1">
+            <span className="block text-sm">טלפון</span>
+            <input className="w-full rounded-lg border p-2"
+              value={newCustomer.phone} disabled={creating}
+              onChange={e=>setNewCustomer(v=>({...v,phone:e.target.value}))}/>
+          </label>
+          <label className="space-y-1">
+            <span className="block text-sm">עיר</span>
+            <input className="w-full rounded-lg border p-2"
+              value={newCustomer.city} disabled={creating}
+              onChange={e=>setNewCustomer(v=>({...v,city:e.target.value}))}/>
+          </label>
+        </div>
+        <button type="submit" disabled={creating}
+          className="rounded-lg bg-slate-800 px-4 py-2 text-white disabled:opacity-40">
+          {creating?"שומר...":"שמור לקוח ושייך לסוכן"}
+        </button>
+      </form>
       <section className="bg-white border rounded-xl p-4 space-y-4">
         <label className="block space-y-1">
           <span className="text-sm font-semibold">בחר לקוח</span>
