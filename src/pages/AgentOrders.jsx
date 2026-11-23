@@ -30,7 +30,7 @@ function showError(err) {
 
 async function loadAgentProducts() {
   const { data, error }=await supabase.from("products")
-    .select("id,name,sku,buy_price,sell_price,is_active,quantity")
+    .select("id,name,sku,unit,buy_price,sell_price,is_active,quantity")
     .eq("is_active",true).order("name");
   if(error)throw error;
   return data??[];
@@ -215,7 +215,7 @@ export default function AgentOrders() {
               value={qty} disabled={busy} onChange={e=>setQty(e.target.value)}/>
           </label>
           <label className="space-y-1">
-            <span className="block text-sm font-medium">מחיר מכירה לפני מע״מ (₪)</span>
+            <span className="block text-sm font-medium">מחיר מכירה לפני מע״מ (₪ ל{selectedProduct?.unit||"יחידה"})</span>
             <input type="number" min="0" step="any" className="w-full rounded-lg border p-2"
               value={unitPrice} disabled={busy} onChange={e=>setUnitPrice(e.target.value)}/>
           </label>
@@ -238,7 +238,7 @@ export default function AgentOrders() {
               <th className="p-2">סה״כ לפני מע״מ</th><th className="p-2">פעולה</th>
             </tr></thead>
             <tbody>{items.map((it,i)=><tr key={i} className="border-b">
-              <td className="p-2">{it.name}</td><td className="p-2">{it.quantity}</td>
+              <td className="p-2">{it.name}</td><td className="p-2">{it.quantity} {it.unit||"יחידות"}</td>
               <td className="p-2">₪{money(it.unit_price)}</td>
               <td className="p-2">{it.discount}%</td>
               <td className="p-2">₪{money(it.total)}</td>
