@@ -12,25 +12,34 @@ import {
 async function loadPendingExceptions() {
   const { data, error } = await supabase
     .from("sales_agent_margin_exceptions")
-    .select("id,agent_auth_id,customer_id,margin_pct,reason,requested_at,status,request_hash")
+    .select("id,agent_auth_id,customer_id,margin_pct,reason,requested_at,status,request_hash,order_payload")
     .eq("status", "pending")
     .order("requested_at", { ascending: true });
   if (error) throw error;
 
   const requests = data ?? [];
-  if (!requests.length) return { requests: [], customers: {}, agents: {} };
+  if (!requests.length) return { requests: [], customers: {}, agents: {}, products: {} };
   const customerIds = [...new Set(requests.map(r => r.customer_id))];
   const agentIds = [...new Set(requests.map(r => r.agent_auth_id))];
-  const [customersResult, agentsResult] = await Promise.all([
+  const productIds=[...new Set(
+    requests.flatMap(r=>(r.order_payload?.items??[]).map(item=>item.product_id))
+      .filter(Boolean)
+  )];
+  const [customersResult, agentsResult, productsResult] = await Promise.all([
     supabase.from("customers").select("id,name").in("id",customerIds),
     supabase.from("sales_agent_profiles").select("auth_user_id,display_name").in("auth_user_id",agentIds),
+    productIds.length
+      ? supabase.from("products").select("id,name").in("id",productIds)
+      : Promise.resolve({data:[],error:null}),
   ]);
   if (customersResult.error) throw customersResult.error;
   if (agentsResult.error) throw agentsResult.error;
+  if (productsResult.error) throw productsResult.error;
   return {
     requests,
     customers: Object.fromEntries((customersResult.data ?? []).map(c => [c.id,c.name])),
     agents: Object.fromEntries((agentsResult.data ?? []).map(a => [a.auth_user_id,a.display_name])),
+    products: Object.fromEntries((productsResult.data ?? []).map(p => [p.id,p.name])),
   };
 }
 
@@ -117,7 +126,32 @@ export default function AgentExceptions() {
               <p className="text-xs text-slate-500">{new Date(req.requested_at).toLocaleString("he-IL",{timeZone:"Asia/Jerusalem"})}</p>
             </div>
           </div>
-          <p className="text-sm">{req.reason}</p>
+          <div className="rounded-lg bg-slate-50 p-3 space-y-2">
+            <p className="text-sm font-semibold">פרטי ההזמנה שממתינים לאישור</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-right">
+                <thead><tr className="border-b">
+                  <th className="p-2">מוצר</th><th className="p-2">כמות</th>
+                  <th className="p-2">מחיר ליחידה</th><th className="p-2">הנחה</th>
+                  <th className="p-2">סה״כ לפני מע״מ</th>
+                </tr></thead>
+                <tbody>{(req.order_payload?.items??[]).map((item,index)=>(
+                  <tr key={index} className="border-b last:border-0">
+                    <td className="p-2">{data.products[item.product_id]??"מוצר לא זמין"}</td>
+                    <td className="p-2">{item.quantity}</td>
+                    <td className="p-2">₪{Number(item.unit_price).toFixed(2)}</td>
+                    <td className="p-2">{item.discount??0}%</td>
+                    <td className="p-2">₪{Number(item.total).toFixed(2)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <p className="font-semibold text-sm">
+              סך מכירה לפני מע״מ: ₪{(req.order_payload?.items??[])
+                .reduce((sum,item)=>sum+Number(item.total??0),0).toFixed(2)}
+            </p>
+          </div>
+          <p className="text-sm">סיבת החריגה: {req.reason}</p>
           <div className="flex flex-wrap items-center gap-3">
             <label className="text-sm font-semibold" htmlFor={`approver-${req.id}`}>מי מאשר?</label>
             <select
