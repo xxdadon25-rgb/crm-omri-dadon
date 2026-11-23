@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getOrderStatusColor, getPaymentStatusColor } from "@/utils/statusColors";
+import AgentDeliveryQueue from "@/components/agents/AgentDeliveryQueue";
 
 const COLORS = ["#F5885E", "#CEB9B5", "#60515B", "#B06056", "#4C3034", "#B2B0B1"];
 
@@ -685,6 +686,7 @@ export default function Dashboard() {
   return (
     <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse 40% 35% at 75% 5%, rgba(252,234,227,0.75) 0%, rgba(236,237,240,0) 100%), #ECEDF0", fontFamily: "'Heebo', sans-serif", padding: 32, paddingTop: 24 }}>
       <PageHeader title="דשבורד" description="סקירה כללית של העסק" />
+      <AgentDeliveryQueue />
 
       {/* ── Section 1: KPI cards ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 20 }}
