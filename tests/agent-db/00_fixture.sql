@@ -59,6 +59,20 @@ create table public.credit_notes(
   id uuid primary key,user_id uuid references auth.users(id),
   customer_id uuid
 );
+create table public.customer_portal_access(
+ id uuid primary key,
+ customer_id uuid references public.customers(id),
+ auth_user_id uuid references auth.users(id),
+ portal_deleted_at timestamptz,
+ is_active boolean default true
+);
+insert into public.customer_portal_access
+(id,customer_id,auth_user_id,is_active)
+values(
+ '79797979-7979-4979-8979-797979797979',
+ '11111111-1111-4111-8111-111111111111',
+ 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',true
+);
 create table public.customer_product_prices(
   customer_id uuid references public.customers(id),
   product_id uuid references public.products(id),
