@@ -16,6 +16,8 @@ test("all database security changes remain explicitly unapplied", () => {
     "07_trusted_margin_preview_NOT_APPLIED.sql",
     "08_agent_create_order_NOT_APPLIED.sql",
     "09_legacy_security_definer_guard_NOT_APPLIED.sql",
+    "10_margin_exception_request_NOT_APPLIED.sql",
+    "11_approved_exception_order_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -123,4 +125,20 @@ test("legacy privileged write APIs have a deny-agent gate", () => {
   assert.equal((sql.match(/agent_legacy_rpc_forbidden/g)||[]).length,7);
   assert.ok((sql.match(/SECURITY DEFINER/g)||[]).length >= 7);
   assert.equal((sql.match(/ap\.auth_user_id = \(SELECT auth\.uid\(\)\)/g)||[]).length,7);
+});
+
+test("approved exception creates only one order against unchanged cost snapshot", () => {
+  const sql=read("11_approved_exception_order_NOT_APPLIED.sql");
+  assert.match(sql,/for update/i);
+  assert.match(sql,/created_order_id/);
+  assert.match(sql,/exception_already_consumed/);
+  assert.match(sql,/exception_not_approved/);
+  assert.match(sql,/exception_payload_or_prices_changed/);
+  assert.match(sql,/sales_agent_check_order_margin/);
+  assert.match(sql,/extensions\.digest/);
+  assert.match(sql,/sales_agent_order_attributions/);
+  assert.match(sql,/sales_agent_delivery_alerts/);
+  assert.match(sql,/false,false,v_agent_name/);
+  assert.match(sql,/revoke all on function public\.sales_agent_create_approved_exception_order/);
+  assert.doesNotMatch(sql,/save_order_with_inventory\(/);
 });
