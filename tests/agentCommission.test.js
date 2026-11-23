@@ -32,6 +32,8 @@ test("invalid amounts and rates are rejected rather than silently counted", () =
     [-1, 18, 8], [100, -1, 8], [100, 101, 8],
     [100, 18, -1], [100, 18, 101], [Infinity, 18, 8],
     ["not-money", 18, 8], [100, NaN, 8],
+    [null, 18, 8], [undefined, 18, 8],
+    [100, null, 8], [100, undefined, 8], [100, "", 8],
   ];
   for (const args of cases) assert.equal(commissionForSettledGrossPayment(...args), null);
 });
