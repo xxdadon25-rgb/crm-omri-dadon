@@ -81,15 +81,16 @@ test("new-customer RPC uses owner ID from active profile and auto assignment", (
   assert.match(sql,/revoke all on function public\.sales_agent_create_customer/);
 });
 
-test("server margin uses verified cost and rejects unknown cost instead of client buy_price", () => {
+test("server margin reads the existing product cost and rejects tampered totals", () => {
   const sql=read("07_trusted_margin_preview_NOT_APPLIED.sql");
-  assert.match(sql,/sales_agent_verified_unit_costs/);
-  assert.match(sql,/observed_buy_price\s*=\s*v_product\.buy_price/);
+  assert.doesNotMatch(sql,/sales_agent_verified_unit_costs/);
+  assert.match(sql,/v_product\.buy_price/);
   assert.match(sql,/customer_not_assigned/);
-  assert.match(sql,/cost_basis_unverified/);
+  assert.match(sql,/cost_missing/);
+  assert.match(sql,/sale_unit_needs_clarification/);
   assert.match(sql,/inconsistent_line_total/);
-  assert.match(sql,/v_sum_cost\s*:=\s*v_sum_cost\s*\+\s*round\(v_quantity\*v_cost\.cost_per_sold_unit_net,2\)/);
-  assert.match(sql,/40\*v_sum_sales/);
+  assert.match(sql,/v_cost_agorot\s*:=\s*v_cost_agorot\s*\+\s*v_line_cost/);
+  assert.match(sql,/40\*v_sales_agorot/);
   assert.match(sql,/revoke all on function public\.sales_agent_check_order_margin/);
 });
 
