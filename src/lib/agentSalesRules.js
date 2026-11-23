@@ -9,7 +9,10 @@
 import { documentProfit } from "@/lib/documentProfit";
 
 export const AGENT_MIN_GROSS_MARGIN = 40;
-export const DEFAULT_AGENT_COMMISSION_PERCENT = 8;
+export {
+  DEFAULT_AGENT_COMMISSION_PERCENT,
+  commissionForSettledGrossPayment,
+} from "@/lib/agentCommission";
 
 /**
  * @returns {{allowed:boolean, requiresException:boolean, reason:string|null, profit:object}}
@@ -39,24 +42,4 @@ export function evaluateAgentOrder(items) {
     reason: allowed ? null : "הרווחיות מתחת ל־40% — נדרש אישור חריגה של מנהל",
     profit,
   };
-}
-
-/**
- * Calculate commission on a VERIFIED received payment's taxable base.
- * Callers must confirm settlement and invoice attribution server-side;
- * do not use this helper to treat pending checks as collected cash.
- *
- * Use the historical invoice VAT rate, not the current global VAT setting.
- * Currency rounding occurs only at the final commission amount.
- */
-export function commissionForSettledGrossPayment(amountIncludingVat, invoiceVatRate, commissionPercent = DEFAULT_AGENT_COMMISSION_PERCENT) {
-  const amount = Number(amountIncludingVat);
-  const vatRate = Number(invoiceVatRate);
-  const rate = Number(commissionPercent);
-  if (![amount, vatRate, rate].every(Number.isFinite) ||
-      amount < 0 || vatRate < 0 || vatRate > 100 || rate < 0 || rate > 100) {
-    return null;
-  }
-  const net = amount / (1 + vatRate / 100);
-  return Math.round((net * rate / 100 + Number.EPSILON) * 100) / 100;
 }
