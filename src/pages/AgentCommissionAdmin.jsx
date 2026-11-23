@@ -9,7 +9,7 @@ const money=n=>Number(n??0).toLocaleString("he-IL",{
   style:"currency",currency:"ILS",minimumFractionDigits:2,maximumFractionDigits:2,
 });
 async function loadCommissionAdmin(agentId) {
- const [agents,ledger,payouts,preview]=await Promise.all([
+ const [agents,ledger,payouts,preview,balance]=await Promise.all([
   supabase.from("sales_agent_profiles")
     .select("auth_user_id,display_name,commission_pct,is_active")
     .order("display_name"),
@@ -23,12 +23,15 @@ async function loadCommissionAdmin(agentId) {
     .limit(500):Promise.resolve({data:[],error:null}),
   agentId?supabase.rpc("sales_agent_commission_preview",{p_agent_id:agentId})
     :Promise.resolve({data:[],error:null}),
+  agentId?supabase.rpc("sales_agent_commission_balance",{p_agent_id:agentId})
+    :Promise.resolve({data:[],error:null}),
  ]);
- for(const result of [agents,ledger,payouts,preview]){
+ for(const result of [agents,ledger,payouts,preview,balance]){
    if(result.error)throw result.error;
  }
  return {agents:agents.data??[],ledger:ledger.data??[],
-   payouts:payouts.data??[],preview:preview.data??[]};
+   payouts:payouts.data??[],preview:preview.data??[],
+   balance:(Array.isArray(balance.data)?balance.data[0]:balance.data)??null};
 }
 export default function AgentCommissionAdmin(){
  const {crmRole}=useAuth();
@@ -50,9 +53,9 @@ export default function AgentCommissionAdmin(){
  const data=q.data;
  const currentEntries=data?.ledger??[];
  const loggedPayouts=data?.payouts??[];
- const earned=currentEntries.reduce((s,x)=>s+Number(x.commission_amount??0),0);
- const paid=loggedPayouts.reduce((s,x)=>s+Number(x.amount??0),0);
- const balance=earned-paid;
+ const earned=Number(data?.balance?.total_commission_accrued??0);
+ const paid=Number(data?.balance?.payouts_recorded??0);
+ const balance=Number(data?.balance?.current_balance??0);
  const previewReview=(data?.preview??[]).filter(x=>x.review_reason!==null).length;
  async function reconcile(){
    if(!agentId||busy)return;
