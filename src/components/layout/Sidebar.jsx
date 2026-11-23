@@ -69,6 +69,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       { path: "/agent-orders", label: "הזמנות סוכן", icon: ShoppingCart },
       { path: "/agent-customers", label: "הלקוחות שלי", icon: Users },
       { path: "/agent-collections", label: "מעקב גבייה", icon: Wallet },
+      { path: "/agent-commissions", label: "העמלות שלי", icon: Coins },
     ] }]
     : permittedNavigationGroups(navGroups, crmRole);
 
