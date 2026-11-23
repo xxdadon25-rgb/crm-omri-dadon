@@ -47,13 +47,16 @@ stock, send WhatsApp, or update production. **Do not merge or run the SQL yet.**
 6. A payment can be split over multiple invoices with `payment_group_id`.
    `payment_date`, status, and check clearing need distinct verification.
 7. A legacy `orders.agent` is free text, not an authorization/attribution key.
-8. The owner and Ben must be explicitly enrolled as managers using verified
-   auth IDs before agents can sign in.
+8. The owner and Ben deliberately share ONE authenticated manager account.
+   Keep this login unchanged. On exception approval, the human selects
+   \"עומרי\" or \"בן\"; record the selected name as a self-declared label
+   alongside the shared authenticated manager ID and decision timestamp.
+   This is NOT independent verification of the individual person.
 
 ## Build sequence (safe, small phases)
 
 **Gate A — identity + isolation**
-1. Validate both managers' auth IDs and protect the existing app.
+1. Validate the existing shared manager auth ID and protect the existing app.
 2. Add role detection with fail-closed states; server-level policy tests for
    agent/manager/portal/unauthenticated direct REST, including deletes.
 3. Add customer assignments and scoped product read visibility. Never expose
@@ -87,9 +90,11 @@ stock, send WhatsApp, or update production. **Do not merge or run the SQL yet.**
 
 ## Current status
 
-- DONE: repository branch, pure UI calculation helpers, **unapplied** additive
-  schema candidate with default-deny new table write access.
-- NOT DONE: live role/identity implementation, existing-table RLS corrections,
+- DONE: separate branch, pure margin/commission/approval helpers, inactive
+  route guards, node unit-test files, CI test workflow, **unapplied** additive
+  schema candidate and separate atomic decision RPC draft. Shared manager login
+  remains unchanged; approver label is self-reported.
+- NOT DONE: CI pass verification, live role/identity implementation, existing-table RLS corrections,
   server margin enforcement, WhatsApp API, manager approval UI, dashboards,
   commission engine, repeat order, automated tests, deployment.
 - No SQL from this folder has been executed in Supabase.
