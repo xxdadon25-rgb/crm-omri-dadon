@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { permittedNavigationGroups } from "@/lib/agentPermissions";
+import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 
 const navGroups = [
   {
@@ -48,6 +49,7 @@ const navGroups = [
       { path: "/quality-control", label: "מרכז בקרה", icon: Shield },
       { path: "/reports", label: "דוחות", icon: BarChart2 },
       { path: "/alerts", label: "התראות", icon: Bell },
+      ...(AGENT_FEATURES_ENABLED ? [{ path: "/agent-exceptions", label: "חריגות סוכנים", icon: Shield }] : []),
       { path: "/invoice-logs", label: "לוגי API", icon: ScrollText },
       { path: "/settings", label: "הגדרות", icon: Settings },
       { path: "/api-settings", label: "הגדרות API", icon: Link2 },
