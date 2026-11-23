@@ -64,7 +64,9 @@ const navGroups = [
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
   const { user, crmRole } = useAuth();
-  const visibleNavGroups = permittedNavigationGroups(navGroups, crmRole);
+  const visibleNavGroups = crmRole === "agent" && AGENT_FEATURES_ENABLED
+    ? [{ label: "סוכן", items: [{ path: "/agent-orders", label: "הזמנות סוכן", icon: ShoppingCart }] }]
+    : permittedNavigationGroups(navGroups, crmRole);
 
   const { data: pendingPortalOrders = [] } = useQuery({
     queryKey: ["portal-orders-pending-count"],
