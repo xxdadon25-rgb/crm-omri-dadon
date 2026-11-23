@@ -159,3 +159,29 @@ by claiming comprehensive pricing support before those tests pass.
   accounting, WhatsApp setup, full regression on restored operational data,
   and deployment/rollout authorization. No agents were activated and NO SQL
   from this folder was executed on production Supabase.
+
+## 2026-11-23 continuation: one-shot exception + delivery queue
+
+- Staged `11_approved_exception_order_NOT_APPLIED.sql`: after an approved
+  below-40% inert exception, the same active agent can create exactly one
+  order, from the stored request only. Locks request, assigned customer,
+  owner business settings and products; recalculates margin and a SHA256
+  hash against current catalog cost; refuses stale cost / altered input,
+  rejected requests, changed customer assignments, or a second order UUID.
+  Stores immutable agent attribution and opens one delivery alert. Does not
+  deduct inventory or issue an invoice. Tests live in
+  `tests/agent-db/30_approved_exception_order.sql` using synthetic data.
+- Staged `12_delivery_alert_sync_NOT_APPLIED.sql`: close/reopen the agent
+  delivery alert when the existing order `fulfilled` flag changes; do not
+  infer delivery from the financial `הושלם` status. No alternate inventory
+  or fulfillment path is introduced. Synthetic tests in
+  `tests/agent-db/40_delivery_alert_sync.sql`.
+- Added read-only `src/components/agents/AgentDeliveryQueue.jsx` to the
+  existing manager dashboard, hidden behind the disabled agent feature flag.
+  Its links lead to the existing order workflow and it cannot mutate stock.
+- All code and SQL remain only in `feature/sales-agents-foundation-20261123`.
+  NOT DEPLOYED to production Supabase or live QuickStock, no agent activated.
+- Remaining major blockers: comprehensive agent order-edit parity for mixed
+  pack/carton and total overrides; safe completion of inventory workflow;
+  settlement-aware 8% commission accounting; agent-facing order entry;
+  restored-live-schema and portal/regression tests; deployment approval.
