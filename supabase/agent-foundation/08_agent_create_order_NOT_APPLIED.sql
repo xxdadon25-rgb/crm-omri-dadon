@@ -35,6 +35,12 @@ begin
   if p_request_id is null or p_customer_id is null then
     raise exception 'invalid_order';
   end if;
+  -- Document-wide discounts and edited final totals need end-to-end
+  -- reconciliation with documentProfit before agents may use them.
+  -- Per-line discounts are supported by the trusted margin check.
+  if p_document_discount_net is distinct from 0 then
+    raise exception 'document_discount_not_yet_supported';
+  end if;
 
   -- Lock profile and assignment to serialize deactivation/unassignment.
   select ap.owner_auth_id, ap.display_name
