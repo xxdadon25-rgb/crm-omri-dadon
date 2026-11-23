@@ -123,6 +123,13 @@ returns trigger language plpgsql
 set search_path = ''
 as $immutable$
 begin
+  -- FK ON DELETE SET NULL may clear the pointer to a manager-deleted receipt.
+  -- The immutable source_key keeps its original payment UUID for audit and
+  -- the next reconciliation writes an independent compensating reversal.
+  if tg_op='UPDATE' and old.payment_id is not null
+    and new.payment_id is null
+    and (to_jsonb(new)-'payment_id')=(to_jsonb(old)-'payment_id')
+  then return new; end if;
   raise exception 'immutable_commission_ledger';
 end;
 $immutable$;
