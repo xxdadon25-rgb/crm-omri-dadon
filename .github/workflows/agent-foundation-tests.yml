@@ -15,6 +15,7 @@ on:
       - "src/pages/AgentOrders.jsx"
       - "src/pages/AgentCustomers.jsx"
       - "src/pages/AgentCollections.jsx"
+      - "src/pages/AgentCommissions.jsx"
       - "src/lib/agentCollections.js"
       - "src/lib/invoiceBalance.js"
       - "src/lib/agentOrderForm.js"
