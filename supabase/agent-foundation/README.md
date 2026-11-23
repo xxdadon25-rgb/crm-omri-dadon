@@ -95,7 +95,7 @@ stock, send WhatsApp, or update production. **Do not merge or run the SQL yet.**
 - STAGED but NOT APPLIED: SQL 01 (isolated tables), 02 (manager decision),
   03 (active-agent read-only assignment scope), 04 (owner-only customer/product
   delete policies), 05 (direct agent write restriction), 06 (atomic new customer
-  enrollment), 07 (verified-unit-cost margin preview), 08 (atomic basic agent
+  enrollment), 07 (catalog-based same-unit margin preview), 08 (atomic basic agent
   order, immutable attribution, one delivery alert). These files **must not run
   against live Supabase**.
 - DONE: GitHub Actions unit tests and static SQL contract tests. These tests
@@ -112,17 +112,21 @@ stock, send WhatsApp, or update production. **Do not merge or run the SQL yet.**
 - No agent created, no schema executed in Supabase, no operational customers/
   orders/invoices/payments/product inventory changed, and no production deploy.
 
-## Key pre-activation business constraint: verified costs
 
-On 2026-11-23, the live product table contained 740 records (28 with NULL
-purchase cost, 10 with zero purchase cost). Existing orders mix unit/carton
-purchase bases; only 21 historic lines had the explicit
-`catalog_same_sold_unit_v1` price basis. An empty verified-costs table is
-intentional: NEVER guess all 740 products have comparable unit costs, and do
-not allow a new agent to sell a product with an unknown normalized cost.
-Manager must approve the cost-per-sold-unit evidence or confirm an existing
-trusted catalogue source before production activation. This is a business
-review decision; do not seed costs automatically. Document-level discounts,
-editable order totals, credit offsets and multi-level pack/carton pricing
-require further server/JS parity tests before release. The staged writer
-currently fails closed on unsupported document-level discounts.
+## Cost handling — owner decision, 2026-11-23
+
+Use QuickStock's EXISTING catalogue purchase prices and the existing
+`documentProfit` / `cartProfit` / `packagingMath` rules; do NOT create an
+extra cost verification queue or ask the owner to re-verify all products.
+Stage 07 now reads current `products.buy_price` directly and matches the
+same-sold-unit path, including agorot rounding. Stage 08 snapshots the
+server-side catalog buy price and applies the 40% margin guard.
+
+**Not yet full parity:** `products` does NOT store universally trusted
+packaging conversions; explicit differing purchase/sale levels are therefore
+rejected until a trustworthy server-side conversion source is integrated.
+Document-wide discounts, manual final-total overrides and order edits are
+also not supported by the staged writer. These must be addressed BEFORE
+agent activation. Never use the client-supplied packaging or buy_price for
+server authorization. The new agent order flow must not mislead the owner
+by claiming comprehensive pricing support before those tests pass.
