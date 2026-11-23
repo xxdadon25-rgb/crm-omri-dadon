@@ -9,6 +9,7 @@
 // Legacy CRM pages contain manager mutations and must remain manager-only.
 export const AGENT_ALLOWED_ROUTE_PATHS = Object.freeze([
   "/agent-orders",
+  "/agent-customers",
 ]);
 
 function normalizePath(pathname) {
