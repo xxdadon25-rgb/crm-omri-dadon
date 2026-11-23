@@ -99,10 +99,10 @@ begin
 
     -- Validate all provided numeric fields before coercion; client input
     -- cannot pretend a line has a different net total from its priced items.
-    if coalesce(v_item->>'quantity','') !~ '^[0-9]+(\\.[0-9]+)?$'
-      or coalesce(v_item->>'unit_price','') !~ '^[0-9]+(\\.[0-9]+)?$'
-      or coalesce(v_item->>'total','') !~ '^[0-9]+(\\.[0-9]+)?$'
-      or coalesce(v_item->>'discount','0') !~ '^[0-9]+(\\.[0-9]+)?$'
+    if coalesce(v_item->>'quantity','') !~ '^[0-9]+([.][0-9]+)?$'
+      or coalesce(v_item->>'unit_price','') !~ '^[0-9]+([.][0-9]+)?$'
+      or coalesce(v_item->>'total','') !~ '^[0-9]+([.][0-9]+)?$'
+      or coalesce(v_item->>'discount','0') !~ '^[0-9]+([.][0-9]+)?$'
       or coalesce(v_item->>'product_id','') !~
         '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     then raise exception 'invalid_line'; end if;
