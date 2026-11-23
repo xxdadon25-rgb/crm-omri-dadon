@@ -55,7 +55,7 @@
  * at all is treated as fully credited, because that is what it meant.
  */
 
-import { toAgorot, toShekels } from "@/lib/packagingMath";
+import { toAgorot, toShekels } from "./packagingMath.js";
 
 export const CREDIT_STATE = { NONE: "none", PARTIAL: "partial", FULL: "full" };
 
