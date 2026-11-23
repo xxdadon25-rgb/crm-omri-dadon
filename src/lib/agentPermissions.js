@@ -10,6 +10,7 @@
 export const AGENT_ALLOWED_ROUTE_PATHS = Object.freeze([
   "/agent-orders",
   "/agent-customers",
+  "/agent-collections",
 ]);
 
 function normalizePath(pathname) {
