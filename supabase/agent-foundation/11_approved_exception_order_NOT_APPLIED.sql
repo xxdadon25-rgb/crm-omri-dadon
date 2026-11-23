@@ -128,6 +128,33 @@ begin
   if v_calc.needs_manager_exception is distinct from true
   then raise exception 'exception_margin_changed'; end if;
 
+  -- Verify the EXACT source cost snapshot reviewed and approved by manager.
+  -- Do not include user-provided product labels in this hash.
+  select jsonb_agg(
+    jsonb_build_object(
+      'product_id',p.id,'buy_price',p.buy_price,'active',p.is_active
+    ) order by x.ord
+  ) into v_prices
+  from jsonb_array_elements(v_items) with ordinality x(value,ord)
+  join public.products p
+    on p.id=(x.value->>'product_id')::uuid and p.user_id=v_owner;
+
+  if v_prices is null or jsonb_array_length(v_prices)<>jsonb_array_length(v_items)
+  then raise exception 'exception_prices_changed'; end if;
+
+  v_fresh_hash:=encode(extensions.digest(
+    convert_to(jsonb_build_object(
+      'agent',v_agent,'owner',v_owner,'customer',v_customer.id,
+      'items',v_items,'prices',v_prices,'margin',v_calc.margin_percent
+    )::text,'UTF8'), 'sha256'
+  ),'hex');
+
+  if v_fresh_hash is distinct from v_request.request_hash
+  then raise exception 'exception_payload_or_prices_changed'; end if;
+
+  -- Once the reviewed snapshot matches, construct ORDER line content using
+  -- a whitelist and trusted catalogue identity, SKU and displayed unit.
+  -- The browser cannot override downstream invoice/margin/stock metadata.
   select jsonb_agg(
     jsonb_build_object(
       'product_id',p.id,
@@ -146,7 +173,7 @@ begin
       'sale_level_source','confirmed',
       'packaging',null
     ) order by x.ord
-  )into v_new_items
+  ) into v_new_items
   from jsonb_array_elements(v_items) with ordinality x(value,ord)
   join public.products p
     on p.id=(x.value->>'product_id')::uuid
