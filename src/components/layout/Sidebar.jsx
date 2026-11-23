@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
+import { permittedNavigationGroups } from "@/lib/agentPermissions";
 
 const navGroups = [
   {
@@ -60,7 +61,8 @@ const navGroups = [
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, crmRole } = useAuth();
+  const visibleNavGroups = permittedNavigationGroups(navGroups, crmRole);
 
   const { data: pendingPortalOrders = [] } = useQuery({
     queryKey: ["portal-orders-pending-count"],
@@ -69,9 +71,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       if (error) return [];
       return data;
     },
+    enabled: crmRole === "manager",
     refetchInterval: 60_000,
   });
-  const pendingCount = pendingPortalOrders.length;
+  const pendingCount = crmRole === "manager" ? pendingPortalOrders.length : 0;
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "משתמש";
   const initials = displayName.charAt(0).toUpperCase();
@@ -149,7 +152,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           style={{ padding: collapsed ? "0 8px" : "0 16px", flex: 1, overflowY: "auto" }}
           className="thin-scrollbar"
         >
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.label} style={{ marginTop: 8 }}>
               {!collapsed && (
                 <p style={{
