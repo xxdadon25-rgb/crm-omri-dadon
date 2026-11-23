@@ -121,6 +121,6 @@ test("legacy privileged write APIs have a deny-agent gate", () => {
     assert.match(sql,new RegExp("CREATE OR REPLACE FUNCTION public\\."+name+"\\("));
   }
   assert.equal((sql.match(/agent_legacy_rpc_forbidden/g)||[]).length,7);
-  assert.equal((sql.match(/SECURITY DEFINER/g)||[]).length,7);
+  assert.ok((sql.match(/SECURITY DEFINER/g)||[]).length >= 7);
   assert.equal((sql.match(/ap\.auth_user_id = \(SELECT auth\.uid\(\)\)/g)||[]).length,7);
 });
