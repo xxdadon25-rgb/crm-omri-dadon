@@ -158,3 +158,51 @@ end $$;
 reset role;
 reset request.jwt.claim.sub;
 select 'agent ephemeral DB integration PASS' as result;
+
+-- Request a sub-40% exception as an inert draft: no new order or stock work.
+set role authenticated;
+set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+do $$
+declare d public.sales_agent_margin_exceptions; n_before integer; n_after integer;
+begin
+ select count(*) into n_before from public.orders;
+ d:=public.sales_agent_request_margin_exception(
+  '12121212-1212-4212-8212-121212121212',
+  '11111111-1111-4111-8111-111111111111',
+  '[{"product_id":"55555555-5555-4555-8555-555555555555",
+   "quantity":1,"unit_price":10,"total":10,"discount":0}]'::jsonb,
+  'Manager approval needed'
+ );
+ if d.status<>'pending' or d.margin_pct<>30
+   or length(d.request_hash)<>64 then
+   raise exception 'exception request not persisted as SHA256 draft'; end if;
+
+ select count(*) into n_after from public.orders;
+ if n_after<>n_before then raise exception 'exception draft created a real order'; end if;
+
+ d:=public.sales_agent_request_margin_exception(
+  '12121212-1212-4212-8212-121212121212',
+  '11111111-1111-4111-8111-111111111111',
+  '[{"product_id":"55555555-5555-4555-8555-555555555555",
+   "quantity":1,"unit_price":10,"total":10,"discount":0}]'::jsonb,
+  'Retry'
+ );
+ if d.id<>'12121212-1212-4212-8212-121212121212'::uuid
+ then raise exception 'exception retry not idempotent'; end if;
+end $$;
+
+set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+do $$
+declare okay boolean;d public.sales_agent_margin_exceptions;
+begin
+ select public.sales_agent_decide_exception(
+  '12121212-1212-4212-8212-121212121212',
+  'approved','עומרי') into okay;
+ if not okay then raise exception 'exception request approval failed'; end if;
+ select * into d from public.sales_agent_margin_exceptions
+ where id='12121212-1212-4212-8212-121212121212';
+ if d.approved_by_label<>'עומרי' or d.decided_by<>auth.uid()
+ then raise exception 'approver not recorded'; end if;
+end $$;
+reset role;
+reset request.jwt.claim.sub;
