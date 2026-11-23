@@ -12,6 +12,8 @@ on:
       - "supabase/agent-foundation/**"
       - "tests/agent-db/**"
       - "src/pages/AgentExceptions.jsx"
+      - "src/components/agents/**"
+      - "src/pages/Dashboard.jsx"
       - "src/App.jsx"
       - "src/components/layout/Sidebar.jsx"
       - "src/lib/agentFeatureFlags.js"
