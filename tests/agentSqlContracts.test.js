@@ -18,6 +18,12 @@ test("all database security changes remain explicitly unapplied", () => {
     "09_legacy_security_definer_guard_NOT_APPLIED.sql",
     "10_margin_exception_request_NOT_APPLIED.sql",
     "11_approved_exception_order_NOT_APPLIED.sql",
+    "12_delivery_alert_sync_NOT_APPLIED.sql",
+    "13_commission_preview_NOT_APPLIED.sql",
+    "14_commission_rate_snapshot_NOT_APPLIED.sql",
+    "15_commission_reconciliation_NOT_APPLIED.sql",
+    "16_manager_agent_registry_NOT_APPLIED.sql",
+    "17_commission_payout_record_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -141,4 +147,57 @@ test("approved exception creates only one order against unchanged cost snapshot"
   assert.match(sql,/false,false,v_agent_name/);
   assert.match(sql,/revoke all on function public\.sales_agent_create_approved_exception_order/);
   assert.doesNotMatch(sql,/save_order_with_inventory\(/);
+});
+
+
+test("server builds trusted catalogue item fields, not browser-supplied labels", () => {
+  for (const file of [
+    "08_agent_create_order_NOT_APPLIED.sql",
+    "11_approved_exception_order_NOT_APPLIED.sql",
+  ]) {
+    const sql=read(file);
+    for (const field of ["name","sku","unit","buy_price","meters_per_roll"]) {
+      assert.match(sql,new RegExp("'"+field+"',p\\."+field),file);
+    }
+    assert.match(sql,/jsonb_build_object\(\s*'product_id',p\.id/);
+    assert.doesNotMatch(sql,/x\.value\s*-\s*'buy_price'/);
+  }
+});
+
+test("commission preview is auth-scoped and refuses credit and overpaid ambiguity", () => {
+  const sql=read("13_commission_preview_NOT_APPLIED.sql");
+  for(const fragment of [
+    "not_authorized","missing_historical_agent_rate",
+    "invoice_overpaid_needs_allocation","credit_note_needs_reconciliation",
+    "multi_order_invoice_needs_allocation","commission_pct_attributed",
+  ])assert.ok(sql.includes(fragment),fragment);
+  assert.doesNotMatch(sql,/\binsert into public\.sales_agent_commission_entries\b/i);
+});
+
+test("commission ledger is append-only and manager-only with one reversal source key", () => {
+  const sql=read("15_commission_reconciliation_NOT_APPLIED.sql");
+  assert.match(sql,/m\.auth_user_id=auth\.uid\(\)/);
+  assert.match(sql,/pg_advisory_xact_lock/);
+  assert.match(sql,/'settlement:'\|\|v_row\.payment_id/);
+  assert.match(sql,/'reversal:'\|\|v_entry\.id/);
+  assert.match(sql,/before update or delete on public\.sales_agent_commission_entries/);
+});
+
+test("new agents remain disabled and portal identities cannot become sales agents", () => {
+  const sql=read("16_manager_agent_registry_NOT_APPLIED.sql");
+  assert.match(sql,/portal_identity_cannot_be_agent/);
+  assert.match(sql,/customer_not_owned/);
+  assert.match(sql,/p_commission_pct,false\)/);
+  assert.match(sql,/public\.sales_agent_disable/);
+  assert.doesNotMatch(sql,/is_active\s*=\s*true/);
+});
+
+test("recorded commission payout is never a bank transaction", () => {
+  const sql=read("17_commission_payout_record_NOT_APPLIED.sql");
+  assert.match(sql,/commission_payout_exceeds_available/);
+  assert.match(sql,/sales_agent_reconcile_commissions/);
+  assert.match(sql,/recorded_by_label/);
+  assert.match(sql,/p_payout_id/);
+  assert.match(sql,/not_manager/);
+  assert.doesNotMatch(sql,/from public\.payments|insert into public\.payments/i);
 });
