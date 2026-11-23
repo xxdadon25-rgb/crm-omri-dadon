@@ -39,6 +39,12 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Owner',8);
  exception when others then done=(sqlerrm='invalid_agent_identity'); end;
  if not done then raise exception 'manager identity became agent'; end if;
+ done:=false;
+ begin
+   perform public.sales_agent_register_disabled(
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd','Portal Identity',8);
+ exception when others then done=(sqlerrm='portal_identity_cannot_be_agent'); end;
+ if not done then raise exception 'customer portal identity registered as agent'; end if;
 
  -- Reassignment changes CURRENT data visibility, NOT immutable attribution.
  perform public.sales_agent_set_customer_assignment(
