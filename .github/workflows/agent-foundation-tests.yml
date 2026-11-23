@@ -114,6 +114,8 @@ jobs:
             "supabase/agent-foundation/17_commission_payout_record_NOT_APPLIED.sql"
             "tests/agent-db/90_commission_payout.sql"
             "tests/agent-db/95_overpayment_reversal.sql"
+            "supabase/agent-foundation/18_commission_balance_NOT_APPLIED.sql"
+            "tests/agent-db/98_commission_balance.sql"
           )
           for f in "${sql_files[@]}"; do
             echo "Checking $f in disposable database"
