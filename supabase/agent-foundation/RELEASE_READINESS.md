@@ -88,3 +88,26 @@ filename order**.
 
 The `00_PRELAUNCH_READ_ONLY_AUDIT.sql` checks current catalogue anomalies,
 invoice/payment linkage and function drift WITHOUT applying changes.
+
+## Additional safety regression in this development cycle
+
+- Added `18_commission_balance_NOT_APPLIED.sql` to calculate the FULL ledger
+  sum on the server (not the manager UI's limited recent activity page);
+  authenticated agents see only their own balance and managers only agents
+  of their business. Negative carryovers after later refunds remain visible.
+- Preserved existing manager receipt deletion: the staged ledger's optional
+  payment FK uses `ON DELETE SET NULL`, while `source_key` preserves the
+  original payment ID and an eventual synchronization issues ONE reversal.
+  Only this constrained FK cleanup is permitted by the immutable-entry trigger.
+  Tested deleting an original receipt without destroying its audit trail.
+- Hardened agent order snapshots to whitelist server-trusted product name,
+  SKU, sale-unit label, metres-per-roll and purchase cost from
+  `public.products`. Browser-supplied stock/invoice metadata is ignored.
+  Manager can audit these via `tests/agent-db/35_order_line_tamper.sql`.
+- Added commission overpayment detection. A receipt paid above its invoice
+  total is marked for allocation instead of accruing 8% on unmatched
+  customer credit; later edits result in a compensating ledger entry.
+- GitHub Actions run **45269948634** completed all three jobs with SUCCESS:
+  pure rules, actual SQL/RLS synthetic PostgreSQL, and Vite compilation.
+- The work remains in unmerged feature PR #3; no production table, policy,
+  payment, customer, invoice, product or stock record was changed.
