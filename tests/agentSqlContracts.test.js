@@ -11,6 +11,8 @@ test("all database security changes remain explicitly unapplied", () => {
     "02_exception_decisions_NOT_APPLIED.sql",
     "03_agent_read_rls_NOT_APPLIED.sql",
     "04_legacy_delete_hardening_NOT_APPLIED.sql",
+    "05_agent_direct_write_guard_NOT_APPLIED.sql",
+    "06_agent_customer_rpc_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -51,4 +53,28 @@ test("decision function demands a manager, current pending state and named appro
   assert.match(sql,/m\.auth_user_id = v_manager/);
   assert.match(sql,/m\.owner_auth_id = p\.owner_auth_id/);
   assert.match(sql,/return v_updated is not null/);
+});
+
+test("agent direct writes are denied even for self-owned rows", () => {
+  const sql=read("05_agent_direct_write_guard_NOT_APPLIED.sql");
+  for(const op of ["insert","update","delete"]){
+    assert.match(sql,new RegExp("as restrictive for "+op+" to authenticated","i"));
+  }
+  for(const table of ["customers","orders","products","invoices","payments","quotes","credit_notes"]){
+    assert.match(sql,new RegExp("['\"]"+table+"['\"]"));
+  }
+  assert.match(sql,/not exists \(select 1 from public\.sales_agent_profiles ap/);
+  assert.match(sql,/ap\.auth_user_id = \(select auth\.uid\(\)\)/);
+});
+
+test("new-customer RPC uses owner ID from active profile and auto assignment", () => {
+  const sql=read("06_agent_customer_rpc_NOT_APPLIED.sql");
+  assert.match(sql,/v_agent_id uuid := auth\.uid\(\)/);
+  assert.match(sql,/ap\.is_active = true/);
+  assert.match(sql,/v_owner_id/);
+  assert.match(sql,/unknown_customer_field/);
+  assert.match(sql,/public\.sales_agent_customer_assignments/);
+  assert.match(sql,/customer_request_id_in_use/);
+  assert.doesNotMatch(sql,/p_customer->>'user_id'/);
+  assert.match(sql,/revoke all on function public\.sales_agent_create_customer/);
 });
