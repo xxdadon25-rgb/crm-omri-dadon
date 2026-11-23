@@ -10,6 +10,7 @@ on:
       - "tests/agent*.test.js"
       - ".github/workflows/agent-foundation-tests.yml"
       - "supabase/agent-foundation/**"
+      - "tests/agent-db/**"
 
 permissions:
   contents: read
@@ -27,3 +28,45 @@ jobs:
           node-version: 22
       - name: Run tests
         run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js
+
+  postgres-integration:
+    name: Isolated SQL/RLS integration (synthetic data only)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply staged schema to disposable PostgreSQL container
+        shell: bash
+        run: |
+          set -euo pipefail
+          pg_container="${{ job.services.postgres.id }}"
+          sql_files=(
+            "tests/agent-db/00_fixture.sql"
+            "supabase/agent-foundation/01_schema_NOT_APPLIED.sql"
+            "supabase/agent-foundation/02_exception_decisions_NOT_APPLIED.sql"
+            "supabase/agent-foundation/03_agent_read_rls_NOT_APPLIED.sql"
+            "supabase/agent-foundation/04_legacy_delete_hardening_NOT_APPLIED.sql"
+            "supabase/agent-foundation/05_agent_direct_write_guard_NOT_APPLIED.sql"
+            "supabase/agent-foundation/06_agent_customer_rpc_NOT_APPLIED.sql"
+            "supabase/agent-foundation/07_trusted_margin_preview_NOT_APPLIED.sql"
+            "supabase/agent-foundation/08_agent_create_order_NOT_APPLIED.sql"
+            "tests/agent-db/10_integration.sql"
+          )
+          for f in "${sql_files[@]}"; do
+            echo "Checking $f in disposable database"
+            docker exec -i "$pg_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 < "$f" > /tmp/agent-last-step.log || {
+              cat /tmp/agent-last-step.log
+              exit 1
+            }
+          done
+          cat /tmp/agent-last-step.log
