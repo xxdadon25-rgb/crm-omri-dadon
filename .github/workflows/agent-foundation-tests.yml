@@ -61,6 +61,7 @@ jobs:
             "supabase/agent-foundation/07_trusted_margin_preview_NOT_APPLIED.sql"
             "supabase/agent-foundation/08_agent_create_order_NOT_APPLIED.sql"
             "supabase/agent-foundation/09_legacy_security_definer_guard_NOT_APPLIED.sql"
+            "supabase/agent-foundation/10_margin_exception_request_NOT_APPLIED.sql"
             "tests/agent-db/10_integration.sql"
             "tests/agent-db/20_legacy_rpc_security.sql"
           )
