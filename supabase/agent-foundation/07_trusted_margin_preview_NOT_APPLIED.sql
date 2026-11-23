@@ -36,8 +36,8 @@ declare
   v_unit_price numeric;
   v_discount numeric;
   v_line_total numeric;
-  v_line_sales integer;
-  v_line_cost integer;
+  v_line_sales bigint;
+  v_line_cost bigint;
   v_sales_agorot bigint := 0;
   v_cost_agorot bigint := 0;
   v_margin numeric;
@@ -113,12 +113,14 @@ begin
     -- Stored line TOTAL is the actual NET revenue per documentProfit.
     -- Guard line consistency: a malicious client cannot inflate TOTAL
     -- independently of quantity, price and discount.
-    v_line_sales := round(v_unit_price * 100 * v_quantity
-                          * (1-v_discount/100))::integer;
-    if v_line_sales <> round(v_line_total*100)::integer
+    -- Like packagingMath: round the individual quoted selling price to
+    -- agorot first, then round the discounted extended line once.
+    v_line_sales := round(round(v_unit_price*100) * v_quantity
+                          * (1-v_discount/100))::bigint;
+    if v_line_sales <> round(v_line_total*100)::bigint
     then raise exception 'inconsistent_line_total'; end if;
 
-    v_line_cost := round(v_product.buy_price*100*v_quantity)::integer;
+    v_line_cost := round(v_product.buy_price*100*v_quantity)::bigint;
     v_sales_agorot := v_sales_agorot + v_line_sales;
     v_cost_agorot := v_cost_agorot + v_line_cost;
   end loop;
