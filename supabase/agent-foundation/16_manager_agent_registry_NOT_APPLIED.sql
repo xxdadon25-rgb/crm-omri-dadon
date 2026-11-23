@@ -27,6 +27,10 @@ begin
  if exists(select 1 from public.sales_agent_managers m
    where m.auth_user_id=p_auth_user_id)
  then raise exception 'manager_cannot_be_agent'; end if;
+ if exists(select 1 from public.customer_portal_access cp
+   where cp.auth_user_id=p_auth_user_id
+     and cp.portal_deleted_at is null)
+ then raise exception 'portal_identity_cannot_be_agent'; end if;
  if nullif(pg_catalog.btrim(p_display_name),'') is null
    or pg_catalog.length(p_display_name)>100
    or p_commission_pct is null or p_commission_pct<0 or p_commission_pct>100
