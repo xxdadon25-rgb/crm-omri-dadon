@@ -3,6 +3,8 @@
 create role authenticated nologin;
 create role anon nologin;
 create schema auth;
+create schema extensions;
+create extension if not exists pgcrypto with schema extensions;
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
 $$;
