@@ -18,6 +18,7 @@ on:
       - "src/pages/AgentCommissions.jsx"
       - "src/pages/AgentManagement.jsx"
       - "src/pages/AgentDashboard.jsx"
+      - "src/pages/AgentCommissionAdmin.jsx"
       - "src/lib/agentCollections.js"
       - "src/lib/invoiceBalance.js"
       - "src/lib/agentOrderForm.js"
