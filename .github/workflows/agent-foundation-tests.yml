@@ -81,9 +81,11 @@ jobs:
             "supabase/agent-foundation/09_legacy_security_definer_guard_NOT_APPLIED.sql"
             "supabase/agent-foundation/10_margin_exception_request_NOT_APPLIED.sql"
             "supabase/agent-foundation/11_approved_exception_order_NOT_APPLIED.sql"
+            "supabase/agent-foundation/12_delivery_alert_sync_NOT_APPLIED.sql"
             "tests/agent-db/10_integration.sql"
             "tests/agent-db/20_legacy_rpc_security.sql"
             "tests/agent-db/30_approved_exception_order.sql"
+            "tests/agent-db/40_delivery_alert_sync.sql"
           )
           for f in "${sql_files[@]}"; do
             echo "Checking $f in disposable database"
