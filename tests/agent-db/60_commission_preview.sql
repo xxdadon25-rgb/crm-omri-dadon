@@ -134,7 +134,7 @@ update public.sales_agent_profiles set commission_pct=5
 where auth_user_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 set role authenticated;
 set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-do $
+do $commission_test$
 declare total numeric; pct numeric;
 begin
  select sum(commission_amount),max(commission_pct)
@@ -143,7 +143,7 @@ begin
  if total<>16 or pct<>8 then
    raise exception 'historical rate changed after agent contract update: %/%',total,pct;
  end if;
-end $;
+end $commission_test$;
 reset role;
 reset request.jwt.claim.sub;
 select 'commission preview: unique receipts, original rate, VAT, credit review PASS' as result;
