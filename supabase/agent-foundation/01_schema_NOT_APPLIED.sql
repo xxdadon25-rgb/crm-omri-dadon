@@ -79,7 +79,9 @@ create table if not exists public.sales_agent_commission_entries (
   agent_auth_id uuid not null references public.sales_agent_profiles(auth_user_id) on delete restrict,
   order_id uuid not null references public.orders(id) on delete restrict,
   invoice_id uuid not null references public.invoices(id) on delete restrict,
-  payment_id uuid references public.payments(id) on delete restrict,
+  -- Deleted manager receipts may be reversed without blocking the original
+  -- QuickStock payment delete flow. source_key retains the receipt UUID.
+  payment_id uuid references public.payments(id) on delete set null,
   entry_kind text not null check (entry_kind in ('settlement','reversal')),
   source_key text not null unique,
   settled_on date not null,
