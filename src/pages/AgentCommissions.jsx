@@ -11,6 +11,7 @@ const reasonLabels = {
   invalid_payment:"חסרים נתוני תשלום",
   missing_invoice_vat:"חסר שיעור מע״מ בחשבונית",
   invalid_invoice_total:"סכום החשבונית אינו תקין",
+  invoice_overpaid_needs_allocation:"נגבה יותר מסכום החשבונית — נדרש שיוך יתרה",
   multi_order_invoice_needs_allocation:"חשבונית הכוללת כמה הזמנות — נדרשת חלוקת גבייה",
   credited_invoice_needs_reconciliation:"החשבונית זוכתה — נדרש חישוב התאמה",
   credit_note_needs_reconciliation:"קיים זיכוי או בקשת זיכוי — נדרשת התאמה",
