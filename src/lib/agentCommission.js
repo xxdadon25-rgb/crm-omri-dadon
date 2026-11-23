@@ -6,6 +6,10 @@
 export const DEFAULT_AGENT_COMMISSION_PERCENT = 8;
 
 export function commissionForSettledGrossPayment(amountIncludingVat, invoiceVatRate, commissionPercent = DEFAULT_AGENT_COMMISSION_PERCENT) {
+  // Missing values must not silently turn into zero (Number(null) === 0).
+  if ([amountIncludingVat, invoiceVatRate, commissionPercent].some(
+    v => v === null || v === undefined || (typeof v === "string" && !v.trim())
+  )) return null;
   const amount = Number(amountIncludingVat);
   const vatRate = Number(invoiceVatRate);
   const rate = Number(commissionPercent);
