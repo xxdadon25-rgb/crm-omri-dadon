@@ -97,6 +97,7 @@ jobs:
             "tests/agent-db/20_legacy_rpc_security.sql"
             "tests/agent-db/30_approved_exception_order.sql"
             "tests/agent-db/40_delivery_alert_sync.sql"
+            "tests/agent-db/50_collection_payment_permissions.sql"
           )
           for f in "${sql_files[@]}"; do
             echo "Checking $f in disposable database"
