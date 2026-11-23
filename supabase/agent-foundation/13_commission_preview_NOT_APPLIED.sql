@@ -4,8 +4,8 @@
 -- Owner confirmed all records under Payments represent actually received
 -- funds, including cleared cheques. Existing status 'אושר' is respected.
 --
--- This is NOT the final immutable accounting ledger: the 8% rate is read
--- from the current agent profile, and credits/ambiguous invoices are flagged.
+-- This is NOT the final immutable accounting ledger: the agreed rate is read
+-- from immutable original order attribution; credits/ambiguous invoices are flagged.
 -- Do not initiate payouts or silently backfill ledger from this preview.
 begin;
 
@@ -60,9 +60,9 @@ begin
     case when reasons.reason is null
       then round(p.amount/(1+i.vat_rate/100),2)
       else null::numeric end,
-    ap.commission_pct,
+    att.commission_pct_attributed,
     case when reasons.reason is null
-      then round(p.amount/(1+i.vat_rate/100)*ap.commission_pct/100,2)
+      then round(p.amount/(1+i.vat_rate/100)*att.commission_pct_attributed/100,2)
       else null::numeric end,
     reasons.reason
   from public.sales_agent_order_attributions att
@@ -103,8 +103,9 @@ begin
                 and nullif(pg_catalog.btrim(cn.external_credit_note_number),'') is not null)
           )
       ) then 'credit_note_needs_reconciliation'
-      when ap.commission_pct is null or ap.commission_pct<0
-           or ap.commission_pct>100 then 'invalid_agent_rate'
+      when att.commission_pct_attributed is null
+           or att.commission_pct_attributed<0
+           or att.commission_pct_attributed>100 then 'missing_historical_agent_rate'
       else null::text end as reason
   ) reasons
   where att.agent_auth_id=v_agent
