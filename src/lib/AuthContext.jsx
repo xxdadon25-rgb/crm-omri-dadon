@@ -1,9 +1,10 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import { resolveCrmRole } from '@/lib/agentPermissions';
+import { AGENT_FEATURES_ENABLED } from '@/lib/agentFeatureFlags';
 
-// Disabled until trusted RLS and order RPC guards are deployed and tested.
-const AGENT_ACCESS_ENABLED = false;
+// Disabled by default until trusted DB migrations and regression tests pass.
+const AGENT_ACCESS_ENABLED = AGENT_FEATURES_ENABLED;
 
 const AuthContext = createContext();
 
