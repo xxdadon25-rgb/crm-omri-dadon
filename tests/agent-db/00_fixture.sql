@@ -28,7 +28,8 @@ create table public.customers(
 create table public.products(
   id uuid primary key,
   user_id uuid not null references auth.users(id),
-  name text, buy_price numeric, sell_price numeric,
+  name text,sku text,unit text,meters_per_roll numeric,
+  buy_price numeric,sell_price numeric,
   is_active boolean default true,
   quantity numeric default 100
 );
