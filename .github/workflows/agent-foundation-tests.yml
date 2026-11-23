@@ -88,6 +88,7 @@ jobs:
             "supabase/agent-foundation/05_agent_direct_write_guard_NOT_APPLIED.sql"
             "supabase/agent-foundation/06_agent_customer_rpc_NOT_APPLIED.sql"
             "supabase/agent-foundation/07_trusted_margin_preview_NOT_APPLIED.sql"
+            "supabase/agent-foundation/14_commission_rate_snapshot_NOT_APPLIED.sql"
             "supabase/agent-foundation/08_agent_create_order_NOT_APPLIED.sql"
             "supabase/agent-foundation/09_legacy_security_definer_guard_NOT_APPLIED.sql"
             "supabase/agent-foundation/10_margin_exception_request_NOT_APPLIED.sql"
