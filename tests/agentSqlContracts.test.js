@@ -38,7 +38,7 @@ test("read policies cover assigned client history but no agent data mutation", (
 test("old public unrestricted DELETE policies are removed in staged hardening", () => {
   const sql=read("04_legacy_delete_hardening_NOT_APPLIED.sql");
   for(const table of ["customers","products"]){
-    assert.match(sql,new RegExp('drop policy if exists " '+table+'_delete"'.trim().replace(' " ',' "'))); // overwritten below
+    assert.match(sql,new RegExp('drop policy if exists "'+table+'_delete" on public\\.'+table,"i"));
     assert.match(sql,new RegExp('create policy "'+table+'_delete" on public\\.'+table+'\\s+for delete to authenticated\\s+using \\(user_id = \\(select auth\\.uid\\(\\)\\)\\)',"i"));
   }
   assert.doesNotMatch(sql,/\bcreate policy\b[\s\S]*\busing\s*\(true\)/i);
