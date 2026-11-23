@@ -26,4 +26,4 @@ jobs:
         with:
           node-version: 22
       - name: Run tests
-        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js
+        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js
