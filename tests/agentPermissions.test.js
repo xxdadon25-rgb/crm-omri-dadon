@@ -20,10 +20,11 @@ test("manager retains all valid existing CRM pages", () => {
 });
 
 test("agent receives only dedicated safe workspace routes", () => {
-  assert.deepEqual(AGENT_ALLOWED_ROUTE_PATHS, ["/agent-orders","/agent-customers","/agent-collections"]);
+  assert.deepEqual(AGENT_ALLOWED_ROUTE_PATHS, ["/agent-orders","/agent-customers","/agent-collections,"/agent-commissions"]);
   assert.equal(canAccessCrmRoute("agent","/agent-orders"),true);
   assert.equal(canAccessCrmRoute("agent","/agent-customers"),true);
   assert.equal(canAccessCrmRoute("agent","/agent-collections"),true);
+  assert.equal(canAccessCrmRoute("agent","/agent-commissions"),true);
   for(const path of ["/","/orders","/quotes/new","/customers",
     "/invoices","/debt-summary","/customer-ledger",
     "/customers/01234567-89ab-4def-8123-456789abcdef"]) {
