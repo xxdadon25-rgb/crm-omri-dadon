@@ -116,7 +116,7 @@ begin
       or v_line_total < 0 then raise exception 'invalid_line'; end if;
 
     v_expected_total := round(v_quantity*v_unit_price*(1-v_discount/100),2);
-    if abs(v_expected_total-v_line_total) > 0.01 then
+    if v_expected_total <> v_line_total then
       raise exception 'inconsistent_line_total';
     end if;
 
