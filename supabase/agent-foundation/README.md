@@ -185,3 +185,33 @@ by claiming comprehensive pricing support before those tests pass.
   pack/carton and total overrides; safe completion of inventory workflow;
   settlement-aware 8% commission accounting; agent-facing order entry;
   restored-live-schema and portal/regression tests; deployment approval.
+
+## Agent UI continuation (2026-11-23)
+
+- Added feature-gated `/agent-orders` page with assigned customer/product
+  selectors, multiple lines, quantity, editable net selling price, line
+  discount, authoritative server 40% margin preview, normal order RPC,
+  under-40% inert exception requests, and one-time consumption of approved
+  exceptions. RPC re-validates all fields. Repeat request UUIDs survive failed
+  retries to avoid accidental duplicates.
+- Added `/agent-customers` page with assigned customers' read-only order,
+  invoice, payment and credit-note histories. Also supports new customer
+  enrollment via the safe `sales_agent_create_customer` RPC and immediate
+  agent assignment. No direct invoice/payment mutation.
+- Legacy manager pages are now forbidden to the agent role, including the
+  dashboard and old order/quote editors; agent navigation has only two safe
+  entries. The manager homepage and historical portal flow are unchanged.
+- Existing manager exception screen now shows a reviewed item's name from
+  the catalogue, quantity, net unit sale price, line discount and net total,
+  not merely the margin and reason.
+- Feature flag still defaults OFF; manager's shared login and production CRM
+  are untouched. Synthetic PostgreSQL and Vite build CI must pass for each
+  change; real Supabase restored-data regression is still required.
+- NOT DONE: agent-specific dashboard, full carton/pack normalization parity,
+  document-wide discounts/edited totals, order edits, live account provision,
+  settled-receipts commission ledger, WhatsApp, or production deployment.
+- Financial caveat: production payments are all marked `אושר`, including
+  cheques, and `receipt_status` is often NULL. Neither alone proves a
+  cheque cleared. Do not automatically accrue 8% commission on all records;
+  verified settlement events, reversals and original order attribution must
+  be implemented first.
