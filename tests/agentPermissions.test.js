@@ -19,12 +19,13 @@ test("manager retains all valid existing CRM pages", () => {
   }
 });
 
-test("agent receives only the explicit allowlist and customer details", () => {
-  for (const path of AGENT_ALLOWED_ROUTE_PATHS) {
-    assert.equal(canAccessCrmRoute("agent", path), true, path);
-  }
-  for (const path of ["/quotes/new", "/quotes/edit", "/customers/01234567-89ab-4def-8123-456789abcdef"]) {
-    assert.equal(canAccessCrmRoute("agent", path), true, path);
+test("agent receives only dedicated safe workspace routes", () => {
+  assert.deepEqual(AGENT_ALLOWED_ROUTE_PATHS, ["/agent-orders"]);
+  assert.equal(canAccessCrmRoute("agent","/agent-orders"),true);
+  for(const path of ["/","/orders","/quotes/new","/customers",
+    "/invoices","/debt-summary","/customer-ledger",
+    "/customers/01234567-89ab-4def-8123-456789abcdef"]) {
+    assert.equal(canAccessCrmRoute("agent",path),false,path);
   }
 });
 
@@ -48,7 +49,7 @@ test("navigation filtering leaves manager intact without mutating source", () =>
     { label: "hidden", items: [{path:"/backup"}] },
   ];
   const agent = permittedNavigationGroups(groups,"agent");
-  assert.deepEqual(agent.map(g=>g.items.map(i=>i.path)), [["/"],["/orders"]]);
+  assert.deepEqual(agent, []);
   assert.equal(groups[0].items.length,2);
   const manager=permittedNavigationGroups(groups,"manager");
   assert.deepEqual(manager.map(g=>g.items.length),[2,2,1]);
