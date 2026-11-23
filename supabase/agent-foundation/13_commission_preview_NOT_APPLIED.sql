@@ -87,6 +87,13 @@ begin
         then 'missing_invoice_vat'
       when i.total is null or i.total<=0
         then 'invalid_invoice_total'
+      -- Money above the invoice total is customer credit, not another sale.
+      -- Do not pay a sales commission on an unallocated overpayment.
+      when (select coalesce(sum(coalesce(p2.amount,0)),0)
+            from public.payments p2
+            where p2.invoice_id=i.id and p2.user_id=v_owner
+              and p2.status='אושר') > i.total
+        then 'invoice_overpaid_needs_allocation'
       when i.included_order_ids is not null
            and (
              pg_catalog.jsonb_typeof(i.included_order_ids)<>'array'
