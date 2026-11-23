@@ -90,11 +90,21 @@ stock, send WhatsApp, or update production. **Do not merge or run the SQL yet.**
 
 ## Current status
 
-- DONE: separate branch, pure margin/commission/approval helpers, inactive
-  route guards, node unit-test files, CI test workflow, **unapplied** additive
-  schema candidate and separate atomic decision RPC draft. Shared manager login
-  remains unchanged; approver label is self-reported.
-- NOT DONE: CI pass verification, live role/identity implementation, existing-table RLS corrections,
-  server margin enforcement, WhatsApp API, manager approval UI, dashboards,
-  commission engine, repeat order, automated tests, deployment.
-- No SQL from this folder has been executed in Supabase.
+- DONE in separate branch: inactive UI role guards, pure margin and commission
+  calculations, named approver selection and single-decision UI guard.
+- STAGED but NOT APPLIED: SQL 01 (isolated tables), 02 (manager decision),
+  03 (active-agent read-only assignment scope), 04 (owner-only customer/product
+  delete policies), 05 (direct agent write restriction), 06 (atomic new customer
+  enrollment). These files **must not run against live Supabase**.
+- DONE: GitHub Actions unit tests and static SQL contract tests. These tests
+  are not substitutes for actual RLS access tests with separate auth identities.
+- PENDING: full direct-RPC/security-definer audit, isolated Supabase clone/
+  restored snapshot, DB authentication tests with owner/agent/portal/anon,
+  verified packaging-based 40% server order RPC, order association with invoices
+  including monthly-batched invoices, payment-settlement commission ledger,
+  operational dashboards and delivery flow, WhatsApp, UI integration,
+  regression checks and production rollout.
+- Important: manager shared login continues unchanged. The chosen "עומרי"/"בן"
+  is a human-entered label on the decision, not verified individual identity.
+- No agent created, no schema executed in Supabase, no operational customers/
+  orders/invoices/payments/product inventory changed, and no production deploy.
