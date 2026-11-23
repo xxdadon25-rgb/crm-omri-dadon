@@ -15,6 +15,7 @@ test("all database security changes remain explicitly unapplied", () => {
     "06_agent_customer_rpc_NOT_APPLIED.sql",
     "07_trusted_margin_preview_NOT_APPLIED.sql",
     "08_agent_create_order_NOT_APPLIED.sql",
+    "09_legacy_security_definer_guard_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -107,4 +108,19 @@ test("agent order writer enforces 40%, immutable attribution and one delivery al
   assert.match(sql,/false,false,v_agent_name/);
   assert.match(sql,/revoke all on function public\.sales_agent_create_order/);
   assert.doesNotMatch(sql,/public\.save_order_with_inventory\(/);
+});
+
+test("legacy privileged write APIs have a deny-agent gate", () => {
+  const sql=read("09_legacy_security_definer_guard_NOT_APPLIED.sql");
+  const names=[
+    "create_order_with_inventory","save_order_with_inventory",
+    "allocate_payment_across_invoices","credit_note_confirm",
+    "credit_note_reserve","credit_note_resolve","credit_note_return_lines",
+  ];
+  for(const name of names) {
+    assert.match(sql,new RegExp("CREATE OR REPLACE FUNCTION public\\."+name+"\\("));
+  }
+  assert.equal((sql.match(/agent_legacy_rpc_forbidden/g)||[]).length,7);
+  assert.equal((sql.match(/SECURITY DEFINER/g)||[]).length,7);
+  assert.equal((sql.match(/ap\.auth_user_id = \(SELECT auth\.uid\(\)\)/g)||[]).length,7);
 });
