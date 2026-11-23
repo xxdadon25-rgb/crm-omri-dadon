@@ -66,13 +66,6 @@ create table public.customer_portal_access(
  portal_deleted_at timestamptz,
  is_active boolean default true
 );
-insert into public.customer_portal_access
-(id,customer_id,auth_user_id,is_active)
-values(
- '79797979-7979-4979-8979-797979797979',
- '11111111-1111-4111-8111-111111111111',
- 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',true
-);
 create table public.customer_product_prices(
   customer_id uuid references public.customers(id),
   product_id uuid references public.products(id),
@@ -134,6 +127,14 @@ insert into public.customers(id,user_id,name) values
 ('11111111-1111-4111-8111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Assigned Test Customer'),
 ('22222222-2222-4222-8222-222222222222','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Unassigned Test Customer'),
 ('33333333-3333-4333-8333-333333333333','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','Foreign Owner Customer');
+
+insert into public.customer_portal_access
+(id,customer_id,auth_user_id,is_active)
+values(
+ '79797979-7979-4979-8979-797979797979',
+ '11111111-1111-4111-8111-111111111111',
+ 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',true
+);
 
 insert into public.products(id,user_id,name,buy_price,sell_price) values
 ('44444444-4444-4444-8444-444444444444','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Test unit-priced product',6,10),
