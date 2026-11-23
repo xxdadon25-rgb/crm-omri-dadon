@@ -8,6 +8,7 @@
 // Agent-facing screens are dedicated and read/write only through guarded RPCs.
 // Legacy CRM pages contain manager mutations and must remain manager-only.
 export const AGENT_ALLOWED_ROUTE_PATHS = Object.freeze([
+  "/agent-dashboard",
   "/agent-orders",
   "/agent-customers",
   "/agent-collections",
