@@ -12,6 +12,11 @@ on:
       - "supabase/agent-foundation/**"
       - "tests/agent-db/**"
       - "src/pages/AgentExceptions.jsx"
+      - "src/pages/AgentOrders.jsx"
+      - "src/lib/agentOrderForm.js"
+      - "src/lib/agentPermissions.js"
+      - "src/components/ProtectedRoute.jsx"
+      - "src/lib/AuthContext.jsx"
       - "src/components/agents/**"
       - "src/pages/Dashboard.jsx"
       - "src/App.jsx"
@@ -33,7 +38,7 @@ jobs:
         with:
           node-version: 22
       - name: Run tests
-        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js
+        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js tests/agentOrderForm.test.js
 
   vite-build:
     name: Verify sales-agent UI compiles without live feature enablement
