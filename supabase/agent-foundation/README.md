@@ -215,3 +215,36 @@ by claiming comprehensive pricing support before those tests pass.
   cheque cleared. Do not automatically accrue 8% commission on all records;
   verified settlement events, reversals and original order attribution must
   be implemented first.
+
+## Agent collections: manager registers, agent follows up (2026-11-23)
+
+Owner confirmed that ALL records shown under QuickStock Payments are actual
+received/cleared payments, including recorded cheques. The agent follows up
+with the customer's payment, but ONLY the manager enters payment records.
+Never require agents to log receipts or add a separate cheque clearance flag.
+
+- Added `src/pages/AgentCollections.jsx`: agent-only read-only collection
+  priorities and signed refund-versus-debt figures, sourced from assigned
+  customers, invoices, manager-recorded payments and confirmed credits.
+- Uses existing `src/lib/invoiceBalance.js` `customerPosition` logic;
+  excludes unrelated/unlinked payments. Completeness is checked across
+  paginated authorized rows and errors don't show partial debt figures.
+  Agent can manually refresh; also background refresh and optional Realtime
+  invalidation on changes in payments/invoices/credit_notes (Realtime depends
+  on publication configuration). Actual server-side RLS remains the boundary.
+- Dedicated safe route `/agent-collections`, agent sidebar entry, and
+  `tests/agentCollections.test.js` for partial receipts, confirmed/pending
+  credits, refunds, and changes after a manager payment.
+- Disposable PostgreSQL integration `tests/agent-db/50_collection_payment_permissions.sql`
+  asserts manager payment INSERT is visible to assigned agent, while agent
+  INSERT/UPDATE/DELETE and unrelated portal read remain blocked.
+- No changes to any existing production receipt, cheque, or payment flows.
+
+**Commission calculation is a separate accounting feature:** 8% of NET cash
+actually collected from the agent's attributable order(s), using historical
+invoice VAT. Do not naïvely give commissions on every payment for every
+customer assigned to an agent; some invoices predate assignment or may be
+linked to different agents, and refunds/credits must reverse accrual. The
+entry/payout ledger exists only as staged structure, with no production
+accrual hook enabled. It needs verified invoice-order settlement allocation
+before showing a definitive commission total to the agent.
