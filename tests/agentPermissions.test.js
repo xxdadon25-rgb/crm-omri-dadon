@@ -1,0 +1,62 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  AGENT_ALLOWED_ROUTE_PATHS, canAccessCrmRoute,
+  permittedNavigationGroups, resolveCrmRole,
+} from "../src/lib/agentPermissions.js";
+
+test("unknown roles cannot access manager or agent pages", () => {
+  for (const role of [null, undefined, "customer", "staff", "admin", ""]) {
+    for (const path of ["/", "/orders", "/customers"]) {
+      assert.equal(canAccessCrmRoute(role, path), false);
+    }
+  }
+});
+
+test("manager retains all valid existing CRM pages", () => {
+  for (const path of ["/", "/orders", "/inventory", "/settings", "/revach-admin", "/backup"]) {
+    assert.equal(canAccessCrmRoute("manager", path), true);
+  }
+});
+
+test("agent receives only the explicit allowlist and customer details", () => {
+  for (const path of AGENT_ALLOWED_ROUTE_PATHS) {
+    assert.equal(canAccessCrmRoute("agent", path), true, path);
+  }
+  for (const path of ["/quotes/new", "/quotes/edit", "/customers/01234567-89ab-4def-8123-456789abcdef"]) {
+    assert.equal(canAccessCrmRoute("agent", path), true, path);
+  }
+});
+
+test("agent denied admin, financial mutations and bypass URLs", () => {
+  for (const path of [
+    "/settings", "/inventory", "/suppliers", "/expenses", "/reports",
+    "/api-settings", "/backup", "/revach-admin", "/quality-control",
+    "/portal-access", "/documents", "/invoice-logs",
+    "/import-products", "/price-migration", "/image-migration",
+    "/customers/arbitrary", "/orders/someone-else", "/customers/../settings",
+    "//settings", "settings", "/customers/a/b", "/unknown-route",
+  ]) {
+    assert.equal(canAccessCrmRoute("agent", path), false, path);
+  }
+});
+
+test("navigation filtering leaves manager intact without mutating source", () => {
+  const groups = [
+    { label: "main", items: [{path:"/"},{path:"/settings"}] },
+    { label: "sales", items: [{path:"/orders"},{path:"/suppliers"}] },
+    { label: "hidden", items: [{path:"/backup"}] },
+  ];
+  const agent = permittedNavigationGroups(groups,"agent");
+  assert.deepEqual(agent.map(g=>g.items.map(i=>i.path)), [["/"],["/orders"]]);
+  assert.equal(groups[0].items.length,2);
+  const manager=permittedNavigationGroups(groups,"manager");
+  assert.deepEqual(manager.map(g=>g.items.length),[2,2,1]);
+});
+
+test("unverified or inactive profile is denied", () => {
+  assert.equal(resolveCrmRole({verifiedManager:true}),"manager");
+  assert.equal(resolveCrmRole({activeAgent:true}),"agent");
+  assert.equal(resolveCrmRole({}),null);
+  assert.equal(resolveCrmRole({activeAgent:false}),null);
+});
