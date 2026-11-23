@@ -77,6 +77,7 @@ const AgentCustomers = lazy(() => import("@/pages/AgentCustomers"));
 const AgentCollections = lazy(() => import("@/pages/AgentCollections"));
 const AgentCommissions = lazy(() => import("@/pages/AgentCommissions"));
 const AgentManagement = lazy(() => import("@/pages/AgentManagement"));
+const AgentDashboard = lazy(() => import("@/pages/AgentDashboard"));
 
 // The exact spinner AuthenticatedApp already shows while auth resolves, hoisted
 // so the same markup serves as the chunk-loading fallback. No new component and
@@ -152,6 +153,7 @@ const AuthenticatedApp = () => {
           {AGENT_FEATURES_ENABLED && <Route path="/agent-collections" element={<AgentCollections />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-commissions" element={<AgentCommissions />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-management" element={<AgentManagement />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-dashboard" element={<AgentDashboard />} />}
           <Route path="/settings" element={<Settings />} />
           <Route path="/api-settings" element={<ApiSettings />} />
           <Route path="/invoice-logs" element={<InvoiceLogs />} />
