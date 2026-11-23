@@ -116,11 +116,16 @@ begin
 
   -- Snapshot product cost from catalogue, not browser.
   select jsonb_agg(
-    (
-      x.value - 'buy_price' - 'buy_level' - 'sale_level'
-        - 'price_basis' - 'sale_level_review' - 'sale_level_source'
-        - 'packaging'
-    ) || jsonb_build_object(
+    jsonb_build_object(
+      'product_id',p.id,
+      'name',p.name,
+      'sku',p.sku,
+      'unit',p.unit,
+      'meters_per_roll',p.meters_per_roll,
+      'quantity',(x.value->>'quantity')::numeric,
+      'unit_price',(x.value->>'unit_price')::numeric,
+      'discount',coalesce((x.value->>'discount')::numeric,0),
+      'total',(x.value->>'total')::numeric,
       'buy_price',p.buy_price,
       'buy_level','unit',
       'sale_level','unit',
@@ -128,7 +133,7 @@ begin
       'sale_level_source','confirmed',
       'packaging',null
     ) order by x.ord
-  ) into v_new_items
+  )into v_new_items
   from jsonb_array_elements(p_items) with ordinality x(value,ord)
   join public.products p
     on p.id=(x.value->>'product_id')::uuid
