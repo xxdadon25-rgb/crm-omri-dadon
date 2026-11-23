@@ -24,6 +24,7 @@ test("all database security changes remain explicitly unapplied", () => {
     "15_commission_reconciliation_NOT_APPLIED.sql",
     "16_manager_agent_registry_NOT_APPLIED.sql",
     "17_commission_payout_record_NOT_APPLIED.sql",
+    "18_commission_balance_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -200,4 +201,13 @@ test("recorded commission payout is never a bank transaction", () => {
   assert.match(sql,/p_payout_id/);
   assert.match(sql,/not_manager/);
   assert.doesNotMatch(sql,/from public\.payments|insert into public\.payments/i);
+});
+
+test("commission balance uses complete server ledger and payout totals", () => {
+  const sql=read("18_commission_balance_NOT_APPLIED.sql");
+  assert.match(sql,/sales_agent_commission_entries/);
+  assert.match(sql,/sales_agent_commission_payouts/);
+  assert.match(sql,/not_authorized/);
+  assert.match(sql,/current_balance/);
+  assert.doesNotMatch(sql,/\blimit\s+\d+\b/i);
 });
