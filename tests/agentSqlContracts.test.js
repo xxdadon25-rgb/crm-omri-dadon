@@ -13,6 +13,8 @@ test("all database security changes remain explicitly unapplied", () => {
     "04_legacy_delete_hardening_NOT_APPLIED.sql",
     "05_agent_direct_write_guard_NOT_APPLIED.sql",
     "06_agent_customer_rpc_NOT_APPLIED.sql",
+    "07_trusted_margin_preview_NOT_APPLIED.sql",
+    "08_agent_create_order_NOT_APPLIED.sql",
   ];
   for (const file of files) {
     const sql=read(file);
@@ -77,4 +79,31 @@ test("new-customer RPC uses owner ID from active profile and auto assignment", (
   assert.match(sql,/customer_request_id_in_use/);
   assert.doesNotMatch(sql,/p_customer->>'user_id'/);
   assert.match(sql,/revoke all on function public\.sales_agent_create_customer/);
+});
+
+test("server margin uses verified cost and rejects unknown cost instead of client buy_price", () => {
+  const sql=read("07_trusted_margin_preview_NOT_APPLIED.sql");
+  assert.match(sql,/sales_agent_verified_unit_costs/);
+  assert.match(sql,/observed_buy_price\s*=\s*v_product\.buy_price/);
+  assert.match(sql,/customer_not_assigned/);
+  assert.match(sql,/cost_basis_unverified/);
+  assert.match(sql,/inconsistent_line_total/);
+  assert.match(sql,/v_sum_cost\s*:=\s*v_sum_cost\s*\+\s*round\(v_quantity\*v_cost\.cost_per_sold_unit_net,2\)/);
+  assert.match(sql,/40\*v_sum_sales/);
+  assert.match(sql,/revoke all on function public\.sales_agent_check_order_margin/);
+});
+
+test("agent order writer enforces 40%, immutable attribution and one delivery alert", () => {
+  const sql=read("08_agent_create_order_NOT_APPLIED.sql");
+  assert.match(sql,/ap\.is_active=true/);
+  assert.match(sql,/customer_not_assigned/);
+  assert.match(sql,/public\.sales_agent_check_order_margin/);
+  assert.match(sql,/margin_below_minimum_request_exception/);
+  assert.match(sql,/document_discount_not_yet_supported/);
+  assert.match(sql,/public\.sales_agent_order_attributions/);
+  assert.match(sql,/public\.sales_agent_delivery_alerts/);
+  assert.match(sql,/on conflict\(order_id\) do nothing/);
+  assert.match(sql,/false,false,v_agent_name/);
+  assert.match(sql,/revoke all on function public\.sales_agent_create_order/);
+  assert.doesNotMatch(sql,/public\.save_order_with_inventory\(/);
 });
