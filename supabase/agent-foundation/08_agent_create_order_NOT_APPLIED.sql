@@ -1,7 +1,7 @@
 -- PREPARATION ONLY — DO NOT APPLY TO PRODUCTION.
 -- Requires staged SQL 01, 03, 05, 07 and real RLS/transaction tests.
 -- Creates one UNFULFILLED order with a single delivery alert + attribution.
--- Margin calculated by the server using verified per-sold-unit net costs.
+-- Margin calculated by the server using current catalog net buy prices on matched sale units.
 -- No direct stock decrement, invoice creation or payment modification.
 begin;
 
@@ -91,17 +91,19 @@ begin
     return v_order;
   end if;
 
-  -- Lock catalog product/cost rows before checking margin and inserting.
-  -- Protects against cost or product changes between validation and commit.
+  -- Lock the actual catalogue rows; never trust client buy_price.
+  if p_items is null or jsonb_typeof(p_items) <> 'array'
+    or jsonb_array_length(p_items) not between 1 and 250
+  then raise exception 'invalid_items'; end if;
   perform 1 from public.products p
-  join public.sales_agent_verified_unit_costs vc
-    on vc.product_id=p.id and vc.owner_auth_id=v_owner
-  where p.user_id=v_owner
+  where p.user_id = v_owner
     and p.id in (
       select (x.value->>'product_id')::uuid
       from jsonb_array_elements(p_items) x(value)
+      where (x.value->>'product_id') ~
+        '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     )
-  order by p.id for share of p,vc;
+  order by p.id for share;
 
   select * into v_margin
   from public.sales_agent_check_order_margin(
@@ -111,34 +113,29 @@ begin
     raise exception 'margin_below_minimum_request_exception';
   end if;
 
-  -- Document line cost snapshots are written by server, not accepted
-  -- from browser. A verified COST for each sold item is normalized.
+  -- Snapshot product cost from catalogue, not browser.
   select jsonb_agg(
-    x.value
-    - 'buy_price'
-    - 'buy_level'
-    - 'sale_level'
-    - 'price_basis'
-    - 'sale_level_review'
-    - 'sale_level_source'
-    - 'packaging'
-    || jsonb_build_object(
-      'buy_price',vc.cost_per_sold_unit_net,
+    (
+      x.value - 'buy_price' - 'buy_level' - 'sale_level'
+        - 'price_basis' - 'sale_level_review' - 'sale_level_source'
+        - 'packaging'
+    ) || jsonb_build_object(
+      'buy_price',p.buy_price,
       'buy_level','unit',
       'sale_level','unit',
-      'sale_level_source','confirmed',
       'price_basis','catalog_same_sold_unit_v1',
+      'sale_level_source','confirmed',
       'packaging',null
-    )
-    order by x.ord
+    ) order by x.ord
   ) into v_new_items
   from jsonb_array_elements(p_items) with ordinality x(value,ord)
-  join public.sales_agent_verified_unit_costs vc
-    on vc.product_id=(x.value->>'product_id')::uuid
-   and vc.owner_auth_id=v_owner;
+  join public.products p
+    on p.id=(x.value->>'product_id')::uuid
+   and p.user_id=v_owner and p.is_active is true;
 
-  if jsonb_array_length(v_new_items) <> jsonb_array_length(p_items)
-  then raise exception 'cost_basis_unverified'; end if;
+  if v_new_items is null
+    or jsonb_array_length(v_new_items) <> jsonb_array_length(p_items)
+  then raise exception 'product_not_found'; end if;
 
   v_subtotal := v_margin.net_revenue;
   v_vat := round(v_subtotal * v_settings.vat_rate / 100,2);
