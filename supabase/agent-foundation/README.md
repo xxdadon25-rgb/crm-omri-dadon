@@ -130,3 +130,32 @@ also not supported by the staged writer. These must be addressed BEFORE
 agent activation. Never use the client-supplied packaging or buy_price for
 server authorization. The new agent order flow must not mislead the owner
 by claiming comprehensive pricing support before those tests pass.
+
+## 2026-11-23 security/integration checkpoint
+
+- Staged `09_legacy_security_definer_guard_NOT_APPLIED.sql`: exact snapshots
+  of SEVEN live SECURITY DEFINER order/payment/credit-note APIs with only a
+  new early deny-agent guard. Recheck function definitions immediately before
+  applying to any environment to avoid overwriting newer live logic.
+- Staged `10_margin_exception_request_NOT_APPLIED.sql`: below-40% requests
+  become hashed inert drafts, not orders. An approval records the shared
+  login's human-selected approver (`עומרי` or `בן`). Neither request nor
+  approval changes stock or creates an order.
+- Added `src/pages/AgentExceptions.jsx` and gated route/sidebar; build-time
+  `VITE_ENABLE_SALES_AGENTS` defaults OFF. DO NOT enable until all agent
+  flows and server security gates pass.
+- Created an ephemeral PostgreSQL 16 synthetic test harness in GitHub Actions.
+  It applies staged SQL 01 through 10 to a disposable DB and verifies real
+  account isolation, 40% arithmetic, order + delivery alert idempotency,
+  agent-owned customer creation, under-margin inert request, one approval,
+  portal isolation, and direct denial of seven legacy privileged RPCs.
+  No Supabase development branch was created (could incur extra charges).
+- GitHub Actions run **45257956454** verified all THREE jobs completed with
+  `success`: pure Node unit tests, ephemeral SQL integration, and Vite build.
+- Still NOT DONE: authenticated agent self-service UI, support for all
+  legitimate product packaging conversions and edited final totals, agent
+  order modification, consuming approved exception into one real order with
+  fresh cost snapshot checking, delivery closeout, settled-receipts commission
+  accounting, WhatsApp setup, full regression on restored operational data,
+  and deployment/rollout authorization. No agents were activated and NO SQL
+  from this folder was executed on production Supabase.
