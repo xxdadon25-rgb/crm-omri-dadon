@@ -1,5 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
+import { resolveCrmRole } from '@/lib/agentPermissions';
+
+// Disabled until trusted RLS and order RPC guards are deployed and tested.
+const AGENT_ACCESS_ENABLED = false;
 
 const AuthContext = createContext();
 
@@ -7,27 +11,42 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isStaff, setIsStaff] = useState(null);
+  const [crmRole, setCrmRole] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const resolveSession = async (session) => {
     const u = session?.user ?? null;
     setUser(formatUser(u));
     setIsAuthenticated(!!u);
+    setCrmRole(null);
     if (u) {
       const STAFF_EMAILS = ['xxdadon25@gmail.com', 'a.d.shivuk555@gmail.com'];
       if (STAFF_EMAILS.includes(u.email)) {
+        setCrmRole('manager');
         setIsStaff(true);
         setIsLoadingAuth(false);
         return;
       }
 
-      const { data } = await supabase
+      const { data: staffRecord, error: staffError } = await supabase
         .from('staff_members')
         .select('id')
         .eq('auth_user_id', u.id)
         .maybeSingle();
-      setIsStaff(!!data);
+      let role = resolveCrmRole({ verifiedManager: !staffError && !!staffRecord });
+      if (!role && AGENT_ACCESS_ENABLED) {
+        const { data: agentProfile, error: agentError } = await supabase
+          .from('sales_agent_profiles')
+          .select('auth_user_id')
+          .eq('auth_user_id', u.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        role = resolveCrmRole({ activeAgent: !agentError && !!agentProfile });
+      }
+      setCrmRole(role);
+      setIsStaff(!!role);
     } else {
+      setCrmRole(null);
       setIsStaff(false);
     }
     setIsLoadingAuth(false);
@@ -47,6 +66,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     setIsStaff(null);
+    setCrmRole(null);
     if (shouldRedirect) window.location.href = '/login';
   };
 
@@ -59,6 +79,7 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated,
       isStaff,
+      crmRole,
       isLoadingAuth,
       isLoadingPublicSettings: false,
       authError: null,
