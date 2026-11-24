@@ -59,38 +59,63 @@ begin
  if not blocked then raise exception 'blocked agent product created normal order'; end if;
 end $test$;
 
--- Previously manager-approved below-threshold exception is invalidated
--- when item is blocked before creating the actual order.
-reset role;
-update public.products set sell_price=10 where id='55555555-5555-4555-8555-555555555555';
-set role authenticated;
+-- Real regression: agent requests an exception on an orderable
+-- below-40%-margin item, manager approves it, then blocks the item BEFORE
+-- the agent can materialize it. Block must override earlier approval.
+set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+do $test$
+declare e public.sales_agent_margin_exceptions;
+begin
+ e:=public.sales_agent_request_margin_exception(
+  '74747474-7474-4747-8747-747474747474',
+  '11111111-1111-4111-8111-111111111111',
+  '[{"product_id":"55555555-5555-4555-8555-555555555555",
+     "quantity":1,"unit_price":10,"total":10,"discount":0}]'::jsonb,
+  'Approved before agent-only product block');
+ if e.status<>'pending' then raise exception 'pre-block exception not pending'; end if;
+end $test$;
+
 set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 do $test$
+declare accepted boolean;
 begin
+ accepted:=public.sales_agent_decide_exception(
+  '74747474-7474-4747-8747-747474747474','approved','עומרי');
+ if accepted is distinct from true then
+  raise exception 'manager did not approve pre-block request'; end if;
+
  perform public.sales_agent_set_product_block(
   '55555555-5555-4555-8555-555555555555',true);
 end $test$;
+
 set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 do $test$
-declare blocked boolean:=false;
+declare blocked boolean:=false; n integer;
 begin
  begin
   perform public.sales_agent_create_approved_exception_order(
-   '12121212-1212-4212-8212-121212121212',
-   '73737373-7373-4737-8737-737373737373');
- exception when others then blocked=(sqlerrm='exception_already_consumed'); end;
- -- The earlier approved test already consumed this exception; separate
- -- draft fresh-test below, so this is only a no-second-order sanity check.
- if not blocked then raise exception 'already consumed approval generated order'; end if;
-
- blocked:=false;
- begin
-   perform public.sales_agent_check_order_margin(
-    '11111111-1111-4111-8111-111111111111',
-    '[{"product_id":"55555555-5555-4555-8555-555555555555",
-       "quantity":1,"unit_price":10,"total":10}]'::jsonb,0);
+   '74747474-7474-4747-8747-747474747474',
+   '75757575-7575-4757-8757-757575757575');
  exception when others then blocked=(sqlerrm='agent_product_blocked'); end;
- if not blocked then raise exception 'blocked product can request margin approval'; end if;
+ if not blocked then raise exception 'approved exception bypassed later product block'; end if;
+
+ select count(*) into n from public.orders
+ where id='75757575-7575-4757-8757-757575757575';
+ if n<>0 then raise exception 'blocked approved exception created an order'; end if;
+
+ select count(*) into n from public.sales_agent_delivery_alerts
+ where order_id='75757575-7575-4757-8757-757575757575';
+ if n<>0 then raise exception 'blocked approved exception created delivery alert'; end if;
+
+ begin
+  perform public.sales_agent_check_order_margin(
+   '11111111-1111-4111-8111-111111111111',
+   '[{"product_id":"55555555-5555-4555-8555-555555555555",
+      "quantity":1,"unit_price":10,"total":10}]'::jsonb,0);
+  raise exception 'blocked item was allowed to request new exception';
+ exception when others then
+  if sqlerrm<>'agent_product_blocked' then raise; end if;
+ end;
 end $test$;
 
 set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
