@@ -258,3 +258,14 @@ test("direct commission read RPCs revoke disabled agent but preserve manager aud
     assert.match(sql,/m\.auth_user_id=v_caller and m\.owner_auth_id=v_owner/);
   }
 });
+
+test("agent block/unblock serializes against catalogue-locked order creation", () => {
+  const blocks=read("19_agent_only_product_blocks_NOT_APPLIED.sql");
+  const normal=read("08_agent_create_order_NOT_APPLIED.sql");
+  const exception=read("11_approved_exception_order_NOT_APPLIED.sql");
+  assert.match(blocks,/where p\.id=p_product_id and p\.user_id=v_owner\s+for update;/);
+  assert.match(normal,/order by p\.id for share;/);
+  assert.match(exception,/order by p\.id for share;/);
+  assert.match(normal,/public\.sales_agent_check_order_margin/);
+  assert.match(exception,/public\.sales_agent_check_order_margin/);
+});
