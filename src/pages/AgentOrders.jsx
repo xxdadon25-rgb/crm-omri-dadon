@@ -26,6 +26,9 @@ function showError(err) {
     exception_already_consumed:"האישור כבר נוצל להזמנה אחרת.",
     margin_exception_not_required:"ההזמנה עומדת בדרישת הרווחיות; אין צורך בחריגה.",
     agent_not_active:"חשבון הסוכן אינו פעיל.",
+    invalid_manual_total:"יש להזין סכום סופי תקין, חיובי ובשתי ספרות עשרוניות לכל היותר.",
+    invalid_taxable_adjustment:"הסכום הסופי אינו מאפשר חישוב מע״מ תקין.",
+    order_request_payload_changed:"ההזמנה השתנתה מאז ניסיון השמירה הקודם. בדוק את הסכומים.",
   };
   const key=Object.keys(codes).find(k=>msg.includes(k));
   return key ? codes[key] : "הפעולה לא הושלמה. לא נוצרה הזמנה; בדוק את הנתונים ונסה שוב.";
@@ -71,6 +74,7 @@ export default function AgentOrders() {
   const [qty,setQty]=useState("1");
   const [unitPrice,setUnitPrice]=useState("");
   const [discount,setDiscount]=useState("0");
+  const [manualGrossTotal,setManualGrossTotal]=useState("");
   const [items,setItems]=useState([]);
   const [reason,setReason]=useState("");
   const [busy,setBusy]=useState(false);
@@ -119,6 +123,7 @@ export default function AgentOrders() {
       }
       setCustomerId(sourceCustomerId);
       setItems(draft.items);
+      setManualGrossTotal("");
       setReason("");
       requestIds.current.clear();
       toast.success("טיוטת הזמנה חוזרת נטענה. יש לבדוק מחירים ורווחיות לפני שמירה.");
@@ -131,14 +136,24 @@ export default function AgentOrders() {
   const products=productsQ.data??[];
   const customers=customersQ.data??[];
   const selectedProduct=products.find(p=>p.id===productId);
-  const formSignature=agentOrderSignature(customerId,items);
-  const canPreview=allowed && !!customerId && items.length>0;
+  const hasManualTotal=manualGrossTotal.trim()!=="";
+  const manualTotalValid=!hasManualTotal ||
+    (/^\\d+(?:\\.\\d{1,2})?$/.test(manualGrossTotal.trim()) &&
+      Number(manualGrossTotal)>0 && Number.isFinite(Number(manualGrossTotal)));
+  const formSignature=agentOrderSignature(customerId,items)
+    +":"+ (hasManualTotal?manualGrossTotal.trim():"regular");
+  const canPreview=allowed && !!customerId && items.length>0 && manualTotalValid;
   const marginQ=useQuery({
     queryKey:["agent-server-margin",formSignature],
     queryFn:async()=>{
-      const {data,error}=await supabase.rpc("sales_agent_check_order_margin",{
-        p_customer_id:customerId,p_items:items,p_document_discount_net:0,
-      });
+      const {data,error}=hasManualTotal
+        ?await supabase.rpc("sales_agent_preview_manual_total",{
+          p_customer_id:customerId,p_items:items,
+          p_total_gross:Number(manualGrossTotal.trim()),
+        })
+        :await supabase.rpc("sales_agent_check_order_margin",{
+          p_customer_id:customerId,p_items:items,p_document_discount_net:0,
+        });
       if(error)throw error;
       const margin=Array.isArray(data)?data[0]:data;
       if(!margin)throw Error("margin_result_missing");
@@ -163,6 +178,7 @@ export default function AgentOrders() {
       quantity:qty,unitPrice,discount});
     if(!item){toast.error("יש לבחור מוצר, כמות ומחיר מכירה תקינים");return;}
     setItems(prev=>[...prev,item]);
+    setManualGrossTotal("");
     setProductId("");
     setQty("1");setUnitPrice("");setDiscount("0");
   }
@@ -191,21 +207,33 @@ export default function AgentOrders() {
       const requestId=uniqueRequestId(isException?"exception":"order",
         formSignature);
       const {error}=isException
-        ?await supabase.rpc("sales_agent_request_margin_exception",{
-          p_request_id:requestId,p_customer_id:customerId,
-          p_items:items,p_reason:reason.trim(),
-        })
-        :await supabase.rpc("sales_agent_create_order",{
-          p_request_id:requestId,p_customer_id:customerId,
-          p_items:items,p_document_discount_net:0,p_notes:null,
-        });
+        ?hasManualTotal
+          ?await supabase.rpc("sales_agent_request_total_exception",{
+            p_request_id:requestId,p_customer_id:customerId,
+            p_items:items,p_total_gross:Number(manualGrossTotal.trim()),
+            p_reason:reason.trim(),
+          })
+          :await supabase.rpc("sales_agent_request_margin_exception",{
+            p_request_id:requestId,p_customer_id:customerId,
+            p_items:items,p_reason:reason.trim(),
+          })
+        :hasManualTotal
+          ?await supabase.rpc("sales_agent_create_order_with_total",{
+            p_request_id:requestId,p_customer_id:customerId,
+            p_items:items,p_document_discount_net:0,p_notes:null,
+            p_total_gross:Number(manualGrossTotal.trim()),
+          })
+          :await supabase.rpc("sales_agent_create_order",{
+            p_request_id:requestId,p_customer_id:customerId,
+            p_items:items,p_document_discount_net:0,p_notes:null,
+          });
       if(error)throw error;
 
       toast.success(isException
         ?"בקשת החריגה נשלחה. לא נוצרה הזמנה ולא השתנה המלאי."
         :"ההזמנה נשמרה והועברה לתור האספקה.");
       requestIds.current.clear();
-      setItems([]);setReason("");
+      setItems([]);setReason("");setManualGrossTotal("");
       await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
       await queryClient.invalidateQueries({queryKey:["sales-agent-delivery-alerts"]});
     }catch(err){
@@ -247,7 +275,7 @@ export default function AgentOrders() {
         <label className="block space-y-1">
           <span className="text-sm font-medium">לקוח משויך</span>
           <select className="w-full rounded-lg border p-2 bg-white" value={customerId}
-            disabled={busy} onChange={e=>setCustomerId(e.target.value)}>
+            disabled={busy} onChange={e=>{setCustomerId(e.target.value);setManualGrossTotal("");}}>
             <option value="">בחר לקוח</option>
             {customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -297,13 +325,27 @@ export default function AgentOrders() {
               <td className="p-2">{it.discount}%</td>
               <td className="p-2">₪{money(it.total)}</td>
               <td className="p-2"><button type="button" className="text-red-700 underline"
-                disabled={busy} onClick={()=>setItems(old=>old.filter((_,index)=>index!==i))}>הסר</button></td>
+                disabled={busy} onClick={()=>{setItems(old=>old.filter((_,index)=>index!==i));setManualGrossTotal("");}}>הסר</button></td>
             </tr>)}</tbody>
           </table>
         </div>}
         {items.length>0&&<p className="font-semibold">
           סה״כ לפני מע״מ: ₪{money(items.reduce((sum,item)=>sum+item.total,0))}
         </p>}
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">סה״כ לתשלום כולל מע״מ — שינוי ידני (רשות)</span>
+          <input type="number" min="0.01" step="0.01" inputMode="decimal"
+            className="w-full max-w-xs rounded-lg border p-2" value={manualGrossTotal}
+            disabled={busy} onChange={e=>setManualGrossTotal(e.target.value)}
+            placeholder="ללא שינוי — חישוב רגיל"/>
+          <span className="block text-xs text-slate-500">
+            במקרה של שינוי, השרת מחשב מחדש את הרווחיות ואת התאמת המע״מ.
+            מתחת ל־40% נדרש אישור מנהל לפני יצירת ההזמנה.
+          </span>
+          {!manualTotalValid&&<span role="alert" className="text-sm text-red-700">
+            סכום סופי חייב להיות חיובי ובדיוק של עד שתי ספרות אחרי הנקודה.
+          </span>}
+        </label>
         {canPreview&&<div className="rounded-lg bg-slate-50 p-3 text-sm">
           {marginQ.isFetching&&"בודק רווחיות בשרת..."}
           {marginQ.isError&&<span className="text-red-700">
@@ -312,6 +354,8 @@ export default function AgentOrders() {
           {!marginQ.isFetching&&!marginQ.isError&&margin&&
             <span className={margin.allowed?"text-green-700":"text-orange-700"}>
               רווחיות כוללת לפני מע״מ: {Number(margin.margin_percent).toFixed(2)}%
+              {hasManualTotal&&<> · הכנסה נטו מותאמת: ₪{money(margin.effective_net_revenue)}
+                · מע״מ: ₪{money(margin.vat_amount)}</>}
               {margin.allowed?" — ניתן לשמור הזמנה":" — נדרש אישור חריגה"}
             </span>}
         </div>}
