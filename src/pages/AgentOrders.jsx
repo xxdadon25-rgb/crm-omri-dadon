@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
-import { buildAgentLine, agentOrderSignature } from "@/lib/agentOrderForm";
+import { buildAgentLine, agentOrderSignature, agentProductCanBeOrdered } from "@/lib/agentOrderForm";
 
 const money = value => Number(value ?? 0).toLocaleString("he-IL", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -33,7 +33,7 @@ async function loadAgentProducts() {
     .select("id,name,sku,unit,buy_price,sell_price,is_active,quantity")
     .eq("is_active",true).order("name");
   if(error)throw error;
-  return data??[];
+  return (data??[]).filter(agentProductCanBeOrdered);
 }
 async function loadAgentCustomers() {
   const { data, error }=await supabase.from("customers")
