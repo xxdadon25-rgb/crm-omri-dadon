@@ -3,6 +3,15 @@
 -- Not a production-schema restore; never run against the live database.
 reset role;
 reset request.jwt.claim.sub;
+-- Test-only privileged inspection: real manager users do NOT receive direct
+-- ledger SELECT permissions, but the disposable fixture can verify effects.
+create function public.test_agent_inventory_effect(p_order uuid,p_product uuid)
+returns numeric language sql stable security definer set search_path = ''
+as $test_effect$
+ select net_deducted from public.order_inventory_effects
+ where order_id=p_order and product_id=p_product
+$test_effect$;
+grant execute on function public.test_agent_inventory_effect(uuid,uuid) to authenticated;
 insert into public.products(id,user_id,name,sku,unit,buy_price,sell_price,quantity)
 values('91919191-9191-4919-8919-919191919191',
        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -34,8 +43,7 @@ begin
     '{"fulfilled":true}'::jsonb,false);
  select quantity into qty from public.products
  where id='91919191-9191-4919-8919-919191919191';
- select net_deducted into effect from public.order_inventory_effects
- where order_id=r.id and product_id='91919191-9191-4919-8919-919191919191';
+ select public.test_agent_inventory_effect(r.id,'91919191-9191-4919-8919-919191919191') into effect;
  if r.fulfilled is distinct from true or r.inventory_deducted is distinct from true
     or qty<>17 or effect<>3
  then raise exception 'existing manager fulfilment did not deduct 3 units exactly'; end if;
@@ -58,8 +66,7 @@ begin
     '{"fulfilled":false}'::jsonb,false);
  select quantity into qty from public.products
  where id='91919191-9191-4919-8919-919191919191';
- select net_deducted into effect from public.order_inventory_effects
- where order_id=r.id and product_id='91919191-9191-4919-8919-919191919191';
+ select public.test_agent_inventory_effect(r.id,'91919191-9191-4919-8919-919191919191') into effect;
  select count(*) into open_alerts from public.sales_agent_delivery_alerts
  where order_id=r.id and closed_at is null;
  if qty<>20 or effect<>0 or r.inventory_deducted is distinct from false
