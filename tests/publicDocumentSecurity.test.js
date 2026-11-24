@@ -14,7 +14,7 @@ const allowedBusiness=[
 ];
 function fields(source,constantName) {
   const found=source.match(new RegExp(
-    "const "+constantName+" = \\[([\\s\\S]*?)\\]\\.join\\("));
+    "const "+constantName+"\\s*=\\s*\\[([\\s\\S]*?)\\]\\.join\\("));
   assert.ok(found,"missing "+constantName);
   return [...found[1].matchAll(/"([^"]+)"/g)].map(x=>x[1]);
 }
@@ -44,7 +44,7 @@ test("existing credit note UUID link uses safe single-document endpoint",()=>{
  assert.doesNotMatch(creditPage,/\.from\(\s*["']business_settings["']\s*\)/);
  assert.match(creditFn,/UUID_RE\.test\(id\)/);
  assert.doesNotMatch(creditFn,/\.select\(["']\*["']\)/);
- assert.match(creditFn,/credit_note: \{/);
+ assert.match(creditFn,/credit_note:\s*\{/);
 });
 test("existing public order PDF keeps endpoint and no longer directly reads settings",()=>{
  assert.match(orderPage,/supabase\.functions\.invoke\(\s*"public-order-pdf"/);
