@@ -110,6 +110,7 @@ jobs:
             "tests/agent-db/26_public_quote_access_security.sql"
             "supabase/agent-foundation/26_manager_only_sequence_wrappers_NOT_APPLIED.sql"
             "tests/agent-db/28_manager_only_sequence_security.sql"
+            "tests/agent-db/29_verified_sold_units.sql"
             "tests/agent-db/20_legacy_rpc_security.sql"
             "tests/agent-db/25_margin_cost_basis.sql"
             "tests/agent-db/30_approved_exception_order.sql"
