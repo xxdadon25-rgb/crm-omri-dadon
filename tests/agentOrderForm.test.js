@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAgentLine, agentOrderSignature } from "../src/lib/agentOrderForm.js";
+import { buildAgentLine, agentOrderSignature, agentProductCanBeOrdered } from "../src/lib/agentOrderForm.js";
 import { lineProfit } from "../src/lib/packagingMath.js";
 import { cartLineForProfit } from "../src/lib/cartProfit.js";
 
@@ -63,4 +63,16 @@ test("customer and item changes must invalidate the old margin preview key", () 
   assert.notEqual(first,agentOrderSignature("customer-a",[
     buildAgentLine({product,quantity:2,unitPrice:10}),
   ]));
+});
+
+test("agent picker omits incomplete-cost entries without deleting catalog records", () => {
+  const base={id:product.id,is_active:true,buy_price:6,sell_price:10,quantity:0};
+  assert.equal(agentProductCanBeOrdered(base),true);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:null}),false);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:0}),false);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:-1}),false);
+  assert.equal(agentProductCanBeOrdered({...base,is_active:false}),false);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:0.01,sell_price:4.15}),false);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:60,sell_price:10}),false);
+  assert.equal(agentProductCanBeOrdered({...base,buy_price:9.8,sell_price:13.9,quantity:0}),true);
 });
