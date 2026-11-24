@@ -58,7 +58,7 @@ begin
    );
  exception when others then blocked=(sqlerrm='cost_missing');
  end;
- if not blocked then raise exception 'unknown zero cost generated fake 100% margin'; end if;
+ if not blocked then raise exception 'unknown zero cost generated fake 100 percent margin'; end if;
 
  -- Even if cents match after rounding, stored third-decimal totals are
  -- NOT the canonical two-decimal figure checked against margin.
