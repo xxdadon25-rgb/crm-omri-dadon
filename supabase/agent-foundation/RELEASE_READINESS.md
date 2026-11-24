@@ -655,3 +655,31 @@ or owner product mutations are permitted.
   restore/isolated rehearsal nor live public PDF/portal checks.
 - No live installation, data mutations, configuration switches, or paid
   services.
+
+
+## 2026-11-24 — CLEAN 27-migration release-order rehearsal PASS
+
+- New tests/agent-db/rehearse_release_manifest.sh builds an independent
+  disposable PostgreSQL database inside GitHub Actions. It uses fictional
+  schema/data only; no Supabase production URL, password or project ref.
+- Rehearsal executes EXACT RELEASE_MANIFEST_REVIEW_ONLY.json ordering:
+  22 core migrations, 3 public-document security migrations and 2 legacy
+  counter security migrations. The owner-manager test identity is seeded
+  only after table 01 was installed. The script verifies all expected
+  objects and that old global quote/settings reads are removed, anonymous
+  settings SELECT is revoked, and the manager legacy quote counter works.
+- First test found a fixture-only cluster-global role collision when
+  the second database was initialized. Adjusted fixture setup so roles
+  are created only once per disposable PostgreSQL CLUSTER; this does
+  not change any production migration or user role.
+- Re-ran CI: GitHub Actions 45485459157. All 3 jobs SUCCESS.
+  Inspected SQL job log and confirmed exact output:
+  "27-file staged release manifest applied in clean synthetic PostgreSQL: PASS".
+  The run additionally executes earlier interleaved SQL/financial tests,
+  negative owner-seed rollback test, Node rules and Vite/Edge builds.
+- THIS IS NOT a production-schema-complete restored QuickStock rehearsal.
+  It does not use real customer orders, Auth sessions, portal credentials,
+  external invoices, live public PDFs, or a paid Supabase branch.
+- The production release remains ON HOLD until owner-approved coordinated
+  Edge/frontend/RLS rollout, full schema-faithful rehearsal, browser smoke
+  tests and first agent provisioning. Do not merge or apply staged SQL.
