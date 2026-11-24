@@ -87,6 +87,15 @@ begin
  select count(*) into n from public.customers
  where id='11111111-1111-4111-8111-111111111111';
  if n<>0 then raise exception 'disabled agent still sees customer'; end if;
+ -- Commission preview must also be revoked, including via a forged direct
+ -- RPC request that bypasses the hidden agent navigation.
+
+ begin
+   perform public.sales_agent_commission_preview();
+   raise exception 'disabled agent accessed commission preview';
+ exception when others then
+   if sqlerrm<>'agent_not_active' then raise; end if;
+ end;
 end $test$;
 reset role;
 reset request.jwt.claim.sub;
