@@ -632,3 +632,26 @@ or owner product mutations are permitted.
   explicit approval before any production migration.
 - No live product/price/stock/payment/credit modifications, no PR merge,
   no new cloud database branch and no added charges.
+
+
+## 2026-11-24 — Installation dependency manifest (review only)
+
+- Created RELEASE_MANIFEST_REVIEW_ONLY.json covering all 27 staged
+  NOT_APPLIED SQL migrations EXACTLY ONCE, separate from the synthetic CI
+  fixture/test order. Three explicit owner-approved gates:
+  * core (22 files): requires full isolated rehearsal, backup/rollback plan,
+    explicit owner-manager identity provisioning;
+  * public_docs_security (3 files): deploy/verify three document Edge
+    Functions and matching frontend with agent flag OFF; smoke-test
+    anonymous links and portal before closing public quote/settings read;
+  * legacy_counter_security (2 files): management identity seed, legacy
+    counter callers compatibility, separate approval.
+- tests/agentReleaseManifest.test.js checks migration coverage against CI,
+  prohibited production execution, required prerequisites and SQL
+  dependencies. No automatic database execution is attached to the manifest.
+- GitHub Actions 45484878230: all three jobs SUCCESS, including manifest
+  contract, synthetic PostgreSQL tests, Vite, and public Edge parsing.
+- Still NOT production-schema-faithful: this does not substitute for full
+  restore/isolated rehearsal nor live public PDF/portal checks.
+- No live installation, data mutations, configuration switches, or paid
+  services.
