@@ -39,12 +39,12 @@ test("public PDF responses contain only deliberately approved business identity 
  }
 });
 test("existing credit note UUID link uses safe single-document endpoint",()=>{
- assert.match(creditPage,/supabase\\.functions\\.invoke\\(\\s*"public-credit-note-pdf"/);
- assert.doesNotMatch(creditPage,/\\.from\\(\\s*["']credit_notes["']\\s*\\)/);
- assert.doesNotMatch(creditPage,/\\.from\\(\\s*["']business_settings["']\\s*\\)/);
- assert.match(creditFn,/UUID_RE\\.test\\(id\\)/);
- assert.doesNotMatch(creditFn,/\\.select\\(["']\\*["']\\)/);
- assert.match(creditFn,/credit_note: \\{/);
+ assert.match(creditPage,/supabase\.functions\.invoke\(\s*"public-credit-note-pdf"/);
+ assert.doesNotMatch(creditPage,/\.from\(\s*["']credit_notes["']\s*\)/);
+ assert.doesNotMatch(creditPage,/\.from\(\s*["']business_settings["']\s*\)/);
+ assert.match(creditFn,/UUID_RE\.test\(id\)/);
+ assert.doesNotMatch(creditFn,/\.select\(["']\*["']\)/);
+ assert.match(creditFn,/credit_note: \{/);
 });
 test("existing public order PDF keeps endpoint and no longer directly reads settings",()=>{
  assert.match(orderPage,/supabase\.functions\.invoke\(\s*"public-order-pdf"/);
