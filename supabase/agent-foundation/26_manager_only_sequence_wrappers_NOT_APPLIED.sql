@@ -6,6 +6,21 @@
 -- Requires exact confirmation that no external anonymous portal/link calls
 -- get_next_order_number/get_next_quote_number before production rollout.
 begin;
+-- Do not replace legacy counters unless every existing settings owner is
+-- seeded as a manager; otherwise ordinary quote creation would break.
+do $owner_seed_gate$
+begin
+  if not exists (select 1 from public.business_settings s)
+     or exists (
+       select 1 from public.business_settings s
+       where not exists (
+         select 1 from public.sales_agent_managers m
+         where m.owner_auth_id=s.user_id and m.auth_user_id=s.user_id
+       )
+     )
+  then raise exception 'owner_manager_identity_not_seeded'; end if;
+end;
+$owner_seed_gate$;
 create or replace function public.get_next_order_number()
 returns bigint language plpgsql security definer set search_path=''
 as $order_manager_only$
