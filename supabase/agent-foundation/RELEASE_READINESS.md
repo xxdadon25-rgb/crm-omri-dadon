@@ -342,3 +342,38 @@ No new paid Supabase project, branch or third-party service without prior approv
 - NEXT: trustworthy server order-write and exception-hash binding for gross
   override + full accounting/invoicing E2E, before enabling agent editing.
 - No production migrations, UI feature enablement or business data writes.
+
+
+## 2026-11-24 — Verified manual total end-to-end branch integration
+
+- New server order writer in 22_manual_total_order_writes_NOT_APPLIED.sql
+  persists manual gross total, recomputed VAT and existing goods subtotal
+  atomically; it rejects a changed retry payload and any under-40%-margin
+  order lacking manager approval. Existing 5-argument order writer unchanged.
+- A separate margin-exception request hashes selected items, trusted current
+  costs, gross total, net-revenue result and VAT amount. The existing one-time
+  manager-approved exception materializer was extended to recognize this
+  additional HASH-BOUND request form without changing old exception behavior.
+  A manager decision cannot be reused for another order or another VAT split.
+- AgentOrders.jsx now displays an optional manual gross total with strict
+  two-decimal validation and routes through trusted server preflight and
+  server order/exception RPCs; repeat-order drafts clear stale manual totals.
+- A new synthetic end-to-end scenario consumes a manager-approved 106.20
+  gross adjusted order, creates its related 106.20 invoice, records TWO
+  53.10 partial payments, verifies 8% of pre-VAT received money (7.20 total),
+  idempotently reconciles and reverses the precise accrued commission upon
+  confirmed credit. No automatic payout or actual money transfer.
+- Added regression that changing the business VAT rate after approval
+  invalidates the approved adjusted-total request WITHOUT creating an order.
+- CI run 45476926733 passed all three jobs after UI wiring.
+- CI run 45477156509 passed all three jobs after VAT-hash strengthening.
+- CI run 45477370220 passed all three jobs including payment + 8% commission
+  + credit reversal integrated regression.
+- These integrations run against synthetic PostgreSQL fixtures, NOT a
+  full restored QuickStock production database. They do not establish
+  issuance through live Finbot/Rווח פלוס, nor real production deployment.
+- No deployment, paid resource, real customer order or production data
+  changes. Verified past agent-only product selections are not automatically
+  changed by this work. Remaining launch gates: exact actual-schema E2E,
+  mixed packaging evidence for affected products, and explicit rollout
+  permission + secure Auth provisioning for first real agent.
