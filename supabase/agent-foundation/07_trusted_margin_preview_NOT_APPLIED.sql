@@ -115,9 +115,15 @@ begin
     -- price normally passes; a very large ratio is a REVIEW, not a 99%-margin
     -- approval. Never infer a packaging multiplier from a price alone.
     -- This rule applies even if the browser FORGES price_basis.
-    if v_unit_price > 0 and
-       (v_product.buy_price > v_unit_price*3
-        or v_unit_price > v_product.buy_price*12)
+    -- Also inspect the catalogue's OWN reference sale price. Otherwise
+    -- an agent can bypass a known unit/carton anomaly by entering a different
+    -- selling price which happens to fall inside the suspicious ratio band.
+    if (v_product.sell_price is not null and v_product.sell_price > 0
+        and (v_product.buy_price > v_product.sell_price*3
+          or v_product.sell_price > v_product.buy_price*12))
+       or (v_unit_price > 0 and
+         (v_product.buy_price > v_unit_price*3
+          or v_unit_price > v_product.buy_price*12))
     then raise exception 'sale_unit_needs_clarification'; end if;
 
     -- Existing JS lineProfit same-level behavior:
