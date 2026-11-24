@@ -233,3 +233,17 @@ test("server rejects unverified packaging price bases and fractional-cent totals
   assert.match(sql,/sale_unit_needs_clarification/);
   assert.match(sql,/inconsistent_line_total/);
 });
+
+
+test("agent-only product block cannot alter owner catalogue and is checked by server", () => {
+  const sql=read("19_agent_only_product_blocks_NOT_APPLIED.sql");
+  assert.match(sql,/create table if not exists public\.sales_agent_product_blocks/);
+  assert.match(sql,/public\.sales_agent_is_manager\(owner_auth_id\)/);
+  assert.match(sql,/auth_user_id=v_owner and m\.owner_auth_id=v_owner/);
+  assert.match(sql,/public\.sales_agent_set_product_block/);
+  assert.doesNotMatch(sql,/\bupdate\s+public\.products\b/i);
+  assert.doesNotMatch(sql,/\bdelete\s+from\s+public\.products\b/i);
+  const margin=read("07_trusted_margin_preview_NOT_APPLIED.sql");
+  assert.match(margin,/from public\.sales_agent_product_blocks b/);
+  assert.match(margin,/agent_product_blocked/);
+});
