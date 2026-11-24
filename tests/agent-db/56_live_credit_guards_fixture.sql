@@ -55,3 +55,15 @@ for each row execute function public.credit_notes_guard_finbot_status();
 create trigger credit_notes_freeze_reserved_guard
 before update on public.credit_notes
 for each row execute function public.credit_notes_freeze_reserved();
+
+-- Real production CHECK constraints also reject a confirmed credit without
+-- external tax-document evidence. The earlier synthetic schema omitted this.
+alter table public.credit_notes
+ add constraint credit_notes_confirmed_needs_evidence_check
+ check (finbot_status is distinct from 'confirmed'
+        or (external_credit_note_number is not null
+            and btrim(external_credit_note_number) <> ''));
+alter table public.credit_notes
+ add constraint credit_notes_finbot_status_check
+ check (finbot_status is null
+        or finbot_status in ('pending','confirmed','failed','uncertain'));
