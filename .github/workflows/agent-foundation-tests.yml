@@ -115,6 +115,8 @@ jobs:
             "tests/agent-db/70_commission_reconciliation.sql"
             "supabase/agent-foundation/16_manager_agent_registry_NOT_APPLIED.sql"
             "tests/agent-db/80_agent_registry.sql"
+            "supabase/agent-foundation/20_agent_activation_NOT_APPLIED.sql"
+            "tests/agent-db/85_agent_activation.sql"
             "supabase/agent-foundation/17_commission_payout_record_NOT_APPLIED.sql"
             "tests/agent-db/90_commission_payout.sql"
             "tests/agent-db/95_overpayment_reversal.sql"
