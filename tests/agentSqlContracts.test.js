@@ -227,6 +227,7 @@ test("server rejects unverified packaging price bases and fractional-cent totals
   const sql=read("07_trusted_margin_preview_NOT_APPLIED.sql");
   assert.match(sql,/v_product\.buy_price <= 0/);
   assert.match(sql,/v_product\.buy_price > v_unit_price\*3/);
+  assert.match(sql,/v_product\.sell_price > v_product\.buy_price\*12/);
   assert.match(sql,/v_unit_price > v_product\.buy_price\*12/);
   assert.match(sql,/v_line_total is distinct from round\(v_line_total,2\)/);
   assert.match(sql,/sale_unit_needs_clarification/);
