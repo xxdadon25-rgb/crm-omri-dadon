@@ -8,6 +8,14 @@ values (
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  'Unverified zero-cost item',0,10,true,'חבילה'
 );
+-- Catalogue reference itself reveals an unverified cost/sale basis.
+-- Even changing the offered sale price must NOT evade a trusted source flag.
+insert into public.products(id,user_id,name,buy_price,sell_price,is_active,unit)
+values (
+ '68686868-6868-4868-8868-686868686868',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 'Suspicious catalogue reference cost',0.01,4.15,true,'יחידה'
+);
 set role authenticated;
 set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
@@ -59,6 +67,20 @@ begin
  exception when others then blocked=(sqlerrm='cost_missing');
  end;
  if not blocked then raise exception 'unknown zero cost generated fake 100 percent margin'; end if;
+
+ -- The reference catalog price is more than 12x its declared purchase
+ -- price; an agent may not evade that review by quoting only 0.10.
+ blocked:=false;
+ begin
+   perform public.sales_agent_check_order_margin(
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"68686868-6868-4868-8868-686868686868",
+        "quantity":1,"unit_price":0.10,"total":0.10,
+        "price_basis":"catalog_same_sold_unit_v1"}]'::jsonb,0
+   );
+ exception when others then blocked=(sqlerrm='sale_unit_needs_clarification');
+ end;
+ if not blocked then raise exception 'edited sale price bypassed catalog price basis review'; end if;
 
  -- Even if cents match after rounding, stored third-decimal totals are
  -- NOT the canonical two-decimal figure checked against margin.
