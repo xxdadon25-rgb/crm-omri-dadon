@@ -20,7 +20,7 @@ export function previewAgentManualTotal({lineSubtotalNet,manualTotalGross,vatRat
 
   if (![subtotal,gross,vat,cost].every(Number.isFinite) ||
       !cents(subtotal) || !cents(gross) || !cents(cost) ||
-      vat<0 || vat>100 || subtotal<=0 || gross<=0) {
+      vat<0 || vat>100 || subtotal<=0 || gross<=0 || cost<=0) {
     return {ok:false,reason:"invalid_document_total"};
   }
   const adjustmentNet=r2(gross/(1+vat/100)-subtotal);
