@@ -10,6 +10,9 @@ const r2 = n => Math.round(n * 100) / 100;
 const cents = n => Number.isFinite(n) && n >= 0 && r2(n) === n;
 
 export function previewAgentManualTotal({lineSubtotalNet,manualTotalGross,vatRatePercent,netCost}) {
+  if([lineSubtotalNet,manualTotalGross,vatRatePercent,netCost].some(x=>x===null || x===undefined || x==="")){
+    return {ok:false,reason:"invalid_document_total"};
+  }
   const subtotal=Number(lineSubtotalNet);
   const gross=Number(manualTotalGross);
   const vat=Number(vatRatePercent);
