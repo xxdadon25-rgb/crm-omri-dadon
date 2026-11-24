@@ -82,3 +82,31 @@
 
 **No production migrations, Edge Functions, frontend deployments, data edits,
 credentials rotations, new paid project, or first agent activation occurred.**
+
+
+## 2026-11-24 — Verified deployment baseline and manager counter gate
+
+- READ ONLY Vercel project check: crm-omri-dadon, project
+  prj_VQ7F7V5a2mQl6DNkrqn7bAXiAZcE. Current reported production
+  deployment dpl_SJatfNAS6TkTpEEE4jryGMpQVP8K is READY from main,
+  SHA bcbb2b258c4f971b0f986d3a44f2baaf1e74a6bb.
+  Feature branch deployments are separate PREVIEW, not production.
+- READ ONLY Supabase check: public-order-pdf is currently ACTIVE v5.
+  Deployed version does NOT yet return a business profile.
+  The new staged public-order React page requires this business object;
+  never deploy that page before upgrading the corresponding Edge Function.
+- Exact owner-approved rollout order: preserve Vercel/Edge rollback targets;
+  deploy and verify all three safe public document Edge endpoints; deploy
+  matched frontend with agent flag OFF; test existing anonymous UUID
+  quote/order/credit links and portal/owner quote creation; ONLY THEN
+  change public quote/settings RLS and recheck anon grants.
+- Stage 26 now fails atomically with owner_manager_identity_not_seeded
+  unless every existing business_settings owner has a self-owned
+  sales_agent_managers record. Read-only production count: one owner
+  settings record. This is NOT evidence that any new manager identity
+  has been provisioned; stage 01 schema and deliberate seed are prerequisites.
+- Existing public settings access may expose API credential columns:
+  after approved closure, review credential rotation with providers
+  without reading, logging or embedding secret values in GitHub.
+- No feature deployment, production SQL migration, production write or
+  paid infrastructure was made in this work.
