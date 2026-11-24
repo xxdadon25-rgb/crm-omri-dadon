@@ -8,6 +8,21 @@ export const agentMoney = value => {
   return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : null;
 };
 
+/**
+ * Hide catalog entries that the trusted margin RPC would refuse even before
+ * a line is added. This only simplifies selection; the RPC is authoritative.
+ * Quantity zero is not filtered: the existing owner controls fulfilment.
+ */
+export function agentProductCanBeOrdered(product) {
+  if (!product || product.is_active === false) return false;
+  const cost = Number(product.buy_price);
+  const catalogSale = Number(product.sell_price);
+  if (product.buy_price == null || !Number.isFinite(cost) || cost <= 0) return false;
+  if (product.sell_price != null && Number.isFinite(catalogSale) && catalogSale > 0 &&
+      (cost > catalogSale * 3 || catalogSale > cost * 12)) return false;
+  return true;
+}
+
 export function buildAgentLine({ product, quantity, unitPrice, discount = 0 }) {
   const q = Number(quantity);
   const price = Number(unitPrice);
