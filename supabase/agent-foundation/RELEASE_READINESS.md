@@ -529,3 +529,29 @@ or owner product mutations are permitted.
   Do not merge the staged frontend or revoke public table privileges
   without deploying the matching safe Edge Functions and verifying
   existing links. No new paid services are necessary for this plan.
+
+
+## 2026-11-24 — Last completed compatibility checkpoint
+
+- The seven legacy function bodies match live definitions after removal
+  of the proposed agent guard, as previously documented.
+- Staged public quote/order/credit-note PDF sources and owner-safe
+  business-settings scope tested with synthetic SQL and static checks.
+- NEW: guarded legacy number-counter migration (stage 26) aborts
+  transaction if existing QuickStock owners have not yet been seeded as
+  explicit owner-manager identities. This prevents accidentally breaking
+  the existing quote numbering path.
+- NEW: staged public-order-pdf responses are marked Cache-Control:no-store;
+  all three public document Edge sources have tested no-cache contract.
+- GitHub Actions run 45482417013 passed ALL 3 jobs: Node security/rules,
+  isolated PostgreSQL RLS and UI plus staged public Edge builds.
+- Vercel read-only production baseline: `main` commit
+  bcbb2b258c4f971b0f986d3a44f2baaf1e74a6bb. Separate feature branch
+  previews are not a production release. Deployed public-order-pdf is v5
+  and does NOT return the new `business` response required by branch UI.
+- Next launch blockers are real anonymous PDF/portal integration smoke
+  checks AFTER authorized deployment of matching Edge versions,
+  the owner-manager Auth identity seed, actual-schema restored E2E,
+  and explicit deployment approval. Do not silently apply any staged SQL.
+- This checkpoint used only read-only live inspections and branch commits.
+  Production schema, data and deployments were unchanged.
