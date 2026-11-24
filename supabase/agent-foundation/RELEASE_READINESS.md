@@ -315,3 +315,30 @@ No new paid Supabase project, branch or third-party service without prior approv
   discounts/overrides. Never enable browser override without server enforcement,
   exception hash binding and full accounting E2E.
 - Nothing deployed or changed in production.
+
+
+## 2026-11-24 — Trusted manual-total server preflight (not order-write permission)
+
+- Added 21_manual_total_preview_NOT_APPLIED.sql as an authenticated agent-only
+  SECURITY DEFINER read-only preview for a gross total override.
+- The routine invokes the SAME trusted sales_agent_check_order_margin first,
+  so active-agent access, assigned customer, current cost, blocked products,
+  verified same-unit lines, integer-agorot line consistency and catalogue
+  price anomalies are all enforced by the server.
+- It reads the current business VAT rate, follows OrderCreateModal's taxable
+  manual-total adjustment split and compares 40% using INTEGER AGOROT.
+  Server result includes original goods subtotal, taxable adjustment net,
+  effective net revenue, VAT, verified cost and whether manager exception
+  would be required.
+- Full DB integration validates unchanged 118.00 gross (40% exactly),
+  manually lowered 106.20 gross (below margin, exception required),
+  raised 120.00 gross (VAT adjustment parity), fractional-agorot rejection,
+  unassigned-customer rejection and portal identity denial.
+- CI run 45475619981 all 3 jobs SUCCESS (isolated Postgres, Node and Vite).
+- This preview intentionally does NOT alter or bypass the existing
+  sales_agent_create_order, sales_agent_request_margin_exception and approved
+  exception consumption flow. Those still reject unsupported document-wide
+  discounts and have NO gross-total override argument.
+- NEXT: trustworthy server order-write and exception-hash binding for gross
+  override + full accounting/invoicing E2E, before enabling agent editing.
+- No production migrations, UI feature enablement or business data writes.
