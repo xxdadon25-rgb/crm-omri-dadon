@@ -109,7 +109,21 @@ begin
     execute format('grant select,insert,update,delete on public.%I to authenticated,anon',t);
   end loop;
 end $$;
+-- Match actual production business_settings access as of 2026-11-24:
+-- anonymous SELECT and a permissive public_read_business_settings policy.
+-- No real API secrets are ever copied into disposable test environments.
+alter table public.business_settings
+ add column api_url text, add column api_key text, add column api_secret text,
+ add column api_company_id text, add column business_name text,
+ add column address text, add column phone text, add column email text,
+ add column tax_id text, add column logo_url text;
+alter table public.business_settings enable row level security;
 grant select,update on public.business_settings to authenticated;
+grant select on public.business_settings to anon;
+create policy business_settings_select on public.business_settings
+  for select to authenticated using(auth.uid()=user_id);
+create policy public_read_business_settings on public.business_settings
+  for select to public using(true);
 
 create policy customers_select on public.customers for select to authenticated
   using(user_id=auth.uid());
