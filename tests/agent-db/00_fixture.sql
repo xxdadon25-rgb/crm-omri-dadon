@@ -63,6 +63,14 @@ create table public.credit_notes(
   id uuid primary key,user_id uuid references auth.users(id),
   customer_id uuid
 );
+-- Actual existing owner fulfillment RPC writes the per-order stock ledger.
+create table public.order_inventory_effects(
+  order_id uuid not null references public.orders(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  user_id uuid not null references auth.users(id),
+  net_deducted numeric not null default 0,
+  primary key(order_id,product_id)
+);
 create table public.customer_portal_access(
  id uuid primary key,
  customer_id uuid references public.customers(id),
