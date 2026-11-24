@@ -87,6 +87,34 @@ begin
  select count(*) into n from public.customers
  where id='11111111-1111-4111-8111-111111111111';
  if n<>0 then raise exception 'disabled agent still sees customer'; end if;
+ -- A disabled session loses all business rows, not just the customer card.
+ -- The browser may retain a JWT; RLS + RPC must still deny it immediately.
+ select count(*) into n from public.orders
+ where id='aaaaaaaa-1111-4111-8111-111111111111';
+ if n<>0 then raise exception 'disabled agent still sees assigned order'; end if;
+ select count(*) into n from public.invoices
+ where id='59595959-5959-4959-8959-595959595951';
+ if n<>0 then raise exception 'disabled agent still sees assigned invoice'; end if;
+ select count(*) into n from public.payments
+ where id='47474747-4747-4474-8474-474747474741';
+ if n<>0 then raise exception 'disabled agent still sees received payment'; end if;
+ select count(*) into n from public.credit_notes
+ where id='48484848-4848-4484-8484-484848484841';
+ if n<>0 then raise exception 'disabled agent still sees customer credit'; end if;
+ -- A forged API call must not create a new order after disable, even if
+ -- the previously assigned customer is still linked in the database.
+ begin
+   perform public.sales_agent_create_order(
+     'abababab-4444-4444-8444-000000000001',
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"44444444-4444-4444-8444-444444444444",
+       "quantity":1,"unit_price":10,"total":10,"discount":0}]'::jsonb,
+     0,'disabled account');
+   raise exception 'disabled agent submitted an order';
+ exception when others then
+   if sqlerrm<>'agent_not_active' then raise; end if;
+ end;
+
  -- Commission preview must also be revoked, including via a forged direct
  -- RPC request that bypasses the hidden agent navigation.
 
