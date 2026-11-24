@@ -555,3 +555,23 @@ or owner product mutations are permitted.
   and explicit deployment approval. Do not silently apply any staged SQL.
 - This checkpoint used only read-only live inspections and branch commits.
   Production schema, data and deployments were unchanged.
+
+
+## 2026-11-24 — Real migration failure-path regression verified
+
+- Added tests/agent-db/negative_manager_seed_gate.sh, invoked by the
+  isolated PostgreSQL CI job after all positive integration tests.
+- This runs the ACTUAL staged stage 26 migration text inside an explicit
+  disposable transaction after deleting the synthetic owner-manager seed.
+  Expected result is the exact error owner_manager_identity_not_seeded.
+  A disconnected aborted transaction rolls back the simulated deletion;
+  the test then asserts the owner-manager record still exists and the
+  existing get_next_quote_number owner path still returns a number.
+- This is a negative-path test of the migration and restoration, not just
+  a static regex assertion or a duplicate of its predicate.
+- GitHub Actions 45483192805: all 3 jobs SUCCESS, including the new
+  negative migration test, full synthetic RLS/financial integration,
+  Node tests and Vite + public PDF Edge compile tests.
+- The test does NOT substitute for a schema-faithful isolated clone
+  of the existing production database, actual public PDF device checks
+  or owner-approved rollout. All changes remain on the feature branch.
