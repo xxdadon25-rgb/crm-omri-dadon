@@ -412,3 +412,53 @@ No new paid Supabase project, branch or third-party service without prior approv
   a production-schema-faithful isolated environment BEFORE applying 24.
 - No migration was applied to production, no live user or customer state
   changed, no merge or feature activation was performed.
+
+
+## 2026-11-24 — Anonymous authorization bypasses closed in STAGED SQL only
+
+Read-only LIVE introspection exposed two IMPORTANT differences from the
+earlier synthetic tests:
+1. Actual public.quotes has a permissive public_read_quotes SELECT USING
+   (true) policy, allowing any anonymous client to retrieve all quotes.
+   An authenticated-agent restrictive policy alone does NOT solve this:
+   an agent can omit the token and use the anonymous role. Stage 25 now
+   removes the global public quote SELECT and provides an authenticated
+   customer-portal policy only for its OWN linked customer (approved,
+   active, not portal-deleted). Existing owner and assigned-agent SELECT
+   policies are unchanged. Stage 25 changes previously public visibility
+   and MUST NOT GO LIVE before confirming public quote links/external
+   integrations that may intentionally rely on anonymous reads.
+2. Both order_number_seq and quote_number_seq granted direct USAGE/UPDATE
+   to anon/authenticated; get_next_order_number/quote_number were callable
+   by anon. Stage 24 revoked underlying direct access and added agent
+   guards, but its wrappers still permitted a user to OMIT the JWT and
+   call those anonymous SECURITY DEFINER wrappers. Stage 26 now denies
+   nonmanager callers at the SERVER, revokes anon EXECUTE and requires an
+   explicit matching sales_agent_managers owner record. This is a behavior
+   change for portal/anon callers and requires compatibility validation
+   against the actual portal and all deployed clients before any rollout.
+
+Read-only production catalog check found 14 SECURITY DEFINER public
+functions (13 executable by authenticated): seven legacy owner order/payment/
+credit functions protected by staged agent guards, two legacy number
+generators (stages 24+26), credit_note_check_items delegating to protected
+credit_note_return_lines, portal_my_purchased_products scoped to an active
+portal identity, two trigger-oriented portal signup routines and one
+Telegram purchasing draft append routine not callable by authenticated.
+This listing is an audit starting point, NOT a complete sign-off of all
+privileged code, triggers, PostgREST routes or external integrations.
+
+Synthetic fixture updated to reflect the LIVE customer_portal_access
+SELECT privileges and RLS after the first test correctly flagged a missing
+fixture GRANT. The staged SQL and tests now cover manager, active assigned
+agent, unrelated owner, portal, anonymous role, and revoked assignments.
+GitHub Actions 45479252567: all three jobs SUCCESS (PostgreSQL/RLS integration,
+Node agent rules and Vite build). No prod SQL executed.
+
+**RELEASE HOLD:** Stage 25 and 26 are intentionally NOT_APPLIED because
+their security repairs also change old anonymous and portal behavior.
+Inspect actual published quote links/portal workflows and legacy counter
+callers, and validate against a full isolated production-schema restore
+before explicit user-approved install. Historical packaging-unit parity
+and supplier evidence remain separate unresolved gates; no guessed costs
+or owner product mutations are permitted.
