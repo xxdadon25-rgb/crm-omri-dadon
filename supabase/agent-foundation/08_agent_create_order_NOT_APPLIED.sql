@@ -5,6 +5,61 @@
 -- No direct stock decrement, invoice creation or payment modification.
 begin;
 
+-- Compare only the server-authorized financial inputs for idempotent retries.
+-- Product labels, SKU, cost and stock flags are intentionally ignored because
+-- the original RPC snapshots those fields from the trusted catalogue.
+create or replace function public.sales_agent_same_order_request(
+  p_saved public.orders,
+  p_customer_id uuid,
+  p_items jsonb,
+  p_document_discount_net numeric,
+  p_notes text
+) returns boolean
+language plpgsql stable security invoker
+set search_path = ''
+as $same_request$
+declare
+  v_original jsonb;
+  v_retry jsonb;
+begin
+  if p_saved.customer_id is distinct from p_customer_id
+    or coalesce(p_saved.discount_amount,0)
+       is distinct from coalesce(p_document_discount_net,0)
+    or p_saved.notes is distinct from p_notes
+    or pg_catalog.jsonb_typeof(p_saved.items)<>'array'
+    or pg_catalog.jsonb_typeof(p_items)<>'array'
+    or pg_catalog.jsonb_array_length(p_saved.items)
+       <>pg_catalog.jsonb_array_length(p_items)
+  then return false; end if;
+
+  select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'product_id',x.value->>'product_id',
+      'quantity',(x.value->>'quantity')::numeric,
+      'unit_price',(x.value->>'unit_price')::numeric,
+      'discount',coalesce((x.value->>'discount')::numeric,0),
+      'total',(x.value->>'total')::numeric
+    ) order by x.ord) into v_original
+  from pg_catalog.jsonb_array_elements(p_saved.items)
+    with ordinality x(value,ord);
+
+  select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'product_id',x.value->>'product_id',
+      'quantity',(x.value->>'quantity')::numeric,
+      'unit_price',(x.value->>'unit_price')::numeric,
+      'discount',coalesce((x.value->>'discount')::numeric,0),
+      'total',(x.value->>'total')::numeric
+    ) order by x.ord) into v_retry
+  from pg_catalog.jsonb_array_elements(p_items)
+    with ordinality x(value,ord);
+
+  return v_original is not distinct from v_retry;
+exception when invalid_text_representation or numeric_value_out_of_range
+  then return false;
+end;
+$same_request$;
+revoke all on function public.sales_agent_same_order_request(
+  public.orders,uuid,jsonb,numeric,text) from public,anon,authenticated;
+
 create or replace function public.sales_agent_create_order(
   p_request_id uuid,
   p_customer_id uuid,
@@ -69,6 +124,9 @@ begin
          select 1 from public.sales_agent_order_attributions a
          where a.order_id=v_order.id and a.agent_auth_id=v_agent
        ) then raise exception 'order_id_in_use'; end if;
+    if not public.sales_agent_same_order_request(
+      v_order,p_customer_id,p_items,p_document_discount_net,p_notes
+    ) then raise exception 'order_request_payload_changed'; end if;
     return v_order;
   end if;
 
@@ -89,6 +147,9 @@ begin
          select 1 from public.sales_agent_order_attributions a
          where a.order_id=v_order.id and a.agent_auth_id=v_agent
        ) then raise exception 'order_id_in_use'; end if;
+    if not public.sales_agent_same_order_request(
+      v_order,p_customer_id,p_items,p_document_discount_net,p_notes
+    ) then raise exception 'order_request_payload_changed'; end if;
     return v_order;
   end if;
 
