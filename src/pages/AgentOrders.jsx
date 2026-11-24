@@ -15,6 +15,7 @@ function showError(err) {
   const codes={
     customer_not_assigned:"הלקוח אינו משויך אליך.",
     product_not_found:"המוצר לא נמצא או אינו זמין.",
+    agent_product_blocked:"המוצר חסום להזמנות סוכנים. פנה למנהל לשחרור החסימה.",
     cost_missing:"חסר מחיר קנייה למוצר. יש לעדכן מנהל.",
     sale_unit_needs_clarification:"יחידת הקנייה והמכירה דורשות בירור לפני הזמנה.",
     inconsistent_line_total:"נתוני סכום שורה אינם תואמים את המחיר והכמות.",
@@ -29,11 +30,20 @@ function showError(err) {
 }
 
 async function loadAgentProducts() {
-  const { data, error }=await supabase.from("products")
-    .select("id,name,sku,unit,buy_price,sell_price,is_active,quantity")
-    .eq("is_active",true).order("name");
-  if(error)throw error;
-  return (data??[]).filter(agentProductCanBeOrdered);
+  // Never assume an unavailable blocklist means "no products blocked".
+  // Fail closed if the agent-only policy cannot be read.
+  const [products,blocks]=await Promise.all([
+    supabase.from("products")
+      .select("id,name,sku,unit,buy_price,sell_price,is_active,quantity")
+      .eq("is_active",true).order("name"),
+    supabase.from("sales_agent_product_blocks").select("product_id"),
+  ]);
+  if(products.error)throw products.error;
+  if(blocks.error)throw blocks.error;
+  const blocked=new Set((blocks.data??[]).map(b=>b.product_id));
+  return (products.data??[]).filter(p=>
+    !blocked.has(p.id) && agentProductCanBeOrdered(p)
+  );
 }
 async function loadAgentCustomers() {
   const { data, error }=await supabase.from("customers")
