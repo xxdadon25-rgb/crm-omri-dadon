@@ -5,15 +5,19 @@ import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 
 async function loadAgentDashboard(){
-  const [customers,orders,invoices,exceptions,commissions] = await Promise.all([
+  const [customers,orders,pendingDeliveries,invoices,exceptions,commissions] = await Promise.all([
     supabase.from("customers").select("id",{count:"exact",head:true}),
-    supabase.from("orders").select("id,fulfilled",{count:"exact"}).order("created_date",{ascending:false}).limit(500),
+    supabase.from("orders").select("id",{count:"exact",head:true}),
+    // Count ALL outstanding deliveries at the database; do not silently
+    // undercount when more than 500 orders are visible to the agent.
+    supabase.from("orders").select("id",{count:"exact",head:true})
+      .or("fulfilled.is.null,fulfilled.eq.false"),
     supabase.from("invoices").select("id",{count:"exact",head:true}),
     supabase.from("sales_agent_margin_exceptions")
       .select("id,status",{count:"exact"}).eq("status","pending").limit(500),
     supabase.rpc("sales_agent_commission_preview",{}),
   ]);
-  for(const r of [customers,orders,invoices,exceptions,commissions]){
+  for(const r of [customers,orders,pendingDeliveries,invoices,exceptions,commissions]){
     if(r.error)throw r.error;
   }
   const eligible=(commissions.data??[]).filter(x=>x.review_reason===null);
@@ -21,7 +25,7 @@ async function loadAgentDashboard(){
     customers:customers.count??0,
     orders:orders.count??0,
     invoices:invoices.count??0,
-    pendingDeliveries:(orders.data??[]).filter(o=>o.fulfilled!==true).length,
+    pendingDeliveries:pendingDeliveries.count??0,
     pendingExceptionRequests:exceptions.count??0,
     commissionEstimate:eligible.reduce((a,x)=>a+Number(x.commission_amount??0),0),
     commissionReview:(commissions.data??[]).filter(x=>x.review_reason!==null).length,
@@ -63,7 +67,7 @@ export default function AgentDashboard(){
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Summary title="לקוחות משויכים" value={s.customers} to="/agent-customers"/>
         <Summary title="הזמנות לקוחות" value={s.orders} to="/agent-orders"/>
-        <Summary title="הזמנות שטרם סופקו (עד 500 האחרונות)" value={s.pendingDeliveries}
+        <Summary title="הזמנות שטרם סופקו" value={s.pendingDeliveries}
           to="/agent-orders"/>
         <Summary title="חשבוניות לקוחות" value={s.invoices} to="/agent-collections"/>
         <Summary title="בקשות חריגה ממתינות" value={s.pendingExceptionRequests}
