@@ -233,3 +233,21 @@ invoice/payment linkage and function drift WITHOUT applying changes.
   rejection and preserved manager balance; added static SQL contract guard.
 - Tested against disposable fixture only. Agent activation still disabled,
   and no production data, product pricing, stock or customer access changed.
+
+## 2026-11-24 — Agent product blocking concurrency fix
+
+- Found a potential race: the manager's agent-only product block previously
+  used `FOR SHARE` on `products`, compatible with the order writers'
+  `FOR SHARE` lock. A new agent order and product blocking operation could
+  therefore overlap and observe an obsolete block state.
+- Changed ONLY the agent-only toggle RPC's product lock to `FOR UPDATE`.
+  Normal and approved-exception order writers already hold `FOR SHARE`
+  on their referenced catalogue products before calling the trusted margin
+  gate. Consequently, a block transaction and an order transaction now
+  serialize on the same product row; no manager/portal product availability,
+  price or stock data is changed by this RPC.
+- Added SQL contract assertions checking lock coordination and margin gates.
+  GitHub Actions run **45350676285**: Node rules, isolated PostgreSQL SQL/RLS
+  and Vite build all SUCCESS.
+- A true two-connection race exercise and legacy stock/fulfilment E2E
+  remain required on schema-faithful isolated database before production.
