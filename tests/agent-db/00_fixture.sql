@@ -44,7 +44,7 @@ create table public.orders(
   customer_name text,customer_tax_id text,date date,
   items jsonb,subtotal numeric,gross_total numeric,
   discount_amount numeric,vat_rate numeric,vat_amount numeric,
-  total numeric,notes text,status text,fulfilled boolean,
+  total numeric,total_override numeric,notes text,status text,fulfilled boolean,
   inventory_deducted boolean,agent text
 );
 create table public.invoices(
