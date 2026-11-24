@@ -20,7 +20,15 @@ for file in \
   tests/agent-db/01_live_inventory_audit_fixture.sql \
   tests/agent-db/56_live_credit_guards_fixture.sql; do
   echo "Preparing synthetic schema: $file"
-  psql_local < "$file" > "$worklog" || { cat "$worklog"; exit 1; }
+  if [[ "$file" == "tests/agent-db/00_fixture.sql" ]]; then
+    # PostgreSQL roles belong to the disposable CLUSTER, not each database.
+    # The first CI DB already created anon/authenticated.
+    sed -e '/^create role authenticated nologin;$/d' \
+        -e '/^create role anon nologin;$/d' "$file" \
+      | psql_local > "$worklog" || { cat "$worklog"; exit 1; }
+  else
+    psql_local < "$file" > "$worklog" || { cat "$worklog"; exit 1; }
+  fi
 done
 
 # Execute the EXACT reviewed phase manifest, not the interleaved CI test
