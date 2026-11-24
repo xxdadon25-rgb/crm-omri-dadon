@@ -251,3 +251,31 @@ invoice/payment linkage and function drift WITHOUT applying changes.
   and Vite build all SUCCESS.
 - A true two-connection race exercise and legacy stock/fulfilment E2E
   remain required on schema-faithful isolated database before production.
+
+
+## 2026-11-24 — Reconciled original owner scope and current rollout status
+
+Single continuation checkpoint: avoid redoing successful development or auditing unrelated historical orders.
+
+### Confirmed scope
+- Existing QuickStock manager/Ben shared login, customer portal, products and documents stay unchanged by agent-only blocks.
+- Separate agent accounts, assigned/new customers and history, agent orders >=40% blended margin before VAT; below 40% requires manager approval, self-declared עומרי or בן.
+- 8% on actually collected net receipts, partial/credited transactions reconciled; manager alone records customer payments and external agent payouts.
+- Delivery alerts are independent of financial completion. Repeat orders and dormant-customer follow-ups are in original scope.
+- WhatsApp notification/approval is a requested requirement, NOT live-connected. Manager in-app approval is available without a paid messaging dependency.
+- Item #37 buy cost ₪5.50 and other owner-proposed catalogue changes remain UNAPPLIED. Never change manager/portal product visibility.
+
+### Newly implemented and verified
+- Agent activation staged in 20_agent_activation_NOT_APPLIED.sql. Only authorized manager may activate an existing separate registered disabled agent. Self-activation, portal identity and staff identity are rejected. Manager UI has confirmation and disabling remains available.
+- Customer-history repeat-order shortcut constructs a reviewable draft from current allowed products; checks original line consistency, rejects missing/blocklisted and mixed-uncertain packaging, then invokes existing server margin checks before any order can be created.
+- Assigned-customer last-order follow-up list with selectable 30/60/90-day thresholds. Full RLS-scoped order pagination; fail closed on incomplete reads; no automatic message is sent.
+- GitHub Actions run 45472165567: all three jobs SUCCESS (Node including new feature tests, disposable PostgreSQL integration, Vite build).
+- No migration run on production, no feature flag enabled, no customer/payment/stock/portal changes, no actual agent account activated.
+
+### Still-open gates before first real agent
+1. Production-schema-faithful isolated E2E with manager, agent and portal identities, existing inventory-aware fulfillment, invoice/payment completion and commission/credits. Current test fixture is simplified, and no isolated actual-schema clone is available.
+2. Trustworthy mixed pack/carton/unit conversions and exact agent order document discounts / final total overrides / post-create edits; current agent writer fails closed on unsupported cases. Never guess packaging multipliers.
+3. Truly ambiguous multi-order invoice commission allocation/refund decisions remain manager review, never automatic payouts.
+4. Fresh diff of seven live SECURITY DEFINER functions, safe backup/restore route, audit staging SQL migration ordering, RLS and EXECUTE, and explicit approval before production installation.
+5. Provision separate real agent Auth user, assign customers, run controlled live E2E, and separately approve enabling sales-agent UI.
+No new paid Supabase project, branch or third-party service without prior approval.
