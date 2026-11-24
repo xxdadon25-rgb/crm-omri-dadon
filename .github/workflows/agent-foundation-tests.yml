@@ -140,6 +140,7 @@ jobs:
             "tests/agent-db/56_live_credit_guards_fixture.sql"
             "tests/agent-db/57_existing_credit_guards_e2e.sql"
             "tests/agent-db/58_assigned_customer_financial_visibility.sql"
+            "tests/agent-db/59_order_to_owner_invoice_handoff.sql"
             "supabase/agent-foundation/13_commission_preview_NOT_APPLIED.sql"
             "tests/agent-db/60_commission_preview.sql"
             "supabase/agent-foundation/15_commission_reconciliation_NOT_APPLIED.sql"
