@@ -38,12 +38,12 @@ reset role;
 -- Confirmed credit on the first invoice invalidates BOTH of its received
 -- partial/grouped payments, without affecting another invoice's commission.
 insert into public.credit_notes
-  (id,user_id,customer_id,invoice_id,total,finbot_status)
+  (id,user_id,customer_id,invoice_id,total,finbot_status,external_credit_note_number)
 values (
  '34343434-3434-4434-8434-343434343434',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '11111111-1111-4111-8111-111111111111',
- '11110000-1111-4111-8111-111100001111',50,'confirmed'
+ '11110000-1111-4111-8111-111100001111',50,'confirmed','TEST-EXTERNAL-CREDIT-70'
 );
 
 set role authenticated;
