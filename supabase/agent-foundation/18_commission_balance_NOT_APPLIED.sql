@@ -27,6 +27,14 @@ begin
    where m.auth_user_id=v_caller and m.owner_auth_id=v_owner
  ) then raise exception 'not_authorized'; end if;
 
+  -- A disabled agent cannot keep reading historical money via a direct RPC.
+  -- The same business's manager retains access for accounting and settlement.
+  if v_caller=v_agent and not exists(
+    select 1 from public.sales_agent_profiles ap
+    where ap.auth_user_id=v_agent and ap.owner_auth_id=v_owner
+      and ap.is_active=true
+  ) then raise exception 'agent_not_active'; end if;
+
  return query select v_agent,
    coalesce((select sum(e.commission_amount)
      from public.sales_agent_commission_entries e
