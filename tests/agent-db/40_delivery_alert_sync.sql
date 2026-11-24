@@ -3,7 +3,7 @@
 reset role;
 reset request.jwt.claim.sub;
 
-do $
+do $delivery_test$
 declare n integer; original_financial_status text; original_inventory_state boolean;
 begin
  select status,inventory_deducted
@@ -65,5 +65,5 @@ begin
  select count(*) into n from public.sales_agent_delivery_alerts
  where order_id='30303030-3030-4030-8030-303030303030';
  if n<>1 then raise exception 'delivery sync duplicated alerts'; end if;
-end $$;
+end $delivery_test$;
 select 'delivery alert sync PASS' as result;
