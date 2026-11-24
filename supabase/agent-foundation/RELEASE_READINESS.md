@@ -111,3 +111,21 @@ invoice/payment linkage and function drift WITHOUT applying changes.
   pure rules, actual SQL/RLS synthetic PostgreSQL, and Vite compilation.
 - The work remains in unmerged feature PR #3; no production table, policy,
   payment, customer, invoice, product or stock record was changed.
+
+## 2026-11-24 — Normal agent order idempotency audit
+
+- Fixed the normal-order RPC's existing idempotency hole: a repeated
+  `p_request_id` from the same agent/customer is now accepted **only if**
+  the original product IDs, line order, quantities, sale prices, discounts,
+  stored line totals, document discount and notes match. A modified request
+  fails with `order_request_payload_changed`, without writing another
+  order. This check runs before and after the owner order-counter lock.
+- The comparer uses only whitelisted financial inputs, not client-supplied
+  names, SKU, stock data or cost; those remain trusted server snapshots.
+  Successful identical retry returns the same order and does not increment
+  counters or duplicate alerts.
+- Extended the isolated SQL test to cover changed quantity, unit price,
+  line discount and notes with the original request ID.
+- **GitHub Actions 45336227246**: pure Node agent rules SUCCESS, isolated
+  PostgreSQL/RLS SQL integration SUCCESS and Vite build SUCCESS.
+- No production SQL applied and no live CRM data changed.
