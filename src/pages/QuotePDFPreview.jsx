@@ -29,15 +29,20 @@ export default function QuotePDFPreview() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: rows, error: qErr } = await supabase
-          .from("quotes").select("*").eq("id", quoteId).limit(1);
-        if (qErr) throw qErr;
-        const q = rows?.[0] || null;
-        if (!q) { setError("הצעת המחיר לא נמצאה"); return; }
-        const { data: settingsRows, error: sErr } = await supabase
-          .from("business_settings").select("*").eq("user_id", q.user_id).limit(1);
-        setQuote(q);
-        setBiz(settingsRows?.[0] || {});
+        // This is a PUBLIC share link. Fetch exactly ONE allowlisted quote
+        // through the staged Edge Function instead of querying the
+        // publicly-readable quotes and business_settings tables directly.
+        // The original /quote-pdf/:quoteId URL remains unchanged.
+        const { data, error: fetchError } = await supabase.functions.invoke(
+          "public-quote-pdf",
+          { body: { quote_id: quoteId } },
+        );
+        if (fetchError || !data?.ok || !data?.quote) {
+          setError("הצעת המחיר לא נמצאה");
+          return;
+        }
+        setQuote(data.quote);
+        setBiz(data.business || {});
       } catch (e) {
         setError(e.message);
       } finally {
