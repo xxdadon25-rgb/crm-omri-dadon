@@ -575,3 +575,24 @@ or owner product mutations are permitted.
 - The test does NOT substitute for a schema-faithful isolated clone
   of the existing production database, actual public PDF device checks
   or owner-approved rollout. All changes remain on the feature branch.
+
+
+## 2026-11-24 — Live schema read-only repeatable preflight
+
+- Added LIVE_SCHEMA_PREFLIGHT_READ_ONLY.sql. It reads ONLY
+  information_schema.columns; it contains no INSERT, UPDATE, DELETE,
+  migration, payment, real customer rows, API credentials or production write.
+- Ran the EXACT committed SQL file against existing QuickStock Supabase:
+  all 20 of 20 required table-column-type checks PASS, zero failures.
+  Covered items/orders, inventory effects, catalog pricing units, customer
+  association, invoice VAT/order references, payment amounts, credits,
+  business VAT and quote/customer portal fields.
+- This narrows schema-drift risk but is NOT an isolated restore of all
+  schema objects, dependent functions, indexes, RLS grants, triggers,
+  Edge deployments or actual-world public PDF integration.
+- Most recent complete synthetic CI run prior to this read-only check:
+  45483192805, all three jobs success.
+- Remaining rollout gate: full schema-faithful nonproduction rehearsal,
+  safe customer-facing document/portal smoke checks after coordinated
+  Edge/UI deployment, explicit manager Auth seed, user-approved production
+  migration and initial agent activation. No production change made.
