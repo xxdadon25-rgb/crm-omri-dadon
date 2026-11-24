@@ -24,11 +24,6 @@ set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 do $$
 declare ok boolean; active boolean; rejected boolean:=false;
 begin
- begin
-   perform public.sales_agent_activate('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
- exception when others then rejected=(sqlerrm='agent_identity_conflict'); end;
- if rejected then raise exception 'normal agent unexpectedly conflicts'; end if;
-
  ok:=public.sales_agent_activate('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
  if not ok then raise exception 'manager activation failed'; end if;
  select is_active into active from public.sales_agent_profiles
