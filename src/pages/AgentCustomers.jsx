@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
+import { dormantAssignedCustomers } from "@/lib/agentDormantCustomers";
 
 const money=n=>Number(n??0).toLocaleString("he-IL",{
   minimumFractionDigits:2,maximumFractionDigits:2,
@@ -16,6 +17,23 @@ async function listAssignedCustomers() {
     .order("name");
   if(error)throw error;
   return data??[];
+}
+
+async function listVisibleOrderDates(){
+  // Read all authorized pages; a capped latest-100 slice would create
+  // false inactivity alerts for older customers.
+  const result=[];
+  const pageSize=400;
+  for(let page=0;page<75;page++){
+    const {data,error}=await supabase.from("orders")
+      .select("customer_id,date")
+      .order("id",{ascending:true})
+      .range(page*pageSize,(page+1)*pageSize-1);
+    if(error)throw error;
+    result.push(...(data??[]));
+    if(!data || data.length<pageSize)return result;
+  }
+  throw Error("incomplete_agent_order_history");
 }
 
 async function customerHistory(customerId) {
@@ -51,6 +69,7 @@ export default function AgentCustomers() {
   const {crmRole}=useAuth();
   const allowed=AGENT_FEATURES_ENABLED && crmRole==="agent";
   const [customerId,setCustomerId]=useState("");
+  const [inactivityDays,setInactivityDays]=useState(60);
   const queryClient=useQueryClient();
   const [newCustomer,setNewCustomer]=useState({name:"",phone:"",city:""});
   const [creating,setCreating]=useState(false);
@@ -91,6 +110,15 @@ export default function AgentCustomers() {
     queryFn:listAssignedCustomers,
     enabled:allowed,
   });
+  const activityQ=useQuery({
+    queryKey:["agent-customer-last-orders"],
+    queryFn:listVisibleOrderDates,
+    enabled:allowed,
+    staleTime:60000,
+  });
+  const followups=customersQ.isSuccess && activityQ.isSuccess
+    ?dormantAssignedCustomers(customersQ.data,activityQ.data,inactivityDays)
+    :[];
   const selectedCustomer=(customersQ.data??[]).find(c=>c.id===customerId);
   const historyQ=useQuery({
     queryKey:["agent-customer-history",customerId],
@@ -136,6 +164,32 @@ export default function AgentCustomers() {
           {creating?"שומר...":"שמור לקוח ושייך לסוכן"}
         </button>
       </form>
+      <section className="bg-white border rounded-xl p-4 space-y-3">
+        <h2 className="font-bold">מעקב לקוחות שלא הזמינו</h2>
+        <p className="text-xs text-slate-500">תזכורת במסך בלבד, לפי תאריך ההזמנה האחרון של לקוחות המשויכים אליך. לא נשלחות הודעות אוטומטיות.</p>
+        <label className="block text-sm space-y-1">
+          <span>ללא הזמנה במשך</span>
+          <select className="block w-full max-w-xs rounded-lg border p-2 bg-white"
+            value={inactivityDays} onChange={e=>setInactivityDays(Number(e.target.value))}>
+            <option value={30}>30 יום</option><option value={60}>60 יום</option>
+            <option value={90}>90 יום</option>
+          </select>
+        </label>
+        {(activityQ.isLoading||customersQ.isLoading)&&<p className="text-sm text-slate-500">מחשב מועדי הזמנות...</p>}
+        {(activityQ.error||customersQ.error)&&<p role="alert" className="text-sm text-red-700">לא ניתן לחשב מעקב לקוחות במלואו.</p>}
+        {activityQ.isSuccess&&customersQ.isSuccess&&<>
+          <p className="text-sm font-medium">{followups.length} לקוחות למעקב</p>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {followups.map(c=>
+              <button type="button" key={c.id} onClick={()=>setCustomerId(c.id)}
+                className="block w-full text-right border-b py-2 text-sm">
+                <strong>{c.name}</strong>
+                <span className="text-slate-600"> · {c.lastOrderDate
+                  ?`הזמנה אחרונה: ${c.lastOrderDate}`:"אין הזמנות מתועדות"}</span>
+              </button>)}
+          </div>
+        </>}
+      </section>
       <section className="bg-white border rounded-xl p-4 space-y-4">
         <label className="block space-y-1">
           <span className="text-sm font-semibold">בחר לקוח</span>
