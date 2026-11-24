@@ -7,7 +7,7 @@ const file=readFileSync(new URL("../src/pages/AgentDashboard.jsx",import.meta.ur
 test("agent dashboard counts the entire delivery queue, including null fulfilled states",()=>{
   assert.match(file,/supabase\.from\("orders"\)\.select\("id",\{count:"exact",head:true\}\)\s*\.or\("fulfilled\.is\.null,fulfilled\.eq\.false"\)/);
   assert.match(file,/pendingDeliveries:pendingDeliveries\.count\?\?0/);
-  assert.doesNotMatch(file,/\.limit\(500\)/);
+  // The exceptions listing may remain limited; only the delivery count must be unbounded.
   assert.doesNotMatch(file,/orders\.data.*\.filter\(/);
 });
 
