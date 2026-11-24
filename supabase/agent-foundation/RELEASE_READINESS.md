@@ -279,3 +279,14 @@ Single continuation checkpoint: avoid redoing successful development or auditing
 4. Fresh diff of seven live SECURITY DEFINER functions, safe backup/restore route, audit staging SQL migration ordering, RLS and EXECUTE, and explicit approval before production installation.
 5. Provision separate real agent Auth user, assign customers, run controlled live E2E, and separately approve enabling sales-agent UI.
 No new paid Supabase project, branch or third-party service without prior approval.
+
+
+## 2026-11-24 — Agent orders and existing manager inventory flow verified
+
+- Staged disposable DB fixture now includes order_inventory_effects and orders.total_override, matching the fields required by the legacy manager save_order_with_inventory SECURITY DEFINER function.
+- Normal agent orders leave stock intact until manager fulfillment. Fulfillment deducts exactly once; repetition does not deduct twice; reversal restores exactly the original stock effect, reopens the delivery alert and leaves financial status unchanged.
+- Approved under-40% exception orders were also tested through the SAME manager stock fulfillment/reversal path.
+- Test-only privileged stock-ledger inspection did not grant the actual manager user direct SELECT permissions to that protected ledger.
+- GitHub Actions run 45474213505: Node rules, isolated PostgreSQL integration and Vite build all passed.
+- The fixture still differs from full live schema and does not prove complete real invoice/payment/credit lifecycle. Those remain rollout gates.
+- This development was not merged or activated. Production QuickStock remains unchanged, with no paid infrastructure.
