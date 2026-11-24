@@ -18,6 +18,9 @@ insert into auth.users values
 ('dddddddd-dddd-4ddd-8ddd-dddddddddddd'),
 ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
 
+-- Matches existing staff identity exclusion in the agent activation guard.
+create table public.staff_members(id uuid primary key, auth_user_id uuid references auth.users(id));
+
 create table public.customers(
   id uuid primary key,
   created_date timestamptz default now(),
