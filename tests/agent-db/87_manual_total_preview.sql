@@ -53,7 +53,7 @@ begin
  blocked:=false;
  begin
   perform public.sales_agent_preview_manual_total(
-   '22222222-2222-4222-8222-222222222222',
+   '33333333-3333-4333-8333-333333333333',
    '[{"product_id":"44444444-4444-4444-8444-444444444444","quantity":10,"unit_price":10,"total":100,"discount":0}]'::jsonb,
    118);
  exception when others then blocked=(sqlerrm='customer_not_assigned'); end;
