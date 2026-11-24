@@ -78,6 +78,14 @@ create table public.customer_portal_access(
  portal_deleted_at timestamptz,
  is_active boolean default true
 );
+-- Match the existing authenticated portal-access SELECT privilege/RLS
+-- (the previous synthetic fixture omitted its GRANT entirely).
+alter table public.customer_portal_access enable row level security;
+grant select on public.customer_portal_access to authenticated,anon;
+create policy portal_access_authenticated_read
+ on public.customer_portal_access for select to authenticated using(true);
+create policy portal_access_anon_active
+ on public.customer_portal_access for select to anon using(is_active is true);
 create table public.customer_product_prices(
   customer_id uuid references public.customers(id),
   product_id uuid references public.products(id),
