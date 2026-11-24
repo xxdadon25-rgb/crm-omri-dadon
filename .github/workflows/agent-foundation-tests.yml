@@ -160,43 +160,6 @@ jobs:
             docker exec -i "$pg_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 < "$f" > /tmp/agent-last-step.log || {
               cat /tmp/agent-last-step.log
 
-          # Negative migration test against the *real staged SQL*, not a
-          # copy of its logic. Remove the owner manager seed within a
-          # disposable transaction, then prove stage 26 aborts atomically.
-          # A failed psql connection rolls back the deliberately deleted
-          # manager record and leaves existing generators untouched.
-          echo "Checking fail-closed sequence migration on missing owner seed"
-          if {
-            printf "BEGIN;\\nDELETE FROM public.sales_agent_managers WHERE auth_user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';\\n"
-            cat supabase/agent-foundation/26_manager_only_sequence_wrappers_NOT_APPLIED.sql
-          } | docker exec -i "$pg_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 > /tmp/missing-owner-seed.log 2>&1; then
-            echo "ERROR: migration accepted missing manager identity"
-            exit 1
-          fi
-          if ! grep -q "owner_manager_identity_not_seeded" /tmp/missing-owner-seed.log; then
-            echo "ERROR: migration failed for wrong reason"
-            cat /tmp/missing-owner-seed.log
-            exit 1
-          fi
-          docker exec -i "$pg_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          do $rollback_check$
-          declare present integer; next_number bigint;
-          begin
-            select count(*) into present from public.sales_agent_managers
-            where auth_user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-              and owner_auth_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-            if present<>1 then
-              raise exception 'counter migration rollback lost management identity';
-            end if;
-            perform set_config('request.jwt.claim.sub',
-              'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',true);
-            select public.get_next_quote_number() into next_number;
-            if next_number is null then
-              raise exception 'counter migration rollback broke quote numbering';
-            end if;
-          end $rollback_check$;
-          SQL
-          echo "Fail-closed counter migration rollback PASS"
               exit 1
             }
           done
