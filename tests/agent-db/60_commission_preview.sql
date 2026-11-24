@@ -64,12 +64,12 @@ values
  '11110000-5555-4555-8555-111100005555',118,'2026-11-22','אושר','מזומן',null);
 
 insert into public.credit_notes
-(id,user_id,customer_id,invoice_id,total,finbot_status)
+(id,user_id,customer_id,invoice_id,total,finbot_status,external_credit_note_number)
 values
 ('33330000-4444-4444-8444-333300004444',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '11111111-1111-4111-8111-111111111111',
- '11110000-4444-4444-8444-111100004444',35,'confirmed');
+ '11110000-4444-4444-8444-111100004444',35,'confirmed','TEST-EXTERNAL-CREDIT-60');
 
 set role authenticated;
 set request.jwt.claim.sub = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
