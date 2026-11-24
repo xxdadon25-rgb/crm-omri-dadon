@@ -153,3 +153,37 @@ invoice/payment linkage and function drift WITHOUT applying changes.
   confirmed mixed units or legacy document-wide discounts. They protect
   the current same-sold-unit workflow while the outstanding launch gates
   remain in force.
+
+## 2026-11-24 — Agent blocks and delivery/payment separation
+
+- Extended synthetic integration to demonstrate a genuinely **approved but
+  not yet consumed** below-40% margin exception is invalidated if the manager
+  later blocks one of its products for agents. Attempting to create the
+  approved order returns `agent_product_blocked`; no new order or delivery
+  alert exists. Blocking affects agents ONLY.
+- Verified separate state transitions: fulfilling an order closes a delivery
+  alert but must not set its financial order `status` or modify its stock
+  deduction flag; changing the financial `status` does not alter
+  `fulfilled` or reopen its alert. Existing production inventory-aware
+  `save_order_with_inventory` still requires a *restored live-schema*
+  regression before deployment.
+- GitHub Actions run **45341775808**: pure Node, disposable PostgreSQL and
+  Vite compilation all SUCCESS.
+- READ-ONLY query of current production SECURITY DEFINER function signature
+  and MD5 hashes (snapshot on 2026-11-24). These hashes are a **new baseline**,
+  not proof that staged owner-function bodies are identical or safe to deploy:
+
+| Function | Deployed md5(pg_get_functiondef) |
+|---|---|
+| allocate_payment_across_invoices | `68702e50d0eb7dde77f7242363665524` |
+| create_order_with_inventory | `017a994740adf56ceff2b43598b37868` |
+| credit_note_confirm | `06aa408fe5ee79491e113867c1c0f693` |
+| credit_note_reserve | `a63cb1d918a49426969783495687d69b` |
+| credit_note_resolve | `00f061da18c1a54cd2699f19b69406e8` |
+| credit_note_return_lines | `de6028c384ace4e4cd694e40b8c9b2e3` |
+| save_order_with_inventory | `6df7f57fe5922299cbdaddfe06c456a9` |
+
+- Before any production migration: recheck deployed signatures/hashes and
+  diff the actual function bodies with those in staged
+  `09_legacy_security_definer_guard_NOT_APPLIED.sql`. Rebuild the stage if
+  existing functions drifted. Never overwrite updated live business logic.
