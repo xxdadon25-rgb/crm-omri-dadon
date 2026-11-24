@@ -49,7 +49,8 @@ begin
  where id='84848484-8484-4848-8848-848484848481';
  if status<>'failed' or noted is null
  then raise exception 'evidence-backed failure transition denied'; end if;
- update public.credit_notes set finbot_status='confirmed'
+ update public.credit_notes set finbot_status='confirmed',
+ external_credit_note_number='TEST-EXTERNAL-CREDIT-57'
  where id='84848484-8484-4848-8848-848484848481';
  blocked:=false;
  begin
