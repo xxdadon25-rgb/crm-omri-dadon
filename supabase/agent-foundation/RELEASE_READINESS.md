@@ -187,3 +187,19 @@ invoice/payment linkage and function drift WITHOUT applying changes.
   diff the actual function bodies with those in staged
   `09_legacy_security_definer_guard_NOT_APPLIED.sql`. Rebuild the stage if
   existing functions drifted. Never overwrite updated live business logic.
+
+## 2026-11-24 — Seven live legacy RPC bodies compared, READ ONLY
+
+- Compared `pg_get_functiondef` for all seven live production functions
+  against the corresponding staged definitions in
+  `09_legacy_security_definer_guard_NOT_APPLIED.sql`.
+- Removed ONLY the exact staged `AGENT ACCESS GATE` from each candidate,
+  normalized whitespace and trailing SQL delimiter. **7/7 matched** the
+  corresponding live function definitions byte-for-byte after normalization.
+  No other business-function differences were found at this snapshot.
+- This verifies the SQL staging snapshot against the actual existing
+  owner/payment/stock/credit logic **as of 2026-11-24**. It does NOT
+  constitute deployment approval or proof of application safety.
+- Before rollout, repeat this comparison in the same deployment session
+  and abort on ANY drift. Never apply the staged full-function replacements
+  based solely on these dated hashes or this static report.
