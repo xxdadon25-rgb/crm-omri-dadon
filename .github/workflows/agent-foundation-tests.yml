@@ -107,6 +107,7 @@ jobs:
             "tests/agent-db/35_order_line_tamper.sql"
             "tests/agent-db/36_agent_product_blocks.sql"
             "tests/agent-db/40_delivery_alert_sync.sql"
+            "tests/agent-db/45_manager_inventory_e2e.sql"
             "tests/agent-db/50_collection_payment_permissions.sql"
             "tests/agent-db/55_commission_fixture_columns.sql"
             "supabase/agent-foundation/13_commission_preview_NOT_APPLIED.sql"
