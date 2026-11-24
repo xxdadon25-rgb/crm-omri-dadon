@@ -7,16 +7,16 @@ const orders=read("src/pages/AgentOrders.jsx");
 const managerOrders=read("src/pages/Orders.jsx");
 const collections=read("src/pages/AgentCollections.jsx");
 
-test("agent customer history shows assigned-customer orders and manager invoices only",()=>{
+test("agent sees assigned-customer orders, invoices, payments and credits read-only",()=>{
  assert.match(customers,/\.from\("orders"\)/);
  assert.match(customers,/\.from\("invoices"\)/);
  assert.match(customers,/\.eq\("customer_id",customerId\)/);
  assert.match(customers,/HistoryTable title="הזמנות"/);
  assert.match(customers,/HistoryTable title="חשבוניות"/);
- assert.doesNotMatch(customers,/HistoryTable title="תשלומים"/);
- assert.doesNotMatch(customers,/HistoryTable title="זיכויים"/);
- assert.doesNotMatch(customers,/\.from\("payments"\)/);
- assert.doesNotMatch(customers,/\.from\("credit_notes"\)/);
+ assert.match(customers,/HistoryTable title="תשלומים"/);
+ assert.match(customers,/HistoryTable title="זיכויים"/);
+ assert.match(customers,/\.from\("payments"\)/);
+ assert.match(customers,/\.from\("credit_notes"\)/);
  assert.doesNotMatch(customers,/Invoice\.create|Payment\.create|CreditNote\.create/);
 });
 test("agent submits an order, while only manager has invoice creation flow",()=>{
