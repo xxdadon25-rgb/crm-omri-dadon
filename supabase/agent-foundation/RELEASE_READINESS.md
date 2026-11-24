@@ -596,3 +596,39 @@ or owner product mutations are permitted.
   safe customer-facing document/portal smoke checks after coordinated
   Edge/UI deployment, explicit manager Auth seed, user-approved production
   migration and initial agent activation. No production change made.
+
+
+## 2026-11-24 — Production-grounded RLS/RPC + original trigger regression
+
+- Added and executed exactly LIVE_RLS_RPC_PREFLIGHT_READ_ONLY.sql against
+  existing live Supabase, without reading real business/customer/product data:
+  23 checks; 20 PASS; 3 EXPECTED_RELEASE_HOLD; zero unexpected drift.
+  The 3 known release holds are the historical public_read_quotes policy,
+  public_read_business_settings policy and direct anon SELECT on settings.
+  None of those were changed in production.
+- Checked the real database trigger catalog for credit_notes/products:
+  three externally relevant triggers, two before-update guards for Finbot
+  credit states and frozen reserved credit notes, plus one after-update
+  automatic product inventory movement audit.
+- Added *synthetic only* fixture 01_live_inventory_audit_fixture.sql
+  reproducing actual production stock-audit behavior. New SQL regression 47
+  verifies one stock deduction movement and one compensating restoration
+  movement during manager fulfillment and delivery reversal, without a
+  double audit caused by idempotent repeated fulfillment. Also covers the
+  approved margin-exception stock update/restore.
+- Added *synthetic only* fixture 56_live_credit_guards_fixture.sql with
+  read-only-introspected production Finbot status and immutable reserved
+  credit note guards. Regression 57 proves that reserved totals and items
+  cannot be changed, uncertain status cannot simply be retried, failed
+  requires documented evidence, and a confirmed document cannot be
+  reclassified. No real external provider was contacted.
+- Full GitHub Actions run 45484277899: all THREE jobs SUCCESS:
+  Node rules, Vite + three public PDF Edge builds, and the extended
+  isolated PostgreSQL stock/credit/commission/RLS suite.
+- This strengthens realism but does NOT equal a fully restored production
+  schema with actual users and integration secrets. Release HOLD remains:
+  isolated schema-complete rehearsal, real portal/PDF anonymous smoke tests
+  after coordinated user-approved deployment, manager identity seed and
+  explicit approval before any production migration.
+- No live product/price/stock/payment/credit modifications, no PR merge,
+  no new cloud database branch and no added charges.
