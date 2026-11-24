@@ -37,27 +37,22 @@ async function listVisibleOrderDates(){
 }
 
 async function customerHistory(customerId) {
-  const [orders,invoices,payments,credits]=await Promise.all([
+  // The agent's customer history contains orders and manager-issued
+  // invoices only. Financial ledger inputs are read separately by the
+  // read-only outstanding-balance screen; do not show accounting operations
+  // or expose payment/credit document histories here.
+  const [orders,invoices]=await Promise.all([
     supabase.from("orders")
       .select("id,order_number,customer_id,date,total,status,fulfilled,agent")
       .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
     supabase.from("invoices")
       .select("id,invoice_number,customer_id,date,total")
       .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
-    supabase.from("payments")
-      .select("id,customer_id,payment_date,amount,payment_method,status")
-      .eq("customer_id",customerId).order("payment_date",{ascending:false}).limit(100),
-    supabase.from("credit_notes")
-      .select("id,customer_id,date,total,finbot_status")
-      .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
   ]);
-  for(const result of [orders,invoices,payments,credits]){
+  for(const result of [orders,invoices]){
     if(result.error)throw result.error;
   }
-  return {
-    orders:orders.data??[],invoices:invoices.data??[],
-    payments:payments.data??[],credits:credits.data??[],
-  };
+  return {orders:orders.data??[],invoices:invoices.data??[]};
 }
 
 /**
@@ -133,7 +128,7 @@ export default function AgentCustomers() {
       <header>
         <h1 className="text-2xl font-bold">לקוחות הסוכן</h1>
         <p className="text-sm text-slate-600 mt-1">
-          מידע לקריאה בלבד על לקוחות המשויכים אליך. מסמכים ותשלומים אינם ניתנים לעריכה כאן.
+          הזמנות וחשבוניות לקריאה בלבד, עבור לקוחות המשויכים אליך.
         </p>
       </header>
       <form onSubmit={createCustomer} className="bg-white border rounded-xl p-4 space-y-3">
@@ -229,18 +224,10 @@ export default function AgentCustomers() {
               rows={historyQ.data.invoices.map(i=>[
                 i.date??"",i.invoice_number??"",`₪${money(i.total)}`
               ])}/>
-            <HistoryTable title="תשלומים" columns={["תאריך","אמצעי תשלום","סכום","סטטוס"]}
-              rows={historyQ.data.payments.map(p=>[
-                p.payment_date??"",p.payment_method??"",
-                `₪${money(p.amount)}`,p.status??""
-              ])}/>
-            <HistoryTable title="זיכויים" columns={["תאריך","סכום","מצב"]}
-              rows={historyQ.data.credits.map(c=>[
-                c.date??"",`₪${money(c.total)}`,c.finbot_status??""
-              ])}/>
+
           </>}
           <p className="text-xs text-slate-500">
-            הסכומים מוצגים לפי המסמכים המקוריים. אין כאן חישוב יתרת חוב או עמלה.
+            הסכומים מוצגים לפי ההזמנות והחשבוניות. יתרת החוב זמינה במסך הגבייה לקריאה בלבד.
           </p>
         </section>}
     </main>
