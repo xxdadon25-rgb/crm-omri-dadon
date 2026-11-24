@@ -211,3 +211,14 @@ test("commission balance uses complete server ledger and payout totals", () => {
   assert.match(sql,/current_balance/);
   assert.doesNotMatch(sql,/\blimit\s+\d+\b/i);
 });
+
+test("order request UUID replay rejects changed monetary fields and notes", () => {
+  const sql=read("08_agent_create_order_NOT_APPLIED.sql");
+  assert.match(sql,/create or replace function public\.sales_agent_same_order_request/);
+  assert.equal((sql.match(/order_request_payload_changed/g)||[]).length,2);
+  assert.match(sql,/p_saved\.notes is distinct from p_notes/);
+  for(const f of ["quantity","unit_price","discount","total","product_id"]) {
+    assert.match(sql,new RegExp("'"+f+"'"));
+  }
+  assert.match(sql,/revoke all on function public\.sales_agent_same_order_request/);
+});
