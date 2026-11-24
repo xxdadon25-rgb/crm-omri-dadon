@@ -36,30 +36,43 @@ async function listVisibleOrderDates(){
   throw Error("incomplete_agent_order_history");
 }
 
-async function customerHistory(customerId) {
-  // Customer's orders, invoices, received payments and issued credits
-  // are visible read-only. RLS restricts all rows to assigned customers.
-  const [orders,invoices,payments,credits]=await Promise.all([
-    supabase.from("orders")
-      .select("id,order_number,customer_id,date,total,status,fulfilled,agent")
-      .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
-    supabase.from("invoices")
-      .select("id,invoice_number,customer_id,date,total")
-      .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
-    supabase.from("payments")
-      .select("id,customer_id,payment_date,amount,payment_method,status")
-      .eq("customer_id",customerId).order("payment_date",{ascending:false}).limit(100),
-    supabase.from("credit_notes")
-      .select("id,customer_id,date,total,finbot_status")
-      .eq("customer_id",customerId).order("date",{ascending:false}).limit(100),
-  ]);
-  for(const result of [orders,invoices,payments,credits]){
-    if(result.error)throw result.error;
+/**
+ * Read ALL permitted rows for one assigned customer. A fixed latest-100
+ * window incorrectly hides older manager-recorded payments or documents.
+ * The server enforces RLS; never infer a partial result is a full history.
+ */
+async function fullCustomerHistory(table, fields, customerId, dateField) {
+  const rows=[];
+  const pageSize=400;
+  for (let page=0;page<75;page++) {
+    const {data,error}=await supabase.from(table)
+      .select(fields)
+      .eq("customer_id",customerId)
+      .order(dateField,{ascending:false,nullsFirst:false})
+      .order("id",{ascending:false})
+      .range(page*pageSize,(page+1)*pageSize-1);
+    if(error)throw error;
+    rows.push(...(data??[]));
+    if(!data||data.length<pageSize)return rows;
   }
-  return {
-    orders:orders.data??[],invoices:invoices.data??[],
-    payments:payments.data??[],credits:credits.data??[],
-  };
+  throw Error("incomplete_assigned_customer_history");
+}
+async function customerHistory(customerId) {
+  const [orders,invoices,payments,credits]=await Promise.all([
+    fullCustomerHistory("orders",
+      "id,order_number,customer_id,date,total,status,fulfilled,agent",
+      customerId,"date"),
+    fullCustomerHistory("invoices",
+      "id,invoice_number,customer_id,date,total",
+      customerId,"date"),
+    fullCustomerHistory("payments",
+      "id,customer_id,payment_date,amount,payment_method,status",
+      customerId,"payment_date"),
+    fullCustomerHistory("credit_notes",
+      "id,customer_id,date,total,finbot_status",
+      customerId,"date"),
+  ]);
+  return {orders,invoices,payments,credits};
 }
 
 /**
