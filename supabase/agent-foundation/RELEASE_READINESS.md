@@ -290,3 +290,28 @@ No new paid Supabase project, branch or third-party service without prior approv
 - GitHub Actions run 45474213505: Node rules, isolated PostgreSQL integration and Vite build all passed.
 - The fixture still differs from full live schema and does not prove complete real invoice/payment/credit lifecycle. Those remain rollout gates.
 - This development was not merged or activated. Production QuickStock remains unchanged, with no paid infrastructure.
+
+
+## 2026-11-24 — Fresh live legacy function drift audit and manual total parity
+
+- READ ONLY comparison against currently deployed pg_get_functiondef for all
+  seven legacy SECURITY DEFINER functions staged in
+  09_legacy_security_definer_guard_NOT_APPLIED.sql:
+  allocate_payment_across_invoices, create_order_with_inventory,
+  credit_note_confirm, credit_note_reserve, credit_note_resolve,
+  credit_note_return_lines and save_order_with_inventory.
+- Every staged function body matches its LIVE equivalent after removing
+  exactly the 325-character agent-denial guard and normalizing whitespace.
+  No unexpected modification of the existing business logic was detected.
+  This observation is dated 2026-11-24; repeat drift audit at actual rollout.
+- Verified from current OrderCreateModal that a manual gross total is a
+  TAXABLE adjustment: subtotal stays equal to line totals; taxable net
+  adjustment = round(gross/(1+vat_rate)-subtotal,2); VAT = gross-subtotal-
+  adjustment; discount_amount remains a line-discount total.
+- Added agentDocumentTotal.js and isolated unit cases for 40% boundary,
+  taxable increase/decrease, agorot reconciliation and invalid cost/total.
+  It is PREVIEW/PARITY ONLY and is NOT wired to the trusted agent order RPC.
+  Existing agent RPC continues to reject unsupported document-level
+  discounts/overrides. Never enable browser override without server enforcement,
+  exception hash binding and full accounting E2E.
+- Nothing deployed or changed in production.
