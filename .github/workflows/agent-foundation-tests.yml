@@ -9,8 +9,10 @@ on:
       - "src/lib/agent*.js"
       - "src/pages/QuotePDFPreview.jsx"
       - "src/pages/OrderPDFPreview.jsx"
+      - "src/pages/CreditNotePDFPreview.jsx"
       - "supabase/functions/public-quote-pdf/**"
       - "supabase/functions/public-order-pdf/**"
+      - "supabase/functions/public-credit-note-pdf/**"
       - "tests/publicDocumentSecurity.test.js"
       - "tests/agent*.test.js"
       - ".github/workflows/agent-foundation-tests.yml"
@@ -71,6 +73,7 @@ jobs:
         run: |
           ./node_modules/.bin/esbuild supabase/functions/public-quote-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-quote-pdf.js
           ./node_modules/.bin/esbuild supabase/functions/public-order-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-order-pdf.js
+          ./node_modules/.bin/esbuild supabase/functions/public-credit-note-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-credit-note-pdf.js
 
   postgres-integration:
     name: Isolated SQL/RLS integration (synthetic data only)
