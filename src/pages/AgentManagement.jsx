@@ -69,6 +69,22 @@ export default function AgentManagement(){
     }finally{setBusy(false);}
   }
 
+  async function activate(id){
+    if(busy || !window.confirm("להפעיל את הסוכן הזה ולאפשר לו גישה ללקוחות המשויכים?")) return;
+    setBusy(true);
+    try{
+      const {error}=await supabase.rpc("sales_agent_activate",{
+        p_agent_auth_id:id,
+      });
+      if(error)throw error;
+      toast.success("הסוכן הופעל");
+      await client.invalidateQueries({queryKey:["manager-sales-agents"]});
+    }catch(err){
+      console.error("Agent activation failed",err);
+      toast.error("לא ניתן להפעיל את הסוכן. בדוק שהחשבון נפרד ומאושר.");
+    }finally{setBusy(false);}
+  }
+
   async function disable(id){
     if(busy)return;
     setBusy(true);
@@ -138,10 +154,14 @@ export default function AgentManagement(){
               {a.is_active?"פעיל":"לא פעיל"}
             </span>
           </div>
-          {a.is_active&&<button type="button" disabled={busy}
+          {a.is_active?<button type="button" disabled={busy}
             onClick={()=>disable(a.auth_user_id)}
             className="border border-red-600 text-red-700 rounded-lg px-3 py-2">
             השבת סוכן
+          </button>:<button type="button" disabled={busy}
+            onClick={()=>activate(a.auth_user_id)}
+            className="border border-green-700 text-green-700 rounded-lg px-3 py-2">
+            הפעל סוכן
           </button>}
         </div>;
       })}
