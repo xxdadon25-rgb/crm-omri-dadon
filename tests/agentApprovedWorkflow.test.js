@@ -8,15 +8,15 @@ const managerOrders=read("src/pages/Orders.jsx");
 const collections=read("src/pages/AgentCollections.jsx");
 
 test("agent sees assigned-customer orders, invoices, payments and credits read-only",()=>{
- assert.match(customers,/\.from\("orders"\)/);
- assert.match(customers,/\.from\("invoices"\)/);
+ assert.ok(customers.includes('fullCustomerHistory("orders"'));
+ assert.ok(customers.includes('fullCustomerHistory("invoices"'));
  assert.match(customers,/\.eq\("customer_id",customerId\)/);
  assert.match(customers,/HistoryTable title="הזמנות"/);
  assert.match(customers,/HistoryTable title="חשבוניות"/);
  assert.match(customers,/HistoryTable title="תשלומים"/);
  assert.match(customers,/HistoryTable title="זיכויים"/);
- assert.match(customers,/\.from\("payments"\)/);
- assert.match(customers,/\.from\("credit_notes"\)/);
+ assert.ok(customers.includes('fullCustomerHistory("payments"'));
+ assert.ok(customers.includes('fullCustomerHistory("credit_notes"'));
  assert.doesNotMatch(customers,/Invoice\.create|Payment\.create|CreditNote\.create/);
 });
 test("agent can inspect complete assigned-customer financial history, not only latest 100 rows",()=>{
