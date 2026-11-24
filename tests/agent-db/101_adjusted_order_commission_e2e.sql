@@ -62,13 +62,13 @@ end $settlement$;
 -- both prior partial commission settlements, not leaving phantom earnings.
 reset role;
 insert into public.credit_notes
-(id,user_id,customer_id,invoice_id,total,finbot_status)
+(id,user_id,customer_id,invoice_id,total,finbot_status,external_credit_note_number)
 values(
  '71717171-7171-4171-8171-717171717171',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '11111111-1111-4111-8111-111111111111',
  '68686868-6868-4868-8868-686868686868',
- -20,'confirmed'
+ -20,'confirmed','TEST-EXTERNAL-CREDIT-101'
 );
 set role authenticated;
 set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
