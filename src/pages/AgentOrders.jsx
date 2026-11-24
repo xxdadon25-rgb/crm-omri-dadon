@@ -1,10 +1,12 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 import { buildAgentLine, agentOrderSignature, agentProductCanBeOrdered } from "@/lib/agentOrderForm";
+import { repeatAgentOrderDraft } from "@/lib/agentRepeatOrder";
 
 const money = value => Number(value ?? 0).toLocaleString("he-IL", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -61,6 +63,7 @@ async function loadAgentExceptions() {
 
 export default function AgentOrders() {
   const { crmRole }=useAuth();
+  const location=useLocation();
   const allowed=AGENT_FEATURES_ENABLED && crmRole==="agent";
   const queryClient=useQueryClient();
   const [customerId,setCustomerId]=useState("");
@@ -72,6 +75,7 @@ export default function AgentOrders() {
   const [reason,setReason]=useState("");
   const [busy,setBusy]=useState(false);
   const requestIds=useRef(new Map());
+  const repeatedDraftKey=useRef(null);
 
   const customersQ=useQuery({
     queryKey:["agent-customers"],queryFn:loadAgentCustomers,enabled:allowed,
@@ -83,6 +87,46 @@ export default function AgentOrders() {
     queryKey:["agent-own-exceptions"],queryFn:loadAgentExceptions,enabled:allowed,
     refetchInterval:allowed?30000:false,
   });
+
+  // History navigation supplies only IDs. Fetch through the signed-in agent's
+  // RLS scope and rebuild every line from the CURRENT allowed catalogue.
+  useEffect(()=>{
+    const orderId=location.state?.repeatOrderId;
+    const sourceCustomerId=location.state?.repeatCustomerId;
+    if(!allowed || !orderId || !sourceCustomerId ||
+       !customersQ.isSuccess || !productsQ.isSuccess)return;
+    const key=orderId+":"+sourceCustomerId;
+    if(repeatedDraftKey.current===key)return;
+    repeatedDraftKey.current=key;
+    let cancelled=false;
+    async function restore(){
+      if(!(customersQ.data??[]).some(c=>c.id===sourceCustomerId)){
+        toast.error("אין הרשאה להזמנה החוזרת של הלקוח.");
+        return;
+      }
+      const {data,error}=await supabase.from("orders")
+        .select("id,customer_id,items")
+        .eq("id",orderId).eq("customer_id",sourceCustomerId).maybeSingle();
+      if(cancelled)return;
+      if(error || !data){
+        toast.error("לא ניתן לקרוא את ההזמנה המקורית.");
+        return;
+      }
+      const draft=repeatAgentOrderDraft(data,productsQ.data??[]);
+      if(!draft.items){
+        toast.error("לא ניתן לשחזר הזמנה זו אוטומטית: חסר מוצר זמין, נתון אריזה או סכום מאומת.");
+        return;
+      }
+      setCustomerId(sourceCustomerId);
+      setItems(draft.items);
+      setReason("");
+      requestIds.current.clear();
+      toast.success("טיוטת הזמנה חוזרת נטענה. יש לבדוק מחירים ורווחיות לפני שמירה.");
+    }
+    restore();
+    return ()=>{cancelled=true;};
+  },[allowed,location.state?.repeatOrderId,location.state?.repeatCustomerId,
+      customersQ.isSuccess,customersQ.data,productsQ.isSuccess,productsQ.data]);
 
   const products=productsQ.data??[];
   const customers=customersQ.data??[];
