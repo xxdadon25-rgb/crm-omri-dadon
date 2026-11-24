@@ -203,3 +203,19 @@ invoice/payment linkage and function drift WITHOUT applying changes.
 - Before rollout, repeat this comparison in the same deployment session
   and abort on ANY drift. Never apply the staged full-function replacements
   based solely on these dated hashes or this static report.
+
+## 2026-11-24 — Dashboard completeness / live read-only column check
+
+- Confirmed via READ-ONLY production `information_schema.columns` that
+  `invoices.due_date`, `credit_notes.external_credit_note_number`,
+  `orders.fulfilled`, `orders.created_date` and the remaining selected
+  customer/payment/history fields actually exist. This verifies names only;
+  role-scoped integration still needs a restored production-schema test.
+- Fixed `AgentDashboard.jsx` pending-delivery summary: the original UI
+  counted `fulfilled !== true` inside the most recent 500 orders and
+  silently underreported larger queues. It now uses a server-side exact
+  `head:true` count, with both NULL and FALSE fulfillment statuses.
+  Total order count also uses an exact `head:true` count.
+- Added `tests/agentDashboard.test.js` and ran in GitHub Actions alongside
+  pure agent rules, disposable SQL/RLS tests and Vite build. Feature flag
+  remains disabled; no live CRM data was written.
