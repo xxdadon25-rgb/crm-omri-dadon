@@ -219,3 +219,17 @@ invoice/payment linkage and function drift WITHOUT applying changes.
 - Added `tests/agentDashboard.test.js` and ran in GitHub Actions alongside
   pure agent rules, disposable SQL/RLS tests and Vite build. Feature flag
   remains disabled; no live CRM data was written.
+
+## 2026-11-24 — Disabled-agent commission access revocation
+
+- Resolved a direct-RPC authorization gap: an inactive agent was correctly
+  denied assigned customer data by RLS, but could still query old
+  `sales_agent_commission_preview` and
+  `sales_agent_commission_balance` data through SECURITY DEFINER RPCs.
+- Both read functions now require an ACTIVE profile when caller=agent.
+  A manager of the same owner business can still inspect accrued/paid
+  history of a disabled agent for final accounting and dispute resolution.
+- Added synthetic PostgreSQL assertions for disabled-agent direct RPC
+  rejection and preserved manager balance; added static SQL contract guard.
+- Tested against disposable fixture only. Agent activation still disabled,
+  and no production data, product pricing, stock or customer access changed.
