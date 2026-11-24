@@ -93,6 +93,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
     // Responses differ by Origin, so caches must not serve one origin's
     // response to another.
     "Vary": "Origin",
+    "Cache-Control": "no-store",
   };
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
