@@ -4,7 +4,7 @@ reset role;
 reset request.jwt.claim.sub;
 insert into public.products(id,user_id,name,buy_price,sell_price,is_active,unit)
 values (
- '66666666-6666-4666-8666-666666666666',
+ '67676767-6767-4767-8767-676767676767',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  'Unverified zero-cost item',0,10,true,'חבילה'
 );
@@ -53,7 +53,7 @@ begin
  begin
    perform public.sales_agent_check_order_margin(
      '11111111-1111-4111-8111-111111111111',
-     '[{"product_id":"66666666-6666-4666-8666-666666666666",
+     '[{"product_id":"67676767-6767-4767-8767-676767676767",
         "quantity":1,"unit_price":10,"total":10}]'::jsonb,0
    );
  exception when others then blocked=(sqlerrm='cost_missing');
