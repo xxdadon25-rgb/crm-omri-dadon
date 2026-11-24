@@ -46,6 +46,19 @@ test("existing credit note UUID link uses safe single-document endpoint",()=>{
  assert.doesNotMatch(creditFn,/\.select\(["']\*["']\)/);
  assert.match(creditFn,/credit_note:\s*\{/);
 });
+test("all three public PDF endpoints forbid caching responses",()=>{
+ for (const code of [quoteFn,orderFn,creditFn]) {
+   assert.match(code,/Cache-Control["']?:\s*["']no-store["']/);
+ }
+});
+test("legacy manager document counters fail migration if owner manager identity is not seeded",()=>{
+ const migration=file("supabase/agent-foundation/26_manager_only_sequence_wrappers_NOT_APPLIED.sql");
+ assert.match(migration,/owner_manager_identity_not_seeded/);
+ assert.match(migration,/sales_agent_managers/);
+ assert.match(migration,/business_settings/);
+ assert.ok(migration.indexOf("owner_manager_identity_not_seeded") <
+   migration.indexOf("create or replace function public.get_next_order_number"));
+});
 test("existing public order PDF keeps endpoint and no longer directly reads settings",()=>{
  assert.match(orderPage,/supabase\.functions\.invoke\(\s*"public-order-pdf"/);
  assert.match(orderPage,/orderResponse\.business/);
