@@ -249,6 +249,8 @@ begin
       'agent',v_agent,'owner',v_owner,
       'customer',p_customer_id,'items',p_items,
       'total_override',p_total_gross,
+      'vat_amount',v_calc.vat_amount,
+      'effective_net_revenue',v_calc.effective_net_revenue,
       'prices',v_cost_snapshot,'margin',v_calc.margin_percent
     )::text,'UTF8'),
     'sha256'
@@ -427,7 +429,10 @@ begin
       'agent',v_agent,'owner',v_owner,'customer',v_customer.id,
       'items',v_items,'prices',v_prices,'margin',v_calc.margin_percent
     ) || case when v_override is null then '{}'::jsonb
-       else jsonb_build_object('total_override',v_override) end)::text,'UTF8'),
+       else jsonb_build_object('total_override',v_override,
+         'vat_amount',v_calc.vat_amount,
+         'effective_net_revenue',v_calc.effective_net_revenue)
+       end)::text,'UTF8'),
     'sha256'
   ),'hex');
 
