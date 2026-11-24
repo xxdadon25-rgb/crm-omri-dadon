@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -163,10 +164,12 @@ export default function AgentCustomers() {
             לא ניתן לטעון את היסטוריית הלקוח. בדוק הרשאות.
           </p>}
           {historyQ.data&&<>
-            <HistoryTable title="הזמנות" columns={["תאריך","מספר","סכום כולל מע״מ","סטטוס","אספקה"]}
+            <HistoryTable title="הזמנות" columns={["תאריך","מספר","סכום כולל מע״מ","סטטוס","אספקה","פעולה"]}
               rows={historyQ.data.orders.map(o=>[
                 o.date??"",o.order_number??"",`₪${money(o.total)}`,
-                o.status??"",o.fulfilled?"סופקה":"טרם סופקה"
+                o.status??"",o.fulfilled?"סופקה":"טרם סופקה",
+                <Link key={o.id} to="/agent-orders" state={{repeatOrderId:o.id,repeatCustomerId:customerId}}
+                  className="text-blue-700 underline">הזמנה חוזרת</Link>
               ])}/>
             <HistoryTable title="חשבוניות" columns={["תאריך","מספר","סכום כולל מע״מ"]}
               rows={historyQ.data.invoices.map(i=>[
