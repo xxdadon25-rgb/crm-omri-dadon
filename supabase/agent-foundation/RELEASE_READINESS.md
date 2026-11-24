@@ -683,3 +683,27 @@ or owner product mutations are permitted.
 - The production release remains ON HOLD until owner-approved coordinated
   Edge/frontend/RLS rollout, full schema-faithful rehearsal, browser smoke
   tests and first agent provisioning. Do not merge or apply staged SQL.
+
+
+## 2026-11-24 — Production constraints included in synthetic Finbot credit tests
+
+- READ-ONLY metadata inspection found production public.credit_notes has
+  constraint credit_notes_confirmed_needs_evidence_check: any row with
+  finbot_status='confirmed' MUST have a non-blank
+  external_credit_note_number. Also verified the allowed status CHECK
+  pending/confirmed/failed/uncertain.
+- Previous disposable tests omitted both constraints and created confirmed
+  synthetic credit records without external document evidence. This was
+  weaker than real QuickStock and could mask a compatibility failure.
+- Added the two real CHECK constraints to the isolated-only
+  56_live_credit_guards_fixture.sql, updated affected synthetic fixtures
+  60/70/101 to carry clearly fictional external document references, and
+  added a negative regression in test 57: confirmed without a document
+  reference must be rejected; with a reference it is allowed and final.
+- GitHub Actions 45486166975: all three jobs SUCCESS, including
+  SQL/RLS commission + credit reversal, Node rules, UI and staged PDF
+  functions. Real production constraint names and types were verified
+  read-only; no real invoice/credit customer data or secrets were copied.
+- The clean 27-file isolated rehearsal remains available; no production
+  migration or user action executed. Full production-schema restore and
+  genuine portal/PDF compatibility checks are still release gates.
