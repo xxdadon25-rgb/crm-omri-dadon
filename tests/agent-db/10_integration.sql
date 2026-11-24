@@ -119,7 +119,7 @@ begin
  end;
 end $test_replay$;
 
-do $
+do $customers$
 declare r public.customers; n integer;
 begin
  r:= public.sales_agent_create_customer(
@@ -132,7 +132,7 @@ begin
  select count(*) into n from public.sales_agent_customer_assignments
  where customer_id=r.id and agent_auth_id=auth.uid();
  if n<>1 then raise exception 'new customer not assigned'; end if;
-end $$;
+end $customers$;
 
 -- Agent cannot bypass direct writes on owned rows despite original policy.
 do $$
