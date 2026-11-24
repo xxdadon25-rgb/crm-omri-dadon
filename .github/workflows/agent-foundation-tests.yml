@@ -164,3 +164,4 @@ jobs:
             }
           done
           cat /tmp/agent-last-step.log
+          bash tests/agent-db/negative_manager_seed_gate.sh "$pg_container"
