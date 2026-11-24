@@ -247,3 +247,14 @@ test("agent-only product block cannot alter owner catalogue and is checked by se
   assert.match(margin,/from public\.sales_agent_product_blocks b/);
   assert.match(margin,/agent_product_blocked/);
 });
+
+test("direct commission read RPCs revoke disabled agent but preserve manager audit", () => {
+  for(const file of ["13_commission_preview_NOT_APPLIED.sql",
+                      "18_commission_balance_NOT_APPLIED.sql"]){
+    const sql=read(file);
+    assert.match(sql,/v_caller=v_agent and not exists\(/);
+    assert.match(sql,/ap\.is_active=true/);
+    assert.match(sql,/raise exception 'agent_not_active'/);
+    assert.match(sql,/m\.auth_user_id=v_caller and m\.owner_auth_id=v_owner/);
+  }
+});
