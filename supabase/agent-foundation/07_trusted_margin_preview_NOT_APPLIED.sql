@@ -105,8 +105,20 @@ begin
     where p.id = (v_item->>'product_id')::uuid
       and p.user_id = v_owner and p.is_active is true;
     if not found then raise exception 'product_not_found'; end if;
-    if v_product.buy_price is null or v_product.buy_price < 0
+    -- A zero/missing cost is not proof that inventory was obtained for free.
+    -- Zero-cost legacy entries otherwise give a fabricated 100% margin.
+    if v_product.buy_price is null or v_product.buy_price <= 0
     then raise exception 'cost_missing'; end if;
+
+    -- Match the legacy QuickStock cartProfit fallback for unverified
+    -- carton/pack vs unit cost bases. A business-approved, matching catalogue
+    -- price normally passes; a very large ratio is a REVIEW, not a 99%-margin
+    -- approval. Never infer a packaging multiplier from a price alone.
+    -- This rule applies even if the browser FORGES price_basis.
+    if v_unit_price > 0 and
+       (v_product.buy_price > v_unit_price*3
+        or v_unit_price > v_product.buy_price*12)
+    then raise exception 'sale_unit_needs_clarification'; end if;
 
     -- Existing JS lineProfit same-level behavior:
     -- line cost = round(buy_price * 100 * qty) agorot.
@@ -117,7 +129,11 @@ begin
     -- agorot first, then round the discounted extended line once.
     v_line_sales := round(round(v_unit_price*100) * v_quantity
                           * (1-v_discount/100))::bigint;
-    if v_line_sales <> round(v_line_total*100)::bigint
+    -- The submitted line total is stored downstream. Refuse hidden third-
+    -- decimal fractions that could pass a cents-only comparison yet survive
+    -- into the issued invoice with a different amount.
+    if v_line_total is distinct from round(v_line_total,2)
+       or v_line_sales <> round(v_line_total*100)::bigint
     then raise exception 'inconsistent_line_total'; end if;
 
     v_line_cost := round(v_product.buy_price*100*v_quantity)::bigint;
