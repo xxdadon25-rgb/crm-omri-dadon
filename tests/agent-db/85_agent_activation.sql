@@ -59,14 +59,14 @@ values ('46464646-4646-4464-8464-464646464646',
         'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 set role authenticated;
 set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-do $
+do $$
 declare rejected boolean:=false;
 begin
  begin
    perform public.sales_agent_activate('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
  exception when others then rejected=(sqlerrm='agent_identity_conflict'); end;
  if not rejected then raise exception 'staff identity activated as agent'; end if;
-end $;
+end $$;
 
 reset role;
 reset request.jwt.claim.sub;
