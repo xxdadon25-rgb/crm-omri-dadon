@@ -49,9 +49,14 @@ begin
   where m.auth_user_id=v_owner and m.owner_auth_id=v_owner
  ) then raise exception 'not_manager'; end if;
 
+ -- Acquire an EXCLUSIVE row lock so blocking cannot race a normal or
+ -- approved-exception order holding FOR SHARE on the same product.
+ -- Whichever transaction owns the product lock first completes first:
+ -- agent order first -> block applies to future orders; block first ->
+ -- the pending agent order sees the new block and is rejected.
  perform 1 from public.products p
  where p.id=p_product_id and p.user_id=v_owner
- for share;
+ for update;
  if not found then raise exception 'product_not_owned'; end if;
 
  if p_block then
