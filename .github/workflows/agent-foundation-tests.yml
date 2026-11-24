@@ -100,6 +100,7 @@ jobs:
             "supabase/agent-foundation/12_delivery_alert_sync_NOT_APPLIED.sql"
             "tests/agent-db/10_integration.sql"
             "tests/agent-db/20_legacy_rpc_security.sql"
+            "tests/agent-db/25_margin_cost_basis.sql"
             "tests/agent-db/30_approved_exception_order.sql"
             "tests/agent-db/35_order_line_tamper.sql"
             "tests/agent-db/40_delivery_alert_sync.sql"
