@@ -10,7 +10,7 @@ export function dormantAssignedCustomers(customers, orders, inactivityDays = 60,
   const lastByCustomer = new Map();
   for (const order of orders ?? []) {
     const id=order?.customer_id;
-    const date=order?.date;
+    const date=order?.date || (typeof order?.created_date === "string" ? order.created_date.slice(0,10) : null);
     if(!id || typeof date!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
     const parsed=Date.parse(date+"T00:00:00Z");
     if(!Number.isFinite(parsed) || new Date(parsed).toISOString().slice(0,10)!==date)continue;
