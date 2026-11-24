@@ -14,12 +14,13 @@ end $test$;
 
 set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 do $test$
-declare b record;
+declare denied boolean:=false;
 begin
- select * into b from public.sales_agent_commission_balance();
- if b.total_commission_accrued<>0 or b.payouts_recorded<>8
-   or b.current_balance<>-8
- then raise exception 'agent own ledger balance incorrect: %',row_to_json(b); end if;
+  -- The agent was disabled by stage 80. Direct RPC must respect revocation.
+  begin
+    perform public.sales_agent_commission_balance();
+  exception when others then denied=(sqlerrm='agent_not_active'); end;
+  if not denied then raise exception 'disabled agent read lifetime balance'; end if;
 end $test$;
 
 set request.jwt.claim.sub='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
