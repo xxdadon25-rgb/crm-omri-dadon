@@ -69,12 +69,55 @@ begin
  'aaaaaaaa-1111-4111-8111-111111111111',
  '11111111-1111-4111-8111-111111111111',
  '[{"product_id":"44444444-4444-4444-8444-444444444444",
- "quantity":10,"unit_price":10,"total":100,"discount":0}]'::jsonb,0,'retry');
+ "quantity":10,"unit_price":10,"total":100,"discount":0}]'::jsonb,0,'test only');
  if r.order_number<>1001 then raise exception 'duplicate order'; end if;
  select count(*) into n from public.sales_agent_delivery_alerts
  where order_id=r.id;
  if n<>1 then raise exception 'duplicate delivery alert'; end if;
-end $$;
+
+ -- Same request UUID must NEVER silently return an old order when the
+ -- caller changed quantity, sale price, discount or the notes.
+ 
+ begin
+   perform public.sales_agent_create_order(
+     'aaaaaaaa-1111-4111-8111-111111111111',
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"44444444-4444-4444-8444-444444444444","quantity":9,"unit_price":10,"total":90,"discount":0}]'::jsonb,0,'test only');
+   raise exception 'reused request accepted changed payload';
+ exception when others then
+   if sqlerrm<>'order_request_payload_changed' then raise; end if;
+ end;
+ 
+ begin
+   perform public.sales_agent_create_order(
+     'aaaaaaaa-1111-4111-8111-111111111111',
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"44444444-4444-4444-8444-444444444444","quantity":10,"unit_price":11,"total":110,"discount":0}]'::jsonb,0,'test only');
+   raise exception 'reused request accepted changed payload';
+ exception when others then
+   if sqlerrm<>'order_request_payload_changed' then raise; end if;
+ end;
+ 
+ begin
+   perform public.sales_agent_create_order(
+     'aaaaaaaa-1111-4111-8111-111111111111',
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"44444444-4444-4444-8444-444444444444","quantity":10,"unit_price":10,"total":90,"discount":10}]'::jsonb,0,'test only');
+   raise exception 'reused request accepted changed payload';
+ exception when others then
+   if sqlerrm<>'order_request_payload_changed' then raise; end if;
+ end;
+ 
+ begin
+   perform public.sales_agent_create_order(
+     'aaaaaaaa-1111-4111-8111-111111111111',
+     '11111111-1111-4111-8111-111111111111',
+     '[{"product_id":"44444444-4444-4444-8444-444444444444","quantity":10,"unit_price":10,"total":100,"discount":0}]'::jsonb,0,'changed note');
+   raise exception 'reused request accepted changed payload';
+ exception when others then
+   if sqlerrm<>'order_request_payload_changed' then raise; end if;
+ end;
+end $;
 
 do $$
 declare r public.customers; n integer;
