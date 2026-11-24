@@ -377,3 +377,38 @@ No new paid Supabase project, branch or third-party service without prior approv
   changed by this work. Remaining launch gates: exact actual-schema E2E,
   mixed packaging evidence for affected products, and explicit rollout
   permission + secure Auth provisioning for first real agent.
+
+
+## 2026-11-24 — Actual production policy/sequence introspection and guarded test coverage
+
+- READ ONLY production catalog inspection verified the actual
+  public.quotes policy public_read_quotes FOR SELECT TO public USING(true).
+  PostgreSQL combines permissive policies using OR, so the initial agent
+  quotes_read_assigned policy was not sufficient. New staged
+  23_quote_read_scope_NOT_APPLIED.sql adds an authenticated RESTRICTIVE
+  policy restricting an agent to assigned customer quotes, without narrowing
+  existing non-agent manager or portal SELECT behavior.
+  A faithful disposable fixture now includes the actual permissive public
+  quote policy; regression tests verify assigned, unassigned, foreign,
+  manager, portal and revoked-assignment cases.
+- READ ONLY production introspection verified get_next_order_number and
+  get_next_quote_number are SECURITY DEFINER wrappers of nextval,
+  executable by authenticated, and the underlying public order_number_seq
+  and quote_number_seq both grant authenticated/anon USAGE and UPDATE.
+  Thus guarding the RPC alone cannot prevent direct sequence advancement.
+  New staged 24_legacy_sequences_agent_guard_NOT_APPLIED.sql revokes direct
+  remote sequence access and guards both legacy number RPCs against any
+  registered agent (including disabled agents). The disposable fixture
+  reproduces the historical grants. Tests cover manager RPC increments,
+  portal RPC behavior, agent RPC denials and raw-sequence denials.
+- All 3 groups passed in GitHub Actions 45477925703 for quote isolation.
+  All 3 groups passed in GitHub Actions 45478347698 for sequence scope,
+  including the full previous PostgreSQL/commission test suite.
+- IMPORTANT ROLLOUT COMPATIBILITY GATE: revoking direct sequence privileges
+  is a change to previously granted access. Search in GitHub's default
+  branch did not return direct sequence references, but this does not
+  prove there is no older client, SQL console workflow, external integration
+  or stored procedure using nextval directly. Verify those dependencies in
+  a production-schema-faithful isolated environment BEFORE applying 24.
+- No migration was applied to production, no live user or customer state
+  changed, no merge or feature activation was performed.
