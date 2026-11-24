@@ -28,21 +28,25 @@
 2. Updated `public-order-pdf/index.ts` continues returning the same
    `order` shape and additionally returns safe business display fields.
    Its customer-facing order UUID URL stays unchanged.
-3. Both staged React PDF pages use their respective Edge Functions, with
-   no direct public `quotes` or `business_settings` table SELECT.
-4. Staged stage 25 removes the global public quote SELECT, leaving owner,
+3. All three staged public React PDF pages (quote/order/credit note) now
+   use single-document Edge Functions. Neither the public quote nor the
+   credit-note page queries whole base tables or business settings.
+4. New `supabase/functions/public-credit-note-pdf/index.ts` returns ONE
+   credit note to a pre-existing `/credit-note-pdf/:creditNoteId` UUID share
+   URL, with a fixed public field allowlist and safe business identity.
+5. Staged stage 25 removes the global public quote SELECT, leaving owner,
    assigned agent and own authenticated portal policies.
-5. Staged stage 27 removes global public business settings SELECT and
+6. Staged stage 27 removes global public business settings SELECT and
    revokes `anon` table SELECT. Owner-scoped policy remains unchanged.
-6. Stage 26 counter hardening is a DIFFERENT migration and still needs a
+7. Stage 26 counter hardening is a DIFFERENT migration and still needs a
    compatibility verification for all legacy portal/client callers.
 
 ## Mandatory rollout conditions (release HOLD)
 
-- Never deploy the two React pages BEFORE the matching Edge Functions are
+- Never deploy the three React pages BEFORE the matching Edge Functions are
   live and verified; never apply 25/27 BEFORE the matched frontend and Edge
   Functions have been tested from an incognito phone browser.
-- Public quote UUID is treated as a bearer share link; anyone in possession
+- Public quote/credit-note UUIDs are treated as bearer share links; anyone in possession
   can read that one quote, matching the already agreed public-order-PDF
   access model. Existing distributed UUID links retain their format, but
   actual anonymous production smoke tests remain REQUIRED.
@@ -56,6 +60,7 @@
   `business_settings` columns. The new safe endpoint returns only the
   six existing display columns.
 - Test owner quote creation (QuoteEditor uses `get_next_quote_number`),
+  public credit-note share/download and
   quote->order conversion, portal login/catalog and public order/quote
   download before revoking existing public privileges.
 - Run a privilege check after migration: `anon` must not SELECT from
@@ -72,8 +77,8 @@
   portal / agent quotes and the staged settings access restriction.
 - Node static contract tests for public PDF frontend calls, approved
   business allowlists and explicit line-item fields.
-- Vite frontend build and esbuild TypeScript parse of both staged functions.
-- GitHub Actions run 45480869661: all three jobs SUCCESS.
+- Vite frontend build and esbuild TypeScript parse of all three staged functions.
+- GitHub Actions run 45481580549: all three jobs SUCCESS (including credit-note PDF tests).
 
 **No production migrations, Edge Functions, frontend deployments, data edits,
 credentials rotations, new paid project, or first agent activation occurred.**
