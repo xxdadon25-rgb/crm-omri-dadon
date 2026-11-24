@@ -129,3 +129,27 @@ invoice/payment linkage and function drift WITHOUT applying changes.
 - **GitHub Actions 45336227246**: pure Node agent rules SUCCESS, isolated
   PostgreSQL/RLS SQL integration SUCCESS and Vite build SUCCESS.
 - No production SQL applied and no live CRM data changed.
+
+## 2026-11-24 — Product unit/cost safety audit
+
+- READ-ONLY live catalogue query found 740 active products: 38 have a NULL
+  or nonpositive purchase price; 2 have an unusually high catalogue sale
+  price relative to recorded purchase cost (greater than 12x); the
+  remaining 700 pass this *coarse ratio screen*, NOT a proven pack/carton
+  conversion audit. None of the records was edited.
+- Tightened the staged server margin function to REJECT nonpositive purchase
+  costs, unverified >3x buy/sale or >12x sale/buy price ratios, including
+  a check using the trusted catalogue reference price. An agent cannot
+  bypass a flagged product by quoting a different price or supplying a
+  `price_basis` field. A missing cost is an error, never a free product
+  with a fictitious 100% gross margin.
+- Enforced exact two-decimal net line totals before storing an agent order.
+  A fractional-cent total cannot pass the rounding validation and be
+  saved with an unrounded value that differs from the server's margin base.
+- Added isolated PostgreSQL regression `tests/agent-db/25_margin_cost_basis.sql`
+  and SQL contract tests for zero-cost, suspicious purchase/sale bases,
+  source-reference-price bypass and fractional-cent invoice totals.
+- These are targeted fail-closed safeguards, NOT full compatibility with
+  confirmed mixed units or legacy document-wide discounts. They protect
+  the current same-sold-unit workflow while the outstanding launch gates
+  remain in force.
