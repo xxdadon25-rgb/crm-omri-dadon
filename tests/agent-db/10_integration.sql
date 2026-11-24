@@ -46,7 +46,7 @@ begin
  then raise exception 'below 40 margin must request approval: %',row_to_json(r); end if;
 end $$;
 
-do $$
+do $test_replay$
 declare r public.orders; n integer;
 begin
  r := public.sales_agent_create_order(
@@ -117,9 +117,9 @@ begin
  exception when others then
    if sqlerrm<>'order_request_payload_changed' then raise; end if;
  end;
-end $;
+end $test_replay$;
 
-do $$
+do $
 declare r public.customers; n integer;
 begin
  r:= public.sales_agent_create_customer(
