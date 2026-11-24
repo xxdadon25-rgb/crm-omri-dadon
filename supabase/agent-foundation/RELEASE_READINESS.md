@@ -491,3 +491,41 @@ or owner product mutations are permitted.
   restored/isolated test, actual customer-facing portal and anonymous
   quote-link compatibility, exact external counter callers, and a
   controlled first agent run under owner approval.
+
+
+## 2026-11-24 — Public PDF compatibility solution staged, security rollout still on hold
+
+- Inspected source files behind actual public CRM routes:
+  /quote-pdf/:quoteId, /order-pdf/:orderId and
+  /credit-note-pdf/:creditNoteId. Existing quote/credit-note public PDF
+  pages had raw select("*") calls to quotes/credit_notes and
+  business_settings. The existing public order PDF uses public-order-pdf
+  for the order but read business_settings directly in the browser.
+- Read-only LIVE Supabase inspection verified both quotes and
+  business_settings have unrestricted public SELECT policies, and
+  business_settings has anon SELECT privileges despite containing columns
+  api_url, api_key, api_secret and api_company_id. No sensitive field
+  values were fetched. This is a preexisting potentially severe exposure
+  requiring a coordinated security release, not an agent-feature change.
+- Added staged public-quote-pdf and public-credit-note-pdf Edge Functions:
+  each requires a valid UUID and serves exactly one share document with
+  explicitly allowlisted public display fields and business identity,
+  never user/customer IDs, raw line costs, or API secrets. Existing public
+  UUID link formats are preserved.
+- Updated staged public-order-pdf to include only public business display
+  fields in its return object. All three React public PDF pages now use
+  their matched Edge endpoints; none queries business_settings directly.
+- Stage 27_PUBLIC business settings hardening removes the global public
+  table SELECT policy and revokes anon SELECT. Disposable PostgreSQL tests
+  confirm owner read preserved, agent/portal/anonymous direct reads denied.
+- Frontend Vite build, Node PDF allowlist tests and esbuild TypeScript parsing
+  of all three Edge Functions passed; SQL/RLS tests passed:
+  GitHub Actions run 45481580549 — all three jobs SUCCESS.
+- NOT DONE: real deployed anonymous browser PDF smoke checks, review of any
+  other external integrations depending on direct public business settings
+  reads, backup/recovery, any production Edge/function/frontend rollout.
+  Stages 25, 26, and 27 are NOT_APPLIED.
+- Critical deployment order is detailed in PUBLIC_DOCUMENT_ROLLOUT.md.
+  Do not merge the staged frontend or revoke public table privileges
+  without deploying the matching safe Edge Functions and verifying
+  existing links. No new paid services are necessary for this plan.
