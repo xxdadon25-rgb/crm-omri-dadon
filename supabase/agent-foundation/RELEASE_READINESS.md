@@ -707,3 +707,25 @@ or owner product mutations are permitted.
 - The clean 27-file isolated rehearsal remains available; no production
   migration or user action executed. Full production-schema restore and
   genuine portal/PDF compatibility checks are still release gates.
+
+
+## 2026-11-24 — User-confirmed agent collection visibility and order flow
+
+- Confirmed scope: active agent creates customer order; only the owner/Ben
+  issues invoice and records receipts. Agent may READ the assigned customer's
+  orders, invoices, already-recorded payments, issued credits and outstanding
+  debt. No agent direct financial writes, invoice issuance or credit issuance.
+- AgentCustomers customerHistory now paginates every authorized page for
+  assigned customer orders, invoices, payments and credit notes, rather
+  than silently stopping at 100 records. Raises a visible query error
+  rather than presenting partial history as complete.
+- New synthetic SQL/RLS test 58_assigned_customer_financial_visibility.sql
+  confirms assigned invoice/payment/credit visibility, unassigned customer
+  isolation, rejected agent writes and immediate read revocation upon
+  manager removal of customer assignment. It restores the test assignment.
+- AgentApprovedWorkflow static tests updated to ensure pagination and
+  manager invoice responsibility. All three GitHub Actions jobs SUCCESS,
+  run 45487839408 (Node, Vite/Edge compilation and isolated SQL suite).
+- No changes to financial ledger calculations, live QuickStock data, public
+  invoice behavior or the agreed 21-active/17-agent-blocked catalog choices.
+  All work remains branch-only pending explicit installation authorization.
