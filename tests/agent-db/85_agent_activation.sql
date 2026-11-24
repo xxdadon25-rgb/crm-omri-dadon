@@ -51,6 +51,23 @@ begin
  if active then raise exception 'disable did not revoke agent'; end if;
 end $$;
 
+-- A previously registered disabled identity must not become an agent
+-- if the account was subsequently added to the CRM staff registry.
+reset role;
+insert into public.staff_members(id,auth_user_id)
+values ('46464646-4646-4464-8464-464646464646',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+set role authenticated;
+set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+do $
+declare rejected boolean:=false;
+begin
+ begin
+   perform public.sales_agent_activate('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+ exception when others then rejected=(sqlerrm='agent_identity_conflict'); end;
+ if not rejected then raise exception 'staff identity activated as agent'; end if;
+end $;
+
 reset role;
 reset request.jwt.claim.sub;
 select 'manager-only activation, idempotency, disable PASS' as result;
