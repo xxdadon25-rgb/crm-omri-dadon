@@ -465,11 +465,15 @@ begin
     or jsonb_array_length(v_new_items)<>jsonb_array_length(v_items)
   then raise exception 'product_not_found'; end if;
 
-  v_subtotal:=case when v_override is null then v_calc.net_revenue
-                  else v_calc.goods_subtotal_net end;
-  v_vat:=case when v_override is null then
-     round(v_subtotal*v_settings.vat_rate/100,2) else v_calc.vat_amount end;
-  v_total:=coalesce(v_override,v_subtotal+v_vat);
+  if v_override is null then
+    v_subtotal:=v_calc.net_revenue;
+    v_vat:=round(v_subtotal*v_settings.vat_rate/100,2);
+    v_total:=v_subtotal+v_vat;
+  else
+    v_subtotal:=v_calc.goods_subtotal_net;
+    v_vat:=v_calc.vat_amount;
+    v_total:=v_override;
+  end if;
   select greatest(
     coalesce(v_settings.order_counter,1000),
     coalesce(max(o.order_number),1000)
