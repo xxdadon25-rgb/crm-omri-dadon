@@ -1,6 +1,16 @@
 -- Disposable PostgreSQL only. One trusted product: 10 sale, 6 cost.
 set role authenticated;
-set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+-- Previous registry tests intentionally disabled both agent identities.
+-- Reactivate the clean non-staff test agent through the manager RPC only.
+set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+do $activate_for_test$
+begin
+ perform public.sales_agent_activate('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+ perform public.sales_agent_set_customer_assignment(
+  'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  '11111111-1111-4111-8111-111111111111',true);
+end $activate_for_test$;
+set request.jwt.claim.sub='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 do $manual_test$
 declare r record; blocked boolean;
 begin
@@ -62,6 +72,11 @@ begin
  exception when others then blocked=(sqlerrm='agent_not_active'); end;
  if not blocked then raise exception 'portal identity could preview agent costs'; end if;
 end $deny_portal$;
+set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+do $cleanup$
+begin
+ perform public.sales_agent_disable('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+end $cleanup$;
 reset role;
 reset request.jwt.claim.sub;
 select 'trusted manual total calculation + margin/auth guards PASS' as result;
