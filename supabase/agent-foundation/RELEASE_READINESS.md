@@ -462,3 +462,32 @@ callers, and validate against a full isolated production-schema restore
 before explicit user-approved install. Historical packaging-unit parity
 and supplier evidence remain separate unresolved gates; no guessed costs
 or owner product mutations are permitted.
+
+
+## 2026-11-24 — Live catalogue-unit and counter dependency verification
+
+- Read-only catalog introspection on the live public database shows no
+  additional database-function callers of get_next_order_number,
+  get_next_quote_number, order_number_seq or quote_number_seq apart from
+  those two existing SECURITY DEFINER wrappers. This DOES NOT establish
+  there are no frontend, Edge Function, portal, third-party, or anonymous
+  callers; stages 24/25/26 remain NOT_APPLIED pending full compatibility.
+- Read-only historical order-line aggregate found 452 stored items,
+  29 explicit catalog_same_sold_unit_v1 markers, 12 historical lines with
+  differing explicitly stored sale/buy levels, and 19 lines with packaging
+  metadata. Those historical counts are NOT a list of current products
+  missing prices and do not change the owner's approved 21-allowed/
+  17-agent-only-blocked selections. No catalogue reapproval is requested.
+- New disposable PostgreSQL test 29_verified_sold_units.sql demonstrates
+  correctly costed current product unit labels "קרטון" and "חבילה":
+  a sale of two ₪100 cartons at ₪60 cost each is 40% total gross margin,
+  and two ₪10 packs at ₪6 cost each are also 40% margin.
+  Explicitly forged mismatched carton/unit prices or unreviewed packaging
+  are rejected by the SERVER regardless of submitted conversion numbers.
+  No invented unit-to-carton ratios are used.
+- GitHub Actions run 45479798186: all 3 jobs SUCCESS (SQL/RLS, Node,
+  UI build). Development only; zero production mutations.
+- Remaining gates before rollout are a production-schema-faithful
+  restored/isolated test, actual customer-facing portal and anonymous
+  quote-link compatibility, exact external counter callers, and a
+  controlled first agent run under owner approval.
