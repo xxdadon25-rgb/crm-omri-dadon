@@ -169,3 +169,4 @@ jobs:
           done
           cat /tmp/agent-last-step.log
           bash tests/agent-db/negative_manager_seed_gate.sh "$pg_container"
+          bash tests/agent-db/rehearse_release_manifest.sh "$pg_container"
