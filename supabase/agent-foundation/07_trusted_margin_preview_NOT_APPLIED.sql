@@ -105,6 +105,15 @@ begin
     where p.id = (v_item->>'product_id')::uuid
       and p.user_id = v_owner and p.is_active is true;
     if not found then raise exception 'product_not_found'; end if;
+
+    -- Agent-only block, independent from existing products.is_active.
+    -- Checked by the SECURITY DEFINER server RPC, so editing the browser
+    -- payload or price cannot bypass a manager-blocked product.
+    if exists (
+      select 1 from public.sales_agent_product_blocks b
+      where b.owner_auth_id=v_owner and b.product_id=v_product.id
+    ) then raise exception 'agent_product_blocked'; end if;
+
     -- A zero/missing cost is not proof that inventory was obtained for free.
     -- Zero-cost legacy entries otherwise give a fabricated 100% margin.
     if v_product.buy_price is null or v_product.buy_price <= 0
