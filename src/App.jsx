@@ -80,6 +80,7 @@ const AgentManagement = lazy(() => import("@/pages/AgentManagement"));
 const AgentDashboard = lazy(() => import("@/pages/AgentDashboard"));
 const AgentCommissionAdmin = lazy(() => import("@/pages/AgentCommissionAdmin"));
 const AgentProductAccess = lazy(() => import("@/pages/AgentProductAccess"));
+const AgentDemo = lazy(() => import("@/pages/AgentDemo"));
 
 // The exact spinner AuthenticatedApp already shows while auth resolves, hoisted
 // so the same markup serves as the chunk-loading fallback. No new component and
@@ -209,6 +210,7 @@ function App() {
             {/* Public digital catalogue. No session, no guard, no AppLayout —
                 it must resolve before the "*" fallback, which would otherwise
                 hand /catalog to the authenticated CRM tree. */}
+            <Route path="/agent-demo" element={<AgentDemo />} />
             <Route path="/catalog" element={<PublicCatalog />} />
             <Route path="*" element={<AuthenticatedApp />} />
           </Routes>
