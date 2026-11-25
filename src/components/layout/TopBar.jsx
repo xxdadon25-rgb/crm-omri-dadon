@@ -13,22 +13,23 @@ import GlobalSearch from "@/components/search/GlobalSearch";
 // ─── NEW TOPBAR (Heillo style) ────────────────────────────────────────────────
 
 export default function TopBar({ onMenuClick, collapsed }) {
-  const { user, logout } = useAuth();
+  const { user, logout, crmRole } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchAllowed = crmRole === "manager";
 
   const handleLogout = () => logout();
 
   // Ctrl+K / Cmd+K shortcut
   useEffect(() => {
     const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if (searchAllowed && (e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [searchAllowed]);
 
   const initials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).join("").slice(0, 2)
@@ -76,6 +77,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
 
           {/* Center: search bar */}
           <div className="flex-1 flex justify-center">
+            {searchAllowed && <>
             {/* Desktop search */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -118,6 +120,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
             >
               <Search style={{ width: 18, height: 18 }} />
             </button>
+            </>}
           </div>
 
           {/* Left side (RTL): icons + avatar */}
@@ -174,7 +177,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
         </div>
       </header>
 
-      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      {searchAllowed && <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />}
 
       {/* OLD CODE START
       <header
