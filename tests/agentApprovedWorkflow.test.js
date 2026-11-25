@@ -38,6 +38,13 @@ test("agent submits an order, while only manager has invoice creation flow",()=>
  assert.match(managerOrders,/base44\.entities\.Invoice\.create\(/);
  assert.match(managerOrders,/navigate\("\/invoices"\)/);
 });
+test("manager order queue refreshes after agent orders only when feature enabled",()=>{
+ assert.match(managerOrders,/import \{ AGENT_FEATURES_ENABLED \} from "@\/lib\/agentFeatureFlags"/);
+ assert.match(managerOrders,/queryKey: \["orders"\],[\s\S]*?refetchInterval: AGENT_FEATURES_ENABLED \? 30_000 : false/);
+ assert.match(managerOrders,/refetchOnWindowFocus: true/);
+ assert.match(orders,/ההזמנה נשמרה והועברה לטיפול המנהל/);
+ assert.match(orders,/ההזמנה המאושרת נוצרה והועברה לטיפול המנהל/);
+});
 test("assigned customer debt view uses reads only, manager records collections",()=>{
  assert.match(collections,/AGENT_FEATURES_ENABLED && crmRole==="agent"/);
  assert.match(collections,/allVisibleRows\("invoices"/);
