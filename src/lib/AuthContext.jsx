@@ -14,7 +14,10 @@ export const AuthProvider = ({ children }) => {
     setUser(formatUser(u));
     setIsAuthenticated(!!u);
     if (u) {
-      const STAFF_EMAILS = ['xxdadon25@gmail.com', 'a.d.shivuk555@gmail.com'];
+      // THE OWNER ONLY. An address here is granted staff in the browser with no
+      // server check, so it must never hold an account that is meant to be
+      // limited: the bypass returns before the staff_members lookup runs.
+      const STAFF_EMAILS = ['xxdadon25@gmail.com'];
       if (STAFF_EMAILS.includes(u.email)) {
         setIsStaff(true);
         setIsLoadingAuth(false);
