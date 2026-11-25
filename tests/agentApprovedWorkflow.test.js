@@ -45,6 +45,16 @@ test("manager order queue refreshes after agent orders only when feature enabled
  assert.match(orders,/ההזמנה נשמרה והועברה לטיפול המנהל/);
  assert.match(orders,/ההזמנה המאושרת נוצרה והועברה לטיפול המנהל/);
 });
+test("confirmed agent orders refresh dashboard and assigned customer history without resubmitting",()=>{
+ assert.match(orders,/function refreshAfterOrderSaved\(\)/);
+ for(const key of ["agent-dashboard-summary","agent-customer-last-orders",
+  "agent-customer-history","agent-own-exceptions","sales-agent-delivery-alerts"]){
+  assert.ok(orders.includes('["'+key+'"]'),key);
+ }
+ assert.match(orders,/if\(isException\)[\s\S]*?else \{\s*refreshAfterOrderSaved\(\)/);
+ assert.match(orders,/toast\.success\("ההזמנה המאושרת נוצרה והועברה לטיפול המנהל\."\);\s*refreshAfterOrderSaved\(\)/);
+ assert.match(orders,/invalidateQueries\(\{queryKey:key\}\)\.catch/);
+});
 test("assigned customer debt view uses reads only, manager records collections",()=>{
  assert.match(collections,/AGENT_FEATURES_ENABLED && crmRole==="agent"/);
  assert.match(collections,/allVisibleRows\("invoices"/);
