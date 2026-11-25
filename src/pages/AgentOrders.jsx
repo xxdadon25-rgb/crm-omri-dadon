@@ -231,7 +231,7 @@ export default function AgentOrders() {
 
       toast.success(isException
         ?"בקשת החריגה נשלחה. לא נוצרה הזמנה ולא השתנה המלאי."
-        :"ההזמנה נשמרה והועברה לתור האספקה.");
+        :"ההזמנה נשמרה והועברה לטיפול המנהל.");
       requestIds.current.clear();
       setItems([]);setReason("");setManualGrossTotal("");
       await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
@@ -251,7 +251,7 @@ export default function AgentOrders() {
         p_exception_id:exception.id,p_order_id:orderId,
       });
       if(error)throw error;
-      toast.success("ההזמנה המאושרת נוצרה והועברה לתור האספקה.");
+      toast.success("ההזמנה המאושרת נוצרה והועברה לטיפול המנהל.");
       await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
     }catch(err){
       console.error("Agent approved exception order failed",err);
