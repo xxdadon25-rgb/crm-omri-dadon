@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: 22
       - name: Run tests
-        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js tests/agentOrderForm.test.js tests/agentDocumentTotal.test.js tests/agentRepeatOrder.test.js tests/agentDormantCustomers.test.js tests/publicDocumentSecurity.test.js tests/agentApprovedWorkflow.test.js tests/agentAuthSession.test.js tests/agentReleaseManifest.test.js tests/agentCollections.test.js tests/agentDashboard.test.js
+        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js tests/agentOrderForm.test.js tests/agentDocumentTotal.test.js tests/agentRepeatOrder.test.js tests/agentDormantCustomers.test.js tests/publicDocumentSecurity.test.js tests/agentApprovedWorkflow.test.js tests/agentRequestRetry.test.js tests/agentAuthSession.test.js tests/agentReleaseManifest.test.js tests/agentCollections.test.js tests/agentDashboard.test.js
 
   vite-build:
     name: Verify sales-agent UI compiles without live feature enablement
