@@ -52,6 +52,13 @@ export const AuthProvider = ({ children }) => {
         .maybeSingle();
       if (revision !== authRevision.current) return;
       let role = resolveCrmRole({ verifiedManager: !staffError && !!staffRecord });
+      // Preview-only, fail-closed onboarding: the invited user can open the
+      // empty CRM shell, never legacy manager pages or agent data screens.
+      // This is NOT an authorization grant. Server-side RLS remains mandatory.
+      if (!role && u.email?.toLowerCase() === 'a.d.shivuk555@gmail.com') {
+        applyRole('agent_pending');
+        return;
+      }
       if (!role && AGENT_ACCESS_ENABLED) {
         const { data: agentProfile, error: agentError } = await supabase
           .from('sales_agent_profiles')
