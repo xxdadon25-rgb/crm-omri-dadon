@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 import { buildAgentLine, agentOrderSignature, agentProductCanBeOrdered } from "@/lib/agentOrderForm";
 import { repeatAgentOrderDraft } from "@/lib/agentRepeatOrder";
+import { getOrCreateAgentRequestId, clearAgentRequestId } from "@/lib/agentRequestRetry";
 
 const money = value => Number(value ?? 0).toLocaleString("he-IL", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -31,7 +32,7 @@ function showError(err) {
     order_request_payload_changed:"ההזמנה השתנתה מאז ניסיון השמירה הקודם. בדוק את הסכומים.",
   };
   const key=Object.keys(codes).find(k=>msg.includes(k));
-  return key ? codes[key] : "הפעולה לא הושלמה. לא נוצרה הזמנה; בדוק את הנתונים ונסה שוב.";
+  return key ? codes[key] : "לא התקבל אישור שמירה. ייתכן שההזמנה נקלטה; בדוק את ההזמנות לפני ניסיון חוזר.";
 }
 
 async function loadAgentProducts() {
@@ -65,7 +66,7 @@ async function loadAgentExceptions() {
 }
 
 export default function AgentOrders() {
-  const { crmRole }=useAuth();
+  const { crmRole, user }=useAuth();
   const location=useLocation();
   const allowed=AGENT_FEATURES_ENABLED && crmRole==="agent";
   const queryClient=useQueryClient();
@@ -185,8 +186,19 @@ export default function AgentOrders() {
 
   function uniqueRequestId(kind,signature) {
     const key=kind+":"+signature;
-    if(!requestIds.current.has(key))requestIds.current.set(key,crypto.randomUUID());
-    return requestIds.current.get(key);
+    if(requestIds.current.has(key))return requestIds.current.get(key);
+    const id=getOrCreateAgentRequestId({
+      storage:window.sessionStorage,userId:user?.id,kind,signature,
+      createId:()=>crypto.randomUUID(),
+    });
+    requestIds.current.set(key,id);
+    return id;
+  }
+  function acknowledgeRequest(kind,signature,id) {
+    clearAgentRequestId({
+      storage:window.sessionStorage,userId:user?.id,kind,signature,id,
+    });
+    requestIds.current.delete(kind+":"+signature);
   }
 
   async function submit() {
@@ -204,8 +216,8 @@ export default function AgentOrders() {
     setBusy(true);
     try{
       const isException=exceptionRequired;
-      const requestId=uniqueRequestId(isException?"exception":"order",
-        formSignature);
+      const kind=isException?"exception":"order";
+      const requestId=uniqueRequestId(kind,formSignature);
       const {error}=isException
         ?hasManualTotal
           ?await supabase.rpc("sales_agent_request_total_exception",{
@@ -228,11 +240,11 @@ export default function AgentOrders() {
             p_items:items,p_document_discount_net:0,p_notes:null,
           });
       if(error)throw error;
+      acknowledgeRequest(kind,formSignature,requestId);
 
       toast.success(isException
         ?"בקשת החריגה נשלחה. לא נוצרה הזמנה ולא השתנה המלאי."
         :"ההזמנה נשמרה והועברה לטיפול המנהל.");
-      requestIds.current.clear();
       setItems([]);setReason("");setManualGrossTotal("");
       await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
       await queryClient.invalidateQueries({queryKey:["sales-agent-delivery-alerts"]});
@@ -251,6 +263,7 @@ export default function AgentOrders() {
         p_exception_id:exception.id,p_order_id:orderId,
       });
       if(error)throw error;
+      acknowledgeRequest("approved",exception.id,orderId);
       toast.success("ההזמנה המאושרת נוצרה והועברה לטיפול המנהל.");
       await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
     }catch(err){
