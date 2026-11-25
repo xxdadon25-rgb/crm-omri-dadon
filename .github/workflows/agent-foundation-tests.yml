@@ -1,0 +1,176 @@
+name: Agent foundation unit tests
+
+on:
+  push:
+    branches:
+      - feature/sales-agents-foundation-20261123
+  pull_request:
+    paths:
+      - "src/lib/agent*.js"
+      - "src/pages/QuotePDFPreview.jsx"
+      - "src/pages/OrderPDFPreview.jsx"
+      - "src/pages/CreditNotePDFPreview.jsx"
+      - "supabase/functions/public-quote-pdf/**"
+      - "supabase/functions/public-order-pdf/**"
+      - "supabase/functions/public-credit-note-pdf/**"
+      - "tests/publicDocumentSecurity.test.js"
+      - "tests/agent*.test.js"
+      - ".github/workflows/agent-foundation-tests.yml"
+      - "supabase/agent-foundation/**"
+      - "tests/agent-db/**"
+      - "src/pages/AgentExceptions.jsx"
+      - "src/pages/AgentOrders.jsx"
+      - "src/pages/AgentCustomers.jsx"
+      - "src/pages/AgentCollections.jsx"
+      - "src/pages/AgentCommissions.jsx"
+      - "src/pages/AgentManagement.jsx"
+      - "src/pages/AgentDashboard.jsx"
+      - "src/pages/AgentCommissionAdmin.jsx"
+      - "src/pages/AgentProductAccess.jsx"
+      - "src/lib/agentCollections.js"
+      - "src/lib/invoiceBalance.js"
+      - "src/lib/agentOrderForm.js"
+      - "src/lib/agentPermissions.js"
+      - "src/components/ProtectedRoute.jsx"
+      - "src/lib/AuthContext.jsx"
+      - "src/components/agents/**"
+      - "src/pages/Dashboard.jsx"
+      - "src/App.jsx"
+      - "src/components/layout/Sidebar.jsx"
+      - "src/lib/agentFeatureFlags.js"
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    name: Pure agent rule tests (no live Supabase)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate offline local-only rehearsal script syntax
+        run: bash -n tests/agent-db/run_offline_rehearsal.sh tests/agent-db/run_local_acceptance.sh
+      - name: Run tests
+        run: node --test tests/agentPermissions.test.js tests/agentCommission.test.js tests/agentMarginDecision.test.js tests/agentExceptionApproval.test.js tests/agentSqlContracts.test.js tests/agentExistingProfitParity.test.js tests/agentOrderForm.test.js tests/agentDocumentTotal.test.js tests/agentRepeatOrder.test.js tests/agentDormantCustomers.test.js tests/publicDocumentSecurity.test.js tests/agentApprovedWorkflow.test.js tests/agentRequestRetry.test.js tests/agentAuthSession.test.js tests/agentReleaseManifest.test.js tests/agentCollections.test.js tests/agentDashboard.test.js
+
+  vite-build:
+    name: Verify sales-agent UI compiles without live feature enablement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Compile CRM
+        run: npm run build
+      - name: Parse staged public PDF Edge Functions (no deployment)
+        run: |
+          ./node_modules/.bin/esbuild supabase/functions/public-quote-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-quote-pdf.js
+          ./node_modules/.bin/esbuild supabase/functions/public-order-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-order-pdf.js
+          ./node_modules/.bin/esbuild supabase/functions/public-credit-note-pdf/index.ts --bundle --platform=neutral --external:https://* --outfile=/tmp/public-credit-note-pdf.js
+
+  postgres-integration:
+    name: Isolated SQL/RLS integration (synthetic data only)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply staged schema to disposable PostgreSQL container
+        shell: bash
+        run: |
+          set -euo pipefail
+          pg_container="${{ job.services.postgres.id }}"
+          sql_files=(
+            "tests/agent-db/00_fixture.sql"
+            "tests/agent-db/01_live_inventory_audit_fixture.sql"
+            "tests/agent-db/22_live_sequence_fixture.sql"
+            "supabase/agent-foundation/01_schema_NOT_APPLIED.sql"
+            "supabase/agent-foundation/02_exception_decisions_NOT_APPLIED.sql"
+            "supabase/agent-foundation/03_agent_read_rls_NOT_APPLIED.sql"
+            "supabase/agent-foundation/23_quote_read_scope_NOT_APPLIED.sql"
+            "supabase/agent-foundation/24_legacy_sequences_agent_guard_NOT_APPLIED.sql"
+            "supabase/agent-foundation/04_legacy_delete_hardening_NOT_APPLIED.sql"
+            "supabase/agent-foundation/05_agent_direct_write_guard_NOT_APPLIED.sql"
+            "supabase/agent-foundation/06_agent_customer_rpc_NOT_APPLIED.sql"
+            "supabase/agent-foundation/19_agent_only_product_blocks_NOT_APPLIED.sql"
+            "supabase/agent-foundation/07_trusted_margin_preview_NOT_APPLIED.sql"
+            "supabase/agent-foundation/14_commission_rate_snapshot_NOT_APPLIED.sql"
+            "supabase/agent-foundation/08_agent_create_order_NOT_APPLIED.sql"
+            "supabase/agent-foundation/09_legacy_security_definer_guard_NOT_APPLIED.sql"
+            "supabase/agent-foundation/10_margin_exception_request_NOT_APPLIED.sql"
+            "supabase/agent-foundation/11_approved_exception_order_NOT_APPLIED.sql"
+            "supabase/agent-foundation/12_delivery_alert_sync_NOT_APPLIED.sql"
+            "tests/agent-db/10_integration.sql"
+            "tests/agent-db/24_quote_read_scope.sql"
+            "tests/agent-db/27_legacy_sequence_hardening.sql"
+            "supabase/agent-foundation/25_public_quote_access_hardening_NOT_APPLIED.sql"
+            "tests/agent-db/26_public_quote_access_security.sql"
+            "supabase/agent-foundation/26_manager_only_sequence_wrappers_NOT_APPLIED.sql"
+            "tests/agent-db/28_manager_only_sequence_security.sql"
+            "supabase/agent-foundation/27_public_business_settings_hardening_NOT_APPLIED.sql"
+            "tests/agent-db/31_business_settings_visibility.sql"
+            "tests/agent-db/29_verified_sold_units.sql"
+            "tests/agent-db/20_legacy_rpc_security.sql"
+            "tests/agent-db/25_margin_cost_basis.sql"
+            "tests/agent-db/30_approved_exception_order.sql"
+            "tests/agent-db/35_order_line_tamper.sql"
+            "tests/agent-db/36_agent_product_blocks.sql"
+            "tests/agent-db/40_delivery_alert_sync.sql"
+            "tests/agent-db/45_manager_inventory_e2e.sql"
+            "tests/agent-db/46_approved_exception_inventory_e2e.sql"
+            "tests/agent-db/47_existing_stock_audit_e2e.sql"
+            "tests/agent-db/50_collection_payment_permissions.sql"
+            "tests/agent-db/55_commission_fixture_columns.sql"
+            "tests/agent-db/56_live_credit_guards_fixture.sql"
+            "tests/agent-db/57_existing_credit_guards_e2e.sql"
+            "tests/agent-db/58_assigned_customer_financial_visibility.sql"
+            "tests/agent-db/59_order_to_owner_invoice_handoff.sql"
+            "supabase/agent-foundation/13_commission_preview_NOT_APPLIED.sql"
+            "tests/agent-db/60_commission_preview.sql"
+            "supabase/agent-foundation/15_commission_reconciliation_NOT_APPLIED.sql"
+            "tests/agent-db/70_commission_reconciliation.sql"
+            "supabase/agent-foundation/16_manager_agent_registry_NOT_APPLIED.sql"
+            "tests/agent-db/80_agent_registry.sql"
+            "supabase/agent-foundation/20_agent_activation_NOT_APPLIED.sql"
+            "tests/agent-db/85_agent_activation.sql"
+            "supabase/agent-foundation/21_manual_total_preview_NOT_APPLIED.sql"
+            "supabase/agent-foundation/22_manual_total_order_writes_NOT_APPLIED.sql"
+            "tests/agent-db/87_manual_total_preview.sql"
+            "tests/agent-db/88_manual_total_order_writes.sql"
+            "supabase/agent-foundation/17_commission_payout_record_NOT_APPLIED.sql"
+            "tests/agent-db/90_commission_payout.sql"
+            "tests/agent-db/95_overpayment_reversal.sql"
+            "supabase/agent-foundation/18_commission_balance_NOT_APPLIED.sql"
+            "tests/agent-db/98_commission_balance.sql"
+            "tests/agent-db/99_deleted_receipt_reversal.sql"
+            "tests/agent-db/101_adjusted_order_commission_e2e.sql"
+          )
+          for f in "${sql_files[@]}"; do
+            echo "Checking $f in disposable database"
+            docker exec -i "$pg_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 < "$f" > /tmp/agent-last-step.log || {
+              cat /tmp/agent-last-step.log
+
+              exit 1
+            }
+          done
+          cat /tmp/agent-last-step.log
+          bash tests/agent-db/negative_manager_seed_gate.sh "$pg_container"
+          bash tests/agent-db/rehearse_release_manifest.sh "$pg_container"

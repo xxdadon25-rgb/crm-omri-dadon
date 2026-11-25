@@ -1,0 +1,55 @@
+/**
+ * Agent order form has no client-side approval or cost override.
+ * It prepares only the same-unit source fields used by QuickStock; the
+ * server RPC independently checks products, pricing, margin, and membership.
+ */
+export const agentMoney = value => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : null;
+};
+
+/**
+ * Hide catalog entries that the trusted margin RPC would refuse even before
+ * a line is added. This only simplifies selection; the RPC is authoritative.
+ * Quantity zero is not filtered: the existing owner controls fulfilment.
+ */
+export function agentProductCanBeOrdered(product) {
+  if (!product || product.is_active === false) return false;
+  const cost = Number(product.buy_price);
+  const catalogSale = Number(product.sell_price);
+  if (product.buy_price == null || !Number.isFinite(cost) || cost <= 0) return false;
+  if (product.sell_price != null && Number.isFinite(catalogSale) && catalogSale > 0 &&
+      (cost > catalogSale * 3 || catalogSale > cost * 12)) return false;
+  return true;
+}
+
+export function buildAgentLine({ product, quantity, unitPrice, discount = 0 }) {
+  const q = Number(quantity);
+  const price = Number(unitPrice);
+  const d = Number(discount);
+  if (!product?.id || !Number.isFinite(q) || q <= 0 || q > 1000000
+      || !Number.isFinite(price) || price < 0 || price > 100000000
+      || !Number.isFinite(d) || d < 0 || d > 100) return null;
+  // packagingMath rounds the quoted unit_price to whole agorot before
+  // extending a discounted line; compute exactly as that function does.
+  const total = Math.round(Math.round(price * 100) * q * (1 - d / 100)) / 100;
+  if (total <= 0) return null;
+  return {
+    product_id: product.id,
+    name: product.name,
+    sku: product.sku ?? null,
+    // Human-readable sale unit from the existing product catalogue.
+    // The RPC ignores this client field and restores its own trusted copy.
+    unit: product.unit || "יחידה",
+    quantity: q,
+    unit_price: price,
+    discount: d,
+    total,
+    price_basis: "catalog_same_sold_unit_v1",
+    sale_level: "unit",
+    buy_level: "unit",
+  };
+}
+
+export const agentOrderSignature = (customerId, items) =>
+  JSON.stringify({ customerId, items });

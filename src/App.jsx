@@ -23,6 +23,7 @@ import PortalLogin from "@/pages/portal/PortalLogin";
 // AppLayout is a layout wrapper rendered for every authenticated route, not a
 // route target, so it stays eager too.
 import AppLayout from "@/components/layout/AppLayout";
+import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 
 // Every other page is loaded on demand. Before this, App.jsx imported all 31
 // pages statically and Vite emitted a single ~2.5 MB bundle, so a portal
@@ -70,6 +71,16 @@ const CustomerStatement = lazy(() => import("@/pages/CustomerStatement"));
 const QualityControl = lazy(() => import("@/pages/QualityControl"));
 const PortalCustomerAccess = lazy(() => import("@/pages/PortalCustomerAccess"));
 const RevachAdmin = lazy(() => import("@/pages/RevachAdmin"));
+const AgentExceptions = lazy(() => import("@/pages/AgentExceptions"));
+const AgentOrders = lazy(() => import("@/pages/AgentOrders"));
+const AgentCustomers = lazy(() => import("@/pages/AgentCustomers"));
+const AgentCollections = lazy(() => import("@/pages/AgentCollections"));
+const AgentCommissions = lazy(() => import("@/pages/AgentCommissions"));
+const AgentManagement = lazy(() => import("@/pages/AgentManagement"));
+const AgentDashboard = lazy(() => import("@/pages/AgentDashboard"));
+const AgentPendingSetup = lazy(() => import("@/pages/AgentPendingSetup"));
+const AgentCommissionAdmin = lazy(() => import("@/pages/AgentCommissionAdmin"));
+const AgentProductAccess = lazy(() => import("@/pages/AgentProductAccess"));
 
 // The exact spinner AuthenticatedApp already shows while auth resolves, hoisted
 // so the same markup serves as the chunk-loading fallback. No new component and
@@ -139,6 +150,16 @@ const AuthenticatedApp = () => {
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/alerts" element={<Alerts />} />
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-exceptions" element={<AgentExceptions />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-orders" element={<AgentOrders />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-customers" element={<AgentCustomers />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-collections" element={<AgentCollections />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-commissions" element={<AgentCommissions />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-management" element={<AgentManagement />} />}
+          <Route path="/agent-setup" element={<AgentPendingSetup />} />
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-dashboard" element={<AgentDashboard />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-commission-admin" element={<AgentCommissionAdmin />} />}
+          {AGENT_FEATURES_ENABLED && <Route path="/agent-product-access" element={<AgentProductAccess />} />}
           <Route path="/settings" element={<Settings />} />
           <Route path="/api-settings" element={<ApiSettings />} />
           <Route path="/invoice-logs" element={<InvoiceLogs />} />

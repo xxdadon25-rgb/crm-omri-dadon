@@ -57,10 +57,11 @@ const UUID_RE =
 // the real production table: every name here exists, and nothing here is an
 // internal identifier or workflow flag.
 //
-// Deliberately absent: id, user_id, customer_id, quote_id, monthly_invoice_id,
+// Deliberately absent from RESPONSE: id, user_id, customer_id, quote_id, monthly_invoice_id,
 // created_date, invoiced_at, fulfilled, inventory_processed,
 // inventory_deducted, gross_total.
 const ORDER_COLUMNS = [
+  "user_id", // internal owner lookup only; never returned
   "order_number",
   "customer_name",
   "customer_tax_id",
@@ -81,6 +82,10 @@ const ORDER_COLUMNS = [
   "notes",
 ].join(", ");
 
+const BUSINESS_COLUMNS = [
+  "business_name", "address", "phone", "email", "tax_id", "logo_url",
+].join(", ");
+
 function corsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -88,6 +93,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
     // Responses differ by Origin, so caches must not serve one origin's
     // response to another.
     "Vary": "Origin",
+    "Cache-Control": "no-store",
   };
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
@@ -166,6 +172,24 @@ serve(async (req: Request) => {
   }
 
   const row = data as Record<string, unknown>;
+  // Fetch only the business identity shown on the customer PDF. Returning
+  // safe fields HERE lets a staged migration close global anonymous access
+  // to business_settings, including API key/secret columns.
+  const ownerId = row.user_id;
+  if (typeof ownerId !== "string" || !UUID_RE.test(ownerId)) {
+    return json({ ok: false, error: "internal_error" }, 500, origin);
+  }
+  const { data: business, error: businessError } = await supabase
+    .from("business_settings")
+    .select(BUSINESS_COLUMNS)
+    .eq("user_id", ownerId)
+    .order("created_date", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (businessError) {
+    return json({ ok: false, error: "internal_error" }, 500, origin);
+  }
+  const info = (business ?? {}) as Record<string, unknown>;
 
   // Assembled field by field, mirroring ORDER_COLUMNS. Nothing is spread from
   // the row, so the response cannot inherit a column the allowlist gains later
@@ -188,6 +212,14 @@ serve(async (req: Request) => {
         total: row.total ?? null,
         agent: row.agent ?? null,
         notes: row.notes ?? null,
+      },
+      business: {
+        business_name: info.business_name ?? null,
+        address: info.address ?? null,
+        phone: info.phone ?? null,
+        email: info.email ?? null,
+        tax_id: info.tax_id ?? null,
+        logo_url: info.logo_url ?? null,
       },
     },
     200,

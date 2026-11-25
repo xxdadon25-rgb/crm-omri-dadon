@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
+import { permittedNavigationGroups } from "@/lib/agentPermissions";
+import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 
 const navGroups = [
   {
@@ -47,6 +49,7 @@ const navGroups = [
       { path: "/quality-control", label: "מרכז בקרה", icon: Shield },
       { path: "/reports", label: "דוחות", icon: BarChart2 },
       { path: "/alerts", label: "התראות", icon: Bell },
+      ...(AGENT_FEATURES_ENABLED ? [{ path: "/agent-exceptions", label: "חריגות סוכנים", icon: Shield }, { path: "/agent-management", label: "ניהול סוכנים", icon: Users }, { path: "/agent-commission-admin", label: "עמלות סוכנים", icon: Coins }, { path: "/agent-product-access", label: "מוצרים לסוכנים", icon: Package }] : []),
       { path: "/invoice-logs", label: "לוגי API", icon: ScrollText },
       { path: "/settings", label: "הגדרות", icon: Settings },
       { path: "/api-settings", label: "הגדרות API", icon: Link2 },
@@ -60,7 +63,18 @@ const navGroups = [
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, crmRole } = useAuth();
+  const visibleNavGroups = crmRole === "agent_pending"
+    ? [{ label: "סוכן", items: [{ path: "/agent-setup", label: "דשבורד סוכן", icon: LayoutDashboard }] }]
+    : crmRole === "agent" && AGENT_FEATURES_ENABLED
+    ? [{ label: "סוכן", items: [
+      { path: "/agent-dashboard", label: "דשבורד סוכן", icon: LayoutDashboard },
+      { path: "/agent-orders", label: "הזמנות סוכן", icon: ShoppingCart },
+      { path: "/agent-customers", label: "הלקוחות שלי", icon: Users },
+      { path: "/agent-collections", label: "מעקב גבייה", icon: Wallet },
+      { path: "/agent-commissions", label: "העמלות שלי", icon: Coins },
+    ] }]
+    : permittedNavigationGroups(navGroups, crmRole);
 
   const { data: pendingPortalOrders = [] } = useQuery({
     queryKey: ["portal-orders-pending-count"],
@@ -69,9 +83,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       if (error) return [];
       return data;
     },
+    enabled: crmRole === "manager",
     refetchInterval: 60_000,
   });
-  const pendingCount = pendingPortalOrders.length;
+  const pendingCount = crmRole === "manager" ? pendingPortalOrders.length : 0;
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "משתמש";
   const initials = displayName.charAt(0).toUpperCase();
@@ -149,7 +164,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           style={{ padding: collapsed ? "0 8px" : "0 16px", flex: 1, overflowY: "auto" }}
           className="thin-scrollbar"
         >
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.label} style={{ marginTop: 8 }}>
               {!collapsed && (
                 <p style={{

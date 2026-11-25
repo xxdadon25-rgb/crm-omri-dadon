@@ -28,15 +28,17 @@ export default function CreditNotePDFPreview() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: rows, error: cnErr } = await supabase
-          .from("credit_notes").select("*").eq("id", creditNoteId).limit(1);
-        if (cnErr) throw cnErr;
-        const cn = rows?.[0] || null;
-        if (!cn) { setError("זיכוי לא נמצא"); return; }
-        const { data: settingsRows } = await supabase
-          .from("business_settings").select("*").eq("user_id", cn.user_id).limit(1);
-        setCreditNote(cn);
-        setBiz(settingsRows?.[0] || {});
+        // The public PDF now uses a one-document Edge endpoint and safe
+        // business display data; no anonymous table-wide SELECT is required.
+        const { data, error: cnErr } = await supabase.functions.invoke(
+          "public-credit-note-pdf", { body: { credit_note_id: creditNoteId } },
+        );
+        if (cnErr || !data?.ok || !data?.credit_note) {
+          setError("זיכוי לא נמצא");
+          return;
+        }
+        setCreditNote(data.credit_note);
+        setBiz(data.business || {});
       } catch (e) {
         setError(e.message);
       } finally {

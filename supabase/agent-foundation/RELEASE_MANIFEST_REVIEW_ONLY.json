@@ -1,0 +1,71 @@
+{
+  "format_version": 1,
+  "production_execution": "PROHIBITED_UNTIL_SEPARATE_EXPLICIT_OWNER_APPROVAL",
+  "notes": "Manifest is a reviewable checklist, not an executable installation script. All paths end NOT_APPLIED. Never execute this file automatically.",
+  "phases": [
+    {
+      "id": "core",
+      "requires": [
+        "Full isolated schema rehearsal",
+        "Known production backup and rollback strategy",
+        "Explicit management auth identity provisioning plan"
+      ],
+      "files": [
+        "supabase/agent-foundation/01_schema_NOT_APPLIED.sql",
+        "supabase/agent-foundation/02_exception_decisions_NOT_APPLIED.sql",
+        "supabase/agent-foundation/03_agent_read_rls_NOT_APPLIED.sql",
+        "supabase/agent-foundation/04_legacy_delete_hardening_NOT_APPLIED.sql",
+        "supabase/agent-foundation/05_agent_direct_write_guard_NOT_APPLIED.sql",
+        "supabase/agent-foundation/06_agent_customer_rpc_NOT_APPLIED.sql",
+        "supabase/agent-foundation/19_agent_only_product_blocks_NOT_APPLIED.sql",
+        "supabase/agent-foundation/07_trusted_margin_preview_NOT_APPLIED.sql",
+        "supabase/agent-foundation/14_commission_rate_snapshot_NOT_APPLIED.sql",
+        "supabase/agent-foundation/08_agent_create_order_NOT_APPLIED.sql",
+        "supabase/agent-foundation/09_legacy_security_definer_guard_NOT_APPLIED.sql",
+        "supabase/agent-foundation/10_margin_exception_request_NOT_APPLIED.sql",
+        "supabase/agent-foundation/11_approved_exception_order_NOT_APPLIED.sql",
+        "supabase/agent-foundation/12_delivery_alert_sync_NOT_APPLIED.sql",
+        "supabase/agent-foundation/13_commission_preview_NOT_APPLIED.sql",
+        "supabase/agent-foundation/15_commission_reconciliation_NOT_APPLIED.sql",
+        "supabase/agent-foundation/16_manager_agent_registry_NOT_APPLIED.sql",
+        "supabase/agent-foundation/20_agent_activation_NOT_APPLIED.sql",
+        "supabase/agent-foundation/21_manual_total_preview_NOT_APPLIED.sql",
+        "supabase/agent-foundation/22_manual_total_order_writes_NOT_APPLIED.sql",
+        "supabase/agent-foundation/17_commission_payout_record_NOT_APPLIED.sql",
+        "supabase/agent-foundation/18_commission_balance_NOT_APPLIED.sql"
+      ]
+    },
+    {
+      "id": "public_docs_security",
+      "requires": [
+        "Deploy and verify all 3 Edge PDF handlers",
+        "Deploy paired UI with sales-agent flag OFF",
+        "Verify anonymous customer PDF/portal and existing quote creation",
+        "Explicit separate approval for changing public SQL reads"
+      ],
+      "files": [
+        "supabase/agent-foundation/23_quote_read_scope_NOT_APPLIED.sql",
+        "supabase/agent-foundation/25_public_quote_access_hardening_NOT_APPLIED.sql",
+        "supabase/agent-foundation/27_public_business_settings_hardening_NOT_APPLIED.sql"
+      ]
+    },
+    {
+      "id": "legacy_counter_security",
+      "requires": [
+        "Current owner manager identities seeded and verified",
+        "Legacy portal/counter caller compatibility verified",
+        "Explicit separate approval for changing counter privileges"
+      ],
+      "files": [
+        "supabase/agent-foundation/24_legacy_sequences_agent_guard_NOT_APPLIED.sql",
+        "supabase/agent-foundation/26_manager_only_sequence_wrappers_NOT_APPLIED.sql"
+      ]
+    }
+  ],
+  "excluded": [
+    "tests/agent-db",
+    "LIVE_SCHEMA_PREFLIGHT_READ_ONLY.sql",
+    "LIVE_RLS_RPC_PREFLIGHT_READ_ONLY.sql",
+    "PUBLIC_DOCUMENT_ROLLOUT.md"
+  ]
+}

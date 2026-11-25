@@ -18,10 +18,11 @@ const TABLES = [
   { table: 'portal_orders', queryKey: ['portal-orders-pending-count', 'portal-orders-pending'] },
 ];
 
-export const useRealtimeSync = () => {
+export const useRealtimeSync = (enabled = true) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (!enabled) return undefined;
     const channels = TABLES.map(({ table, queryKey }) => {
       const keys = Array.isArray(queryKey) ? queryKey : [queryKey];
       const channel = supabase
@@ -39,5 +40,5 @@ export const useRealtimeSync = () => {
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 };

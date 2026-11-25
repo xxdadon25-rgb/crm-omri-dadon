@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { canAccessCrmRoute } from '@/lib/agentPermissions';
 import { useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
@@ -10,7 +11,8 @@ const DefaultFallback = () => (
 );
 
 export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement }) {
-  const { isAuthenticated, isStaff, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+  const { isAuthenticated, isStaff, crmRole, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     if (!authChecked && !isLoadingAuth) {
@@ -37,5 +39,6 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     return <Navigate to="/portal/login" replace />;
   }
 
+  if (!canAccessCrmRoute(crmRole, location.pathname)) return <Navigate to={crmRole === "agent_pending" ? "/agent-setup" : crmRole === "agent" ? "/agent-dashboard" : "/"} replace />;
   return <Outlet />;
 }

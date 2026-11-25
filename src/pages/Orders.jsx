@@ -15,6 +15,7 @@ const setPendingDeletedOrderIds = (set) => {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/api/supabaseClient";
+import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 import EmptyState from "@/components/shared/EmptyState";
 import { ShoppingCart, Search, Plus, Trash2, Eye, Pencil, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -105,6 +106,10 @@ export default function Orders() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders"],
     staleTime: 0,
+    // Agent orders are created in another signed-in browser. Refresh the
+    // manager queue while open; leave existing behavior unchanged when off.
+    refetchInterval: AGENT_FEATURES_ENABLED ? 30_000 : false,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const result = await base44.entities.Order.list();
 
