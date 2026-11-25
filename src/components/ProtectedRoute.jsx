@@ -39,6 +39,6 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     return <Navigate to="/portal/login" replace />;
   }
 
-  if (!canAccessCrmRoute(crmRole, location.pathname)) return <Navigate to={crmRole === "agent" ? "/agent-dashboard" : "/"} replace />;
+  if (!canAccessCrmRoute(crmRole, location.pathname)) return <Navigate to={crmRole === "agent_pending" ? "/agent-setup" : crmRole === "agent" ? "/agent-dashboard" : "/"} replace />;
   return <Outlet />;
 }
