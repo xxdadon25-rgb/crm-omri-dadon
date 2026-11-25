@@ -43,7 +43,10 @@ if [[ "$ready" != true ]]; then
 fi
 # Reuse the EXACT ordered fixture/migration/test sequence already used in CI.
 # Do not guess names or execute any cloud migration.
-mapfile -t sql_files < <(node --input-type=module - <<'NODE'
+sql_files=()
+while IFS= read -r file; do
+  sql_files+=("$file")
+done < <(node --input-type=module - <<'NODE'
 import fs from 'node:fs';
 const y=fs.readFileSync('.github/workflows/agent-foundation-tests.yml','utf8');
 const m=y.match(/sql_files=\(\s*([\s\S]*?)\s*\)/);
