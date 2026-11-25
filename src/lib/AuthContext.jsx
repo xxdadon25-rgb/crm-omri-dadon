@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
       return;
     }
     try {
-      const STAFF_EMAILS = ['xxdadon25@gmail.com', 'a.d.shivuk555@gmail.com'];
+      const STAFF_EMAILS = ['xxdadon25@gmail.com'];
       if (STAFF_EMAILS.includes(u.email)) {
         applyRole('manager');
         return;
