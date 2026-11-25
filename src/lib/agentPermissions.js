@@ -31,6 +31,7 @@ export function canAccessCrmRoute(role, pathname) {
   const path = normalizePath(pathname);
   if (!path) return false;
   if (role === "manager") return true;
+  if (role === "agent_pending") return path === "/agent-setup";
   if (role !== "agent") return false;
   return AGENT_ALLOWED_ROUTE_PATHS.includes(path);
 }
