@@ -4,11 +4,13 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  useRealtimeSync();
+  const { crmRole } = useAuth();
+  useRealtimeSync(crmRole === 'manager');
 
   const location = useLocation();
 
