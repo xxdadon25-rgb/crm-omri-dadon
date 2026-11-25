@@ -78,6 +78,7 @@ const AgentCollections = lazy(() => import("@/pages/AgentCollections"));
 const AgentCommissions = lazy(() => import("@/pages/AgentCommissions"));
 const AgentManagement = lazy(() => import("@/pages/AgentManagement"));
 const AgentDashboard = lazy(() => import("@/pages/AgentDashboard"));
+const AgentPendingSetup = lazy(() => import("@/pages/AgentPendingSetup"));
 const AgentCommissionAdmin = lazy(() => import("@/pages/AgentCommissionAdmin"));
 const AgentProductAccess = lazy(() => import("@/pages/AgentProductAccess"));
 
@@ -155,6 +156,7 @@ const AuthenticatedApp = () => {
           {AGENT_FEATURES_ENABLED && <Route path="/agent-collections" element={<AgentCollections />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-commissions" element={<AgentCommissions />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-management" element={<AgentManagement />} />}
+          <Route path="/agent-setup" element={<AgentPendingSetup />} />
           {AGENT_FEATURES_ENABLED && <Route path="/agent-dashboard" element={<AgentDashboard />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-commission-admin" element={<AgentCommissionAdmin />} />}
           {AGENT_FEATURES_ENABLED && <Route path="/agent-product-access" element={<AgentProductAccess />} />}
