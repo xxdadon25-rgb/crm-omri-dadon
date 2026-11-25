@@ -222,6 +222,24 @@ export default function AgentOrders() {
     requestIds.current.delete(kind+":"+signature);
   }
 
+  // A saved agent order must immediately invalidate the agent's own
+  // dashboard and assigned-customer history, not just the exception list.
+  // A UI refresh failure must never make an already committed order appear
+  // to have failed (which could prompt a duplicate manual submission).
+  function refreshAfterOrderSaved() {
+    for(const key of [
+      ["agent-dashboard-summary"],
+      ["agent-customer-last-orders"],
+      ["agent-customer-history"],
+      ["agent-own-exceptions"],
+      ["sales-agent-delivery-alerts"],
+    ]) {
+      void queryClient.invalidateQueries({queryKey:key}).catch(err=>
+        console.warn("Agent order saved; related view refresh failed",err)
+      );
+    }
+  }
+
   async function submit() {
     if(!canPreview || busy || marginQ.isFetching || marginQ.isError || !margin){
       toast.error("יש להמתין לבדיקת רווחיות תקינה");return;
@@ -269,8 +287,13 @@ export default function AgentOrders() {
         ?"בקשת החריגה נשלחה. לא נוצרה הזמנה ולא השתנה המלאי."
         :"ההזמנה נשמרה והועברה לטיפול המנהל.");
       setItems([]);setReason("");setManualGrossTotal("");
-      await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
-      await queryClient.invalidateQueries({queryKey:["sales-agent-delivery-alerts"]});
+      if(isException) {
+        // No order was created: only the approval queue changed.
+        void queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]})
+          .catch(err=>console.warn("Agent exception saved; refresh failed",err));
+      } else {
+        refreshAfterOrderSaved();
+      }
     }catch(err){
       console.error("Agent order submission failed",err);
       toast.error(showError(err));
@@ -288,7 +311,7 @@ export default function AgentOrders() {
       if(error)throw error;
       acknowledgeRequest("approved",exception.id,orderId);
       toast.success("ההזמנה המאושרת נוצרה והועברה לטיפול המנהל.");
-      await queryClient.invalidateQueries({queryKey:["agent-own-exceptions"]});
+      refreshAfterOrderSaved();
     }catch(err){
       console.error("Agent approved exception order failed",err);
       toast.error(showError(err));
