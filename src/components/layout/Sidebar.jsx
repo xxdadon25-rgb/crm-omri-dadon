@@ -64,7 +64,9 @@ const navGroups = [
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
   const { user, crmRole } = useAuth();
-  const visibleNavGroups = crmRole === "agent" && AGENT_FEATURES_ENABLED
+  const visibleNavGroups = crmRole === "agent_pending"
+    ? [{ label: "סוכן", items: [{ path: "/agent-setup", label: "דשבורד סוכן", icon: LayoutDashboard }] }]
+    : crmRole === "agent" && AGENT_FEATURES_ENABLED
     ? [{ label: "סוכן", items: [
       { path: "/agent-dashboard", label: "דשבורד סוכן", icon: LayoutDashboard },
       { path: "/agent-orders", label: "הזמנות סוכן", icon: ShoppingCart },
