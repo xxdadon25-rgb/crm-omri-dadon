@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { AGENT_FEATURES_ENABLED } from "@/lib/agentFeatureFlags";
 import { buildAgentLine, agentOrderSignature, agentProductCanBeOrdered } from "@/lib/agentOrderForm";
 import { repeatAgentOrderDraft } from "@/lib/agentRepeatOrder";
-import { getOrCreateAgentRequestId, clearAgentRequestId } from "@/lib/agentRequestRetry";
+import { getOrCreateAgentRequestId, clearAgentRequestId, readPendingAgentDraft } from "@/lib/agentRequestRetry";
 
 const money = value => Number(value ?? 0).toLocaleString("he-IL", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -81,6 +81,7 @@ export default function AgentOrders() {
   const [busy,setBusy]=useState(false);
   const requestIds=useRef(new Map());
   const repeatedDraftKey=useRef(null);
+  const restoredPendingFor=useRef(null);
 
   const customersQ=useQuery({
     queryKey:["agent-customers"],queryFn:loadAgentCustomers,enabled:allowed,
@@ -92,6 +93,26 @@ export default function AgentOrders() {
     queryKey:["agent-own-exceptions"],queryFn:loadAgentExceptions,enabled:allowed,
     refetchInterval:allowed?30000:false,
   });
+
+  // A response can be lost after the server committed an order. Restore only
+  // that agent's unacknowledged draft so a retry uses the original request ID.
+  // Repeat-order navigation takes precedence; never auto-submit recovered data.
+  useEffect(()=>{
+    if(!allowed || !user?.id || !customersQ.isSuccess ||
+       !productsQ.isSuccess || location.state?.repeatOrderId)return;
+    if(restoredPendingFor.current===user.id)return;
+    restoredPendingFor.current=user.id;
+    const pending=readPendingAgentDraft({
+      storage:window.sessionStorage,userId:user.id,
+    });
+    if(!pending || !(customersQ.data??[]).some(c=>c.id===pending.customerId))return;
+    setCustomerId(pending.customerId);
+    setItems(pending.items);
+    setManualGrossTotal(pending.manualGrossTotal);
+    setReason(pending.reason);
+    toast.info("שוחזרה הזמנה שלא התקבל עבורה אישור. בדוק את ההזמנות לפני שליחה חוזרת.");
+  },[allowed,user?.id,customersQ.isSuccess,customersQ.data,
+     productsQ.isSuccess,location.state?.repeatOrderId]);
 
   // History navigation supplies only IDs. Fetch through the signed-in agent's
   // RLS scope and rebuild every line from the CURRENT allowed catalogue.
@@ -184,11 +205,11 @@ export default function AgentOrders() {
     setQty("1");setUnitPrice("");setDiscount("0");
   }
 
-  function uniqueRequestId(kind,signature) {
+  function uniqueRequestId(kind,signature,draft) {
     const key=kind+":"+signature;
     if(requestIds.current.has(key))return requestIds.current.get(key);
     const id=getOrCreateAgentRequestId({
-      storage:window.sessionStorage,userId:user?.id,kind,signature,
+      storage:window.sessionStorage,userId:user?.id,kind,signature,draft,
       createId:()=>crypto.randomUUID(),
     });
     requestIds.current.set(key,id);
@@ -217,7 +238,9 @@ export default function AgentOrders() {
     try{
       const isException=exceptionRequired;
       const kind=isException?"exception":"order";
-      const requestId=uniqueRequestId(kind,formSignature);
+      const requestId=uniqueRequestId(kind,formSignature,{
+        customerId,items,manualGrossTotal,reason,
+      });
       const {error}=isException
         ?hasManualTotal
           ?await supabase.rpc("sales_agent_request_total_exception",{
